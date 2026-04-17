@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { createListing } from "@/lib/db";
-import { isAuthenticated } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { slugify } from "@/lib/format";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let user;
+  try {
+    user = await requireUser();
+  } catch (res) {
+    return res as Response;
   }
 
   let body: any;
@@ -48,15 +51,21 @@ export async function POST(req: Request) {
       title,
       location,
       price_usd: Math.round(price_usd),
-      bedrooms: body?.bedrooms !== null && body?.bedrooms !== undefined ? Number(body.bedrooms) : null,
-      bathrooms: body?.bathrooms !== null && body?.bathrooms !== undefined ? Number(body.bathrooms) : null,
-      square_feet: body?.square_feet !== null && body?.square_feet !== undefined ? Number(body.square_feet) : null,
+      bedrooms:
+        body?.bedrooms !== null && body?.bedrooms !== undefined ? Number(body.bedrooms) : null,
+      bathrooms:
+        body?.bathrooms !== null && body?.bathrooms !== undefined ? Number(body.bathrooms) : null,
+      square_feet:
+        body?.square_feet !== null && body?.square_feet !== undefined
+          ? Number(body.square_feet)
+          : null,
       description,
       hero_image_url,
       gallery_image_urls: gallery,
       agent_name: body?.agent_name ? String(body.agent_name).trim() : null,
       agent_brokerage: body?.agent_brokerage ? String(body.agent_brokerage).trim() : null,
-      featured: Boolean(body?.featured)
+      featured: Boolean(body?.featured),
+      created_by_user_id: user.id
     });
     return NextResponse.json({ ok: true, id: listing.id, slug: listing.slug });
   } catch (err: any) {

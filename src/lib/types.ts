@@ -1,3 +1,20 @@
+export type UserRole = "owner" | "user";
+
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  role: UserRole;
+  is_active: boolean;
+  must_change_password: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface UserWithHash extends User {
+  password_hash: string;
+}
+
 export interface Listing {
   id: number;
   slug: string;
@@ -16,6 +33,7 @@ export interface Listing {
   published: boolean;
   created_at: string;
   updated_at: string;
+  created_by_user_id: number | null;
 }
 
 export interface Inquiry {
