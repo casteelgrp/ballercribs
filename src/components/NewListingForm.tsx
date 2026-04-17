@@ -2,24 +2,28 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ImageUpload } from "./ImageUpload";
 
 export function NewListingForm() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>("");
+  const [heroUrl, setHeroUrl] = useState("");
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
+    if (!heroUrl) {
+      setError("Hero image is required.");
+      setSubmitting(false);
+      return;
+    }
+
     const form = e.currentTarget;
     const fd = new FormData(form);
-
-    const galleryRaw = String(fd.get("gallery_image_urls") || "").trim();
-    const gallery_image_urls = galleryRaw
-      ? galleryRaw.split("\n").map((s) => s.trim()).filter(Boolean)
-      : [];
 
     const payload = {
       slug: String(fd.get("slug") || "").trim() || null,
@@ -30,8 +34,8 @@ export function NewListingForm() {
       bathrooms: fd.get("bathrooms") ? Number(fd.get("bathrooms")) : null,
       square_feet: fd.get("square_feet") ? Number(fd.get("square_feet")) : null,
       description: String(fd.get("description") || "").trim(),
-      hero_image_url: String(fd.get("hero_image_url") || "").trim(),
-      gallery_image_urls,
+      hero_image_url: heroUrl,
+      gallery_image_urls: galleryUrls,
       agent_name: String(fd.get("agent_name") || "").trim() || null,
       agent_brokerage: String(fd.get("agent_brokerage") || "").trim() || null,
       featured: fd.get("featured") === "on"
@@ -48,6 +52,8 @@ export function NewListingForm() {
         throw new Error(data.error || "Failed to create listing.");
       }
       form.reset();
+      setHeroUrl("");
+      setGalleryUrls([]);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -56,7 +62,8 @@ export function NewListingForm() {
     }
   }
 
-  const input = "w-full border border-black/20 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none";
+  const input =
+    "w-full border border-black/20 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none";
   const label = "block text-xs uppercase tracking-widest text-black/60 mb-1";
 
   return (
@@ -76,7 +83,14 @@ export function NewListingForm() {
         </div>
         <div>
           <label className={label}>Price (USD) *</label>
-          <input name="price_usd" type="number" required min="0" className={input} placeholder="25000000" />
+          <input
+            name="price_usd"
+            type="number"
+            required
+            min="0"
+            className={input}
+            placeholder="25000000"
+          />
         </div>
         <div>
           <label className={label}>Bedrooms</label>
@@ -94,18 +108,28 @@ export function NewListingForm() {
 
       <div>
         <label className={label}>Description *</label>
-        <textarea name="description" required rows={5} className={input} placeholder="Separate paragraphs with blank lines..." />
+        <textarea
+          name="description"
+          required
+          rows={5}
+          className={input}
+          placeholder="Separate paragraphs with blank lines..."
+        />
       </div>
 
-      <div>
-        <label className={label}>Hero image URL *</label>
-        <input name="hero_image_url" type="url" required className={input} placeholder="https://..." />
-      </div>
+      <ImageUpload
+        mode="single"
+        label="Hero image *"
+        value={heroUrl}
+        onChange={setHeroUrl}
+      />
 
-      <div>
-        <label className={label}>Gallery image URLs (one per line)</label>
-        <textarea name="gallery_image_urls" rows={4} className={input} placeholder="https://...&#10;https://..." />
-      </div>
+      <ImageUpload
+        mode="multi"
+        label="Gallery images"
+        value={galleryUrls}
+        onChange={setGalleryUrls}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
