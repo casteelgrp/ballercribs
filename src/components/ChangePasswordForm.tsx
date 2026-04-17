@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PasswordField } from "./PasswordField";
 
 export function ChangePasswordForm({ force }: { force: boolean }) {
   const router = useRouter();
@@ -45,45 +46,27 @@ export function ChangePasswordForm({ force }: { force: boolean }) {
           You must set a new password before continuing.
         </div>
       )}
-      <div>
-        <label className="block text-xs uppercase tracking-widest text-black/60 mb-1">
-          Current password
-        </label>
-        <input
-          type="password"
-          value={current}
-          onChange={(e) => setCurrent(e.target.value)}
-          required
-          autoComplete="current-password"
-          className="w-full border border-black/20 bg-white px-3 py-2 focus:border-accent focus:outline-none"
-        />
-      </div>
-      <div>
-        <label className="block text-xs uppercase tracking-widest text-black/60 mb-1">
-          New password (min 12 chars)
-        </label>
-        <input
-          type="password"
-          value={next}
-          onChange={(e) => setNext(e.target.value)}
-          required
-          autoComplete="new-password"
-          className="w-full border border-black/20 bg-white px-3 py-2 focus:border-accent focus:outline-none"
-        />
-      </div>
-      <div>
-        <label className="block text-xs uppercase tracking-widest text-black/60 mb-1">
-          Confirm new password
-        </label>
-        <input
-          type="password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-          autoComplete="new-password"
-          className="w-full border border-black/20 bg-white px-3 py-2 focus:border-accent focus:outline-none"
-        />
-      </div>
+      <PasswordField
+        label="Current password"
+        value={current}
+        onChange={(e) => setCurrent(e.target.value)}
+        required
+        autoComplete="current-password"
+      />
+      <PasswordField
+        label="New password (min 12 chars)"
+        value={next}
+        onChange={(e) => setNext(e.target.value)}
+        required
+        autoComplete="new-password"
+      />
+      <PasswordField
+        label="Confirm new password"
+        value={confirm}
+        onChange={(e) => setConfirm(e.target.value)}
+        required
+        autoComplete="new-password"
+      />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button
         type="submit"

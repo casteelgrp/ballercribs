@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { PasswordField } from "@/components/PasswordField";
 
 export default async function AdminLoginPage({
   searchParams
@@ -28,18 +29,7 @@ export default async function AdminLoginPage({
             className="w-full border border-black/20 bg-white px-3 py-2 focus:border-accent focus:outline-none"
           />
         </div>
-        <div>
-          <label className="block text-xs uppercase tracking-widest text-black/60 mb-1">
-            Password
-          </label>
-          <input
-            type="password"
-            name="password"
-            required
-            autoComplete="current-password"
-            className="w-full border border-black/20 bg-white px-3 py-2 focus:border-accent focus:outline-none"
-          />
-        </div>
+        <PasswordField label="Password" name="password" required autoComplete="current-password" />
         {error && <p className="text-sm text-red-600">Invalid credentials.</p>}
         <button
           type="submit"

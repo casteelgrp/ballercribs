@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PasswordField } from "./PasswordField";
 
 export function InviteUserForm() {
   const router = useRouter();
@@ -66,19 +67,14 @@ export function InviteUserForm() {
             className="w-full border border-black/20 px-3 py-2 focus:border-accent focus:outline-none"
           />
         </div>
-        <div>
-          <label className="block text-xs uppercase tracking-widest text-black/60 mb-1">
-            Temporary password
-          </label>
-          <input
-            type="text"
-            value={tempPassword}
-            onChange={(e) => setTempPassword(e.target.value)}
-            required
-            placeholder="min 12 chars — share out-of-band"
-            className="w-full border border-black/20 px-3 py-2 focus:border-accent focus:outline-none font-mono text-sm"
-          />
-        </div>
+        <PasswordField
+          label="Temporary password"
+          value={tempPassword}
+          onChange={(e) => setTempPassword(e.target.value)}
+          required
+          placeholder="min 12 chars — share out-of-band"
+          className="font-mono text-sm"
+        />
         <div>
           <label className="block text-xs uppercase tracking-widest text-black/60 mb-1">Role</label>
           <select
