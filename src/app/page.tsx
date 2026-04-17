@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getFeaturedListings } from "@/lib/db";
 import { ListingCard } from "@/components/ListingCard";
@@ -75,6 +76,13 @@ export default async function HomePage() {
       {/* For agents CTA */}
       <section className="bg-ink text-paper">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 text-center">
+          <Image
+            src="/logo-white.png"
+            alt="BallerCribs"
+            width={400}
+            height={80}
+            className="h-20 w-auto mx-auto mb-6"
+          />
           <p className="text-xs uppercase tracking-widest text-accent">For agents</p>
           <h2 className="font-display text-3xl sm:text-4xl mt-3">
             Put your listing in front of 300K+ luxury buyers.
