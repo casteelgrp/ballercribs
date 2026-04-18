@@ -1,17 +1,62 @@
 import { sql } from "@vercel/postgres";
-import type { Listing, Inquiry, User, UserWithHash, UserRole } from "./types";
+import type {
+  GalleryItem,
+  Inquiry,
+  Listing,
+  ListingStatus,
+  User,
+  UserRole,
+  UserWithHash
+} from "./types";
 
 function rowToListing(row: any): Listing {
   return {
-    ...row,
+    id: Number(row.id),
+    slug: row.slug,
+    title: row.title,
+    location: row.location,
     price_usd: Number(row.price_usd),
-    bathrooms: row.bathrooms !== null ? Number(row.bathrooms) : null,
-    gallery_image_urls: Array.isArray(row.gallery_image_urls) ? row.gallery_image_urls : [],
+    bedrooms: row.bedrooms !== null && row.bedrooms !== undefined ? Number(row.bedrooms) : null,
+    bathrooms: row.bathrooms !== null && row.bathrooms !== undefined ? Number(row.bathrooms) : null,
+    square_feet:
+      row.square_feet !== null && row.square_feet !== undefined ? Number(row.square_feet) : null,
+    description: row.description,
+    hero_image_url: row.hero_image_url,
+    gallery_image_urls: normalizeGallery(row.gallery_image_urls),
+    social_cover_url: row.social_cover_url ?? null,
+    agent_name: row.agent_name ?? null,
+    agent_brokerage: row.agent_brokerage ?? null,
+    featured: Boolean(row.featured),
+    status: row.status as ListingStatus,
+    submitted_at: row.submitted_at ?? null,
+    published_at: row.published_at ?? null,
+    reviewed_by_user_id:
+      row.reviewed_by_user_id !== null && row.reviewed_by_user_id !== undefined
+        ? Number(row.reviewed_by_user_id)
+        : null,
     created_by_user_id:
       row.created_by_user_id !== null && row.created_by_user_id !== undefined
         ? Number(row.created_by_user_id)
-        : null
+        : null,
+    created_at: row.created_at,
+    updated_at: row.updated_at
   };
+}
+
+// Defensive: rows in production DBs should already be {url, caption}[] post-migration,
+// but if any legacy string slips through we coerce so the app never crashes on render.
+function normalizeGallery(raw: unknown): GalleryItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (typeof item === "string") return { url: item, caption: null };
+      if (item && typeof item === "object" && "url" in item && typeof (item as any).url === "string") {
+        const cap = (item as any).caption;
+        return { url: (item as any).url, caption: typeof cap === "string" ? cap : null };
+      }
+      return null;
+    })
+    .filter((x): x is GalleryItem => x !== null);
 }
 
 function rowToUser(row: any): User {
@@ -31,11 +76,13 @@ function rowToUserWithHash(row: any): UserWithHash {
   return { ...rowToUser(row), password_hash: row.password_hash };
 }
 
+// ─── Public listing reads ───────────────────────────────────────────────────
+
 export async function getAllListings(): Promise<Listing[]> {
   const { rows } = await sql`
     SELECT * FROM listings
-    WHERE published = TRUE
-    ORDER BY featured DESC, created_at DESC;
+    WHERE status = 'published'
+    ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
   `;
   return rows.map(rowToListing);
 }
@@ -43,36 +90,79 @@ export async function getAllListings(): Promise<Listing[]> {
 export async function getFeaturedListings(limit = 6): Promise<Listing[]> {
   const { rows } = await sql`
     SELECT * FROM listings
-    WHERE published = TRUE
-    ORDER BY featured DESC, created_at DESC
+    WHERE status = 'published'
+    ORDER BY featured DESC, COALESCE(published_at, created_at) DESC
     LIMIT ${limit};
   `;
   return rows.map(rowToListing);
 }
 
-export async function getAdminListingsWithCreators(): Promise<
-  (Listing & { creator_name: string | null })[]
-> {
-  const { rows } = await sql`
-    SELECT l.*, u.name AS creator_name
-    FROM listings l
-    LEFT JOIN users u ON u.id = l.created_by_user_id
-    ORDER BY l.featured DESC, l.created_at DESC;
-  `;
-  return rows.map((r: any) => ({ ...rowToListing(r), creator_name: r.creator_name ?? null }));
-}
-
 export async function getListingBySlug(slug: string): Promise<Listing | null> {
   const { rows } = await sql`
-    SELECT * FROM listings WHERE slug = ${slug} AND published = TRUE LIMIT 1;
+    SELECT * FROM listings WHERE slug = ${slug} AND status = 'published' LIMIT 1;
   `;
   return rows[0] ? rowToListing(rows[0]) : null;
 }
 
-export async function getListingById(id: number): Promise<Listing | null> {
+// ─── Admin listing reads ────────────────────────────────────────────────────
+
+export async function getListingByIdAdmin(id: number): Promise<Listing | null> {
   const { rows } = await sql`SELECT * FROM listings WHERE id = ${id} LIMIT 1;`;
   return rows[0] ? rowToListing(rows[0]) : null;
 }
+
+export type AdminListingFilter = ListingStatus | "all";
+
+export async function getAdminListingsWithCreators(
+  filter: AdminListingFilter = "all"
+): Promise<(Listing & { creator_name: string | null })[]> {
+  // 'all' tab hides archived (per product spec — archived is the out-of-sight state).
+  const { rows } =
+    filter === "all"
+      ? await sql`
+          SELECT l.*, u.name AS creator_name
+          FROM listings l
+          LEFT JOIN users u ON u.id = l.created_by_user_id
+          WHERE l.status <> 'archived'
+          ORDER BY
+            CASE l.status WHEN 'review' THEN 0 WHEN 'draft' THEN 1 WHEN 'published' THEN 2 ELSE 3 END,
+            l.featured DESC,
+            COALESCE(l.submitted_at, l.updated_at) DESC;
+        `
+      : await sql`
+          SELECT l.*, u.name AS creator_name
+          FROM listings l
+          LEFT JOIN users u ON u.id = l.created_by_user_id
+          WHERE l.status = ${filter}
+          ORDER BY
+            CASE l.status
+              WHEN 'review' THEN COALESCE(l.submitted_at, l.updated_at)
+              WHEN 'published' THEN COALESCE(l.published_at, l.updated_at)
+              ELSE l.updated_at
+            END DESC;
+        `;
+  return rows.map((r: any) => ({ ...rowToListing(r), creator_name: r.creator_name ?? null }));
+}
+
+export async function countListingsByStatus(): Promise<Record<ListingStatus, number>> {
+  const { rows } = await sql`
+    SELECT status, COUNT(*)::int AS n
+    FROM listings
+    GROUP BY status;
+  `;
+  const out: Record<ListingStatus, number> = {
+    draft: 0,
+    review: 0,
+    published: 0,
+    archived: 0
+  };
+  for (const r of rows as Array<{ status: ListingStatus; n: number }>) {
+    out[r.status] = Number(r.n);
+  }
+  return out;
+}
+
+// ─── Listing mutations ──────────────────────────────────────────────────────
 
 export interface CreateListingInput {
   slug: string;
@@ -84,35 +174,141 @@ export interface CreateListingInput {
   square_feet: number | null;
   description: string;
   hero_image_url: string;
-  gallery_image_urls: string[];
+  gallery_image_urls: GalleryItem[];
+  social_cover_url: string | null;
   agent_name: string | null;
   agent_brokerage: string | null;
   featured: boolean;
+  status: ListingStatus;
   created_by_user_id: number | null;
 }
 
 export async function createListing(data: CreateListingInput): Promise<Listing> {
+  const submittedAt = data.status === "review" ? new Date().toISOString() : null;
+  const publishedAt = data.status === "published" ? new Date().toISOString() : null;
   const { rows } = await sql`
     INSERT INTO listings (
       slug, title, location, price_usd, bedrooms, bathrooms, square_feet,
-      description, hero_image_url, gallery_image_urls, agent_name,
-      agent_brokerage, featured, created_by_user_id
+      description, hero_image_url, gallery_image_urls, social_cover_url,
+      agent_name, agent_brokerage, featured, status,
+      submitted_at, published_at, created_by_user_id
     ) VALUES (
       ${data.slug}, ${data.title}, ${data.location}, ${data.price_usd},
       ${data.bedrooms}, ${data.bathrooms}, ${data.square_feet},
       ${data.description}, ${data.hero_image_url},
       ${JSON.stringify(data.gallery_image_urls)}::jsonb,
-      ${data.agent_name}, ${data.agent_brokerage}, ${data.featured},
-      ${data.created_by_user_id}
+      ${data.social_cover_url},
+      ${data.agent_name}, ${data.agent_brokerage}, ${data.featured}, ${data.status},
+      ${submittedAt}, ${publishedAt}, ${data.created_by_user_id}
     )
     RETURNING *;
   `;
   return rowToListing(rows[0]);
 }
 
+export interface UpdateListingInput {
+  title?: string;
+  location?: string;
+  price_usd?: number;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  square_feet?: number | null;
+  description?: string;
+  hero_image_url?: string;
+  gallery_image_urls?: GalleryItem[];
+  social_cover_url?: string | null;
+  agent_name?: string | null;
+  agent_brokerage?: string | null;
+  featured?: boolean;
+}
+
+export async function updateListing(id: number, data: UpdateListingInput): Promise<Listing | null> {
+  // sql template doesn't compose dynamic SET clauses cleanly, so we COALESCE to existing values.
+  const { rows } = await sql`
+    UPDATE listings
+    SET
+      title             = COALESCE(${data.title ?? null}, title),
+      location          = COALESCE(${data.location ?? null}, location),
+      price_usd         = COALESCE(${data.price_usd ?? null}, price_usd),
+      bedrooms          = ${data.bedrooms === undefined ? null : data.bedrooms},
+      bathrooms         = ${data.bathrooms === undefined ? null : data.bathrooms},
+      square_feet       = ${data.square_feet === undefined ? null : data.square_feet},
+      description       = COALESCE(${data.description ?? null}, description),
+      hero_image_url    = COALESCE(${data.hero_image_url ?? null}, hero_image_url),
+      gallery_image_urls = COALESCE(${
+        data.gallery_image_urls !== undefined ? JSON.stringify(data.gallery_image_urls) : null
+      }::jsonb, gallery_image_urls),
+      social_cover_url  = ${data.social_cover_url === undefined ? null : data.social_cover_url},
+      agent_name        = ${data.agent_name === undefined ? null : data.agent_name},
+      agent_brokerage   = ${data.agent_brokerage === undefined ? null : data.agent_brokerage},
+      featured          = COALESCE(${data.featured ?? null}, featured),
+      updated_at        = NOW()
+    WHERE id = ${id}
+    RETURNING *;
+  `;
+  return rows[0] ? rowToListing(rows[0]) : null;
+}
+
+/**
+ * Apply a status transition. Sets `submitted_at`/`published_at`/`reviewed_by_user_id`
+ * as appropriate. Caller is responsible for permission checks via `permissions.ts`.
+ */
+export async function transitionListingStatus(
+  id: number,
+  newStatus: ListingStatus,
+  reviewerUserId: number | null
+): Promise<Listing | null> {
+  const now = new Date().toISOString();
+
+  if (newStatus === "review") {
+    const { rows } = await sql`
+      UPDATE listings
+      SET status = 'review', submitted_at = ${now}, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *;
+    `;
+    return rows[0] ? rowToListing(rows[0]) : null;
+  }
+
+  if (newStatus === "published") {
+    const { rows } = await sql`
+      UPDATE listings
+      SET status = 'published',
+          published_at = ${now},
+          reviewed_by_user_id = ${reviewerUserId},
+          updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *;
+    `;
+    return rows[0] ? rowToListing(rows[0]) : null;
+  }
+
+  if (newStatus === "draft") {
+    // Sending back to draft: clear submitted_at so the queue reflects fresh state on next submission.
+    const { rows } = await sql`
+      UPDATE listings
+      SET status = 'draft', submitted_at = NULL, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *;
+    `;
+    return rows[0] ? rowToListing(rows[0]) : null;
+  }
+
+  // archived
+  const { rows } = await sql`
+    UPDATE listings
+    SET status = 'archived', updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *;
+  `;
+  return rows[0] ? rowToListing(rows[0]) : null;
+}
+
 export async function deleteListing(id: number): Promise<void> {
   await sql`DELETE FROM listings WHERE id = ${id};`;
 }
+
+// ─── Inquiries ──────────────────────────────────────────────────────────────
 
 export interface CreateInquiryInput {
   listing_id: number | null;
@@ -147,7 +343,7 @@ export async function getRecentInquiries(
   return rows as (Inquiry & { listing_title: string | null })[];
 }
 
-// ─── Users ─────────────────────────────────────────────────────────────────
+// ─── Users ──────────────────────────────────────────────────────────────────
 
 export async function countUsers(): Promise<number> {
   const { rows } = await sql`SELECT COUNT(*)::int AS n FROM users;`;

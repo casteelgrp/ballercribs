@@ -8,8 +8,10 @@ async function main() {
     );
   }
 
-  console.log("Creating tables...");
+  console.log("Bringing schema to current version...");
 
+  // Listings — fresh DB gets v3 shape directly. Existing DBs keep their table
+  // (IF NOT EXISTS skips), and the ALTERs below back-fill missing columns.
   await sql`
     CREATE TABLE IF NOT EXISTS listings (
       id SERIAL PRIMARY KEY,
@@ -23,10 +25,13 @@ async function main() {
       description TEXT NOT NULL,
       hero_image_url TEXT NOT NULL,
       gallery_image_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
+      social_cover_url TEXT,
       agent_name TEXT,
       agent_brokerage TEXT,
       featured BOOLEAN NOT NULL DEFAULT FALSE,
-      published BOOLEAN NOT NULL DEFAULT TRUE,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'review', 'published', 'archived')),
+      submitted_at TIMESTAMPTZ,
+      published_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -50,7 +55,9 @@ async function main() {
   await sql`CREATE INDEX IF NOT EXISTS listings_featured_idx ON listings(featured) WHERE featured = TRUE;`;
   await sql`CREATE INDEX IF NOT EXISTS inquiries_listing_idx ON inquiries(listing_id);`;
   await sql`CREATE INDEX IF NOT EXISTS inquiries_created_idx ON inquiries(created_at DESC);`;
+  await sql`CREATE INDEX IF NOT EXISTS listings_status_idx ON listings(status);`;
 
+  // Users
   await sql`
     CREATE TABLE IF NOT EXISTS users (
       id                    SERIAL        PRIMARY KEY,
@@ -65,12 +72,71 @@ async function main() {
     );
   `;
   await sql`CREATE INDEX IF NOT EXISTS users_email_idx ON users (email);`;
+
+  // Workflow + gallery columns on existing listings tables (v1/v2 → v3 upgrade path).
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`;
+  await sql`CREATE INDEX IF NOT EXISTS listings_created_by_idx ON listings(created_by_user_id);`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'draft';`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ;`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS social_cover_url TEXT;`;
+
   await sql`
-    ALTER TABLE listings
-      ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER
-        REFERENCES users(id) ON DELETE SET NULL;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'listings'::regclass AND conname = 'listings_status_check'
+      ) THEN
+        ALTER TABLE listings ADD CONSTRAINT listings_status_check
+          CHECK (status IN ('draft', 'review', 'published', 'archived'));
+      END IF;
+    END $$;
   `;
-  await sql`CREATE INDEX IF NOT EXISTS listings_created_by_idx ON listings (created_by_user_id);`;
+
+  // v1 → v3 backfill: published BOOLEAN -> status TEXT
+  await sql`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'listings' AND column_name = 'published'
+      ) THEN
+        UPDATE listings SET status = 'published' WHERE published = TRUE AND status = 'draft';
+        UPDATE listings SET published_at = updated_at WHERE status = 'published' AND published_at IS NULL;
+        ALTER TABLE listings DROP COLUMN published;
+      END IF;
+    END $$;
+  `;
+
+  // v1/v2 → v3 backfill: gallery_image_urls string[] -> {url, caption}[]
+  await sql`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM listings
+        WHERE gallery_image_urls IS NOT NULL
+          AND jsonb_typeof(gallery_image_urls) = 'array'
+          AND jsonb_array_length(gallery_image_urls) > 0
+          AND EXISTS (SELECT 1 FROM jsonb_array_elements(gallery_image_urls) e WHERE jsonb_typeof(e) = 'string')
+      ) THEN
+        UPDATE listings
+        SET gallery_image_urls = (
+          SELECT jsonb_agg(
+            CASE jsonb_typeof(elem)
+              WHEN 'string' THEN jsonb_build_object('url', elem #>> '{}', 'caption', NULL)
+              ELSE elem
+            END
+          )
+          FROM jsonb_array_elements(gallery_image_urls) elem
+        )
+        WHERE gallery_image_urls IS NOT NULL
+          AND jsonb_typeof(gallery_image_urls) = 'array'
+          AND jsonb_array_length(gallery_image_urls) > 0;
+      END IF;
+    END $$;
+  `;
 
   console.log("Done.");
 }

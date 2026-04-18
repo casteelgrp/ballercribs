@@ -15,6 +15,13 @@ export interface UserWithHash extends User {
   password_hash: string;
 }
 
+export type ListingStatus = "draft" | "review" | "published" | "archived";
+
+export interface GalleryItem {
+  url: string;
+  caption: string | null;
+}
+
 export interface Listing {
   id: number;
   slug: string;
@@ -26,14 +33,18 @@ export interface Listing {
   square_feet: number | null;
   description: string;
   hero_image_url: string;
-  gallery_image_urls: string[];
+  gallery_image_urls: GalleryItem[];
+  social_cover_url: string | null;
   agent_name: string | null;
   agent_brokerage: string | null;
   featured: boolean;
-  published: boolean;
+  status: ListingStatus;
+  submitted_at: string | null;
+  published_at: string | null;
+  reviewed_by_user_id: number | null;
+  created_by_user_id: number | null;
   created_at: string;
   updated_at: string;
-  created_by_user_id: number | null;
 }
 
 export interface Inquiry {

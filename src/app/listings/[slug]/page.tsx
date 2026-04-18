@@ -14,13 +14,14 @@ export async function generateMetadata(
   const { slug } = await params;
   const listing = await getListingBySlug(slug).catch(() => null);
   if (!listing) return { title: "Listing not found — Baller Cribs" };
+  const ogImage = listing.social_cover_url ?? listing.hero_image_url;
   return {
     title: `${listing.title} — Baller Cribs`,
     description: listing.description.slice(0, 160),
     openGraph: {
       title: listing.title,
       description: listing.description.slice(0, 160),
-      images: [listing.hero_image_url]
+      images: [ogImage]
     }
   };
 }
@@ -32,7 +33,7 @@ export default async function ListingPage(
   const listing = await getListingBySlug(slug).catch(() => null);
   if (!listing) notFound();
 
-  const gallery = [listing.hero_image_url, ...listing.gallery_image_urls];
+  const galleryItems = listing.gallery_image_urls;
 
   return (
     <article>
@@ -98,20 +99,27 @@ export default async function ListingPage(
           </div>
 
           {/* Gallery */}
-          {gallery.length > 1 && (
+          {galleryItems.length > 0 && (
             <div className="mt-12">
               <h2 className="text-xs uppercase tracking-widest text-black/50 mb-4">Gallery</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {gallery.slice(1).map((url, i) => (
-                  <div key={i} className="relative aspect-[4/3] bg-black/5 overflow-hidden">
-                    <Image
-                      src={url}
-                      alt={`${listing.title} — photo ${i + 2}`}
-                      fill
-                      sizes="(max-width: 640px) 100vw, 50vw"
-                      className="object-cover"
-                    />
-                  </div>
+                {galleryItems.map((item, i) => (
+                  <figure key={item.url} className="relative">
+                    <div className="relative aspect-[4/3] bg-black/5 overflow-hidden">
+                      <Image
+                        src={item.url}
+                        alt={item.caption ?? `${listing.title} — photo ${i + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 100vw, 50vw"
+                        className="object-cover"
+                      />
+                    </div>
+                    {item.caption && (
+                      <figcaption className="text-xs text-black/60 mt-1.5">
+                        {item.caption}
+                      </figcaption>
+                    )}
+                  </figure>
                 ))}
               </div>
             </div>

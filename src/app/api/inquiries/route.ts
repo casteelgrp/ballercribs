@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createInquiry, getListingById } from "@/lib/db";
+import { createInquiry, getListingByIdAdmin } from "@/lib/db";
 import { sendInquiryNotification } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       timeline
     });
 
-    const listing = listing_id ? await getListingById(listing_id) : null;
+    const listing = listing_id ? await getListingByIdAdmin(listing_id) : null;
 
     // Fire-and-forget email - don't block response if it fails
     sendInquiryNotification(inquiry, listing).catch((err) =>

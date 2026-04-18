@@ -2,8 +2,32 @@ import { NextResponse } from "next/server";
 import { createListing } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { slugify } from "@/lib/format";
+import type { GalleryItem, ListingStatus } from "@/lib/types";
+import { isOwner } from "@/lib/permissions";
 
 export const runtime = "nodejs";
+
+function normalizeGalleryInput(raw: unknown): GalleryItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (typeof item === "string") {
+        const u = item.trim();
+        return u ? { url: u, caption: null } : null;
+      }
+      if (item && typeof item === "object" && typeof (item as any).url === "string") {
+        const url = String((item as any).url).trim();
+        if (!url) return null;
+        const cap = (item as any).caption;
+        return {
+          url,
+          caption: typeof cap === "string" && cap.trim() !== "" ? cap : null
+        };
+      }
+      return null;
+    })
+    .filter((x): x is GalleryItem => x !== null);
+}
 
 export async function POST(req: Request) {
   let user;
@@ -25,6 +49,10 @@ export async function POST(req: Request) {
   const description = String(body?.description || "").trim();
   const hero_image_url = String(body?.hero_image_url || "").trim();
   const price_usd = Number(body?.price_usd);
+  const social_cover_url =
+    typeof body?.social_cover_url === "string" && body.social_cover_url.trim()
+      ? String(body.social_cover_url).trim()
+      : null;
 
   if (!title || !location || !description || !hero_image_url) {
     return NextResponse.json(
@@ -41,9 +69,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not generate slug." }, { status: 400 });
   }
 
-  const gallery = Array.isArray(body?.gallery_image_urls)
-    ? body.gallery_image_urls.map((u: unknown) => String(u).trim()).filter(Boolean)
-    : [];
+  const gallery = normalizeGalleryInput(body?.gallery_image_urls);
+
+  // Status: clamp to what the user is allowed to set on creation.
+  // Owners can pick any status; non-owners can only create as draft or submit for review.
+  const requested = String(body?.status || "draft") as ListingStatus;
+  const allowedForOwner: ListingStatus[] = ["draft", "review", "published"];
+  const allowedForUser: ListingStatus[] = ["draft", "review"];
+  const allowed = isOwner(user) ? allowedForOwner : allowedForUser;
+  const status: ListingStatus = allowed.includes(requested) ? requested : "draft";
 
   try {
     const listing = await createListing({
@@ -52,22 +86,28 @@ export async function POST(req: Request) {
       location,
       price_usd: Math.round(price_usd),
       bedrooms:
-        body?.bedrooms !== null && body?.bedrooms !== undefined ? Number(body.bedrooms) : null,
+        body?.bedrooms !== null && body?.bedrooms !== undefined && body.bedrooms !== ""
+          ? Number(body.bedrooms)
+          : null,
       bathrooms:
-        body?.bathrooms !== null && body?.bathrooms !== undefined ? Number(body.bathrooms) : null,
+        body?.bathrooms !== null && body?.bathrooms !== undefined && body.bathrooms !== ""
+          ? Number(body.bathrooms)
+          : null,
       square_feet:
-        body?.square_feet !== null && body?.square_feet !== undefined
+        body?.square_feet !== null && body?.square_feet !== undefined && body.square_feet !== ""
           ? Number(body.square_feet)
           : null,
       description,
       hero_image_url,
       gallery_image_urls: gallery,
+      social_cover_url,
       agent_name: body?.agent_name ? String(body.agent_name).trim() : null,
       agent_brokerage: body?.agent_brokerage ? String(body.agent_brokerage).trim() : null,
       featured: Boolean(body?.featured),
+      status,
       created_by_user_id: user.id
     });
-    return NextResponse.json({ ok: true, id: listing.id, slug: listing.slug });
+    return NextResponse.json({ ok: true, id: listing.id, slug: listing.slug, status: listing.status });
   } catch (err: any) {
     console.error("Failed to create listing:", err);
     if (err?.code === "23505") {
