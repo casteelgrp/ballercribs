@@ -37,6 +37,17 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
   const [error, setError] = useState<string>("");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
+  // Prominent "Saved" banner at the top of the form. Distinct from the
+  // small inline timestamp next to the buttons. Auto-fades after 6s; ref
+  // tracks the timeout so consecutive saves don't stack timers.
+  const [savedNotice, setSavedNotice] = useState<{ kind: "first" | "update" } | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function flashSaved(kind: "first" | "update") {
+    setSavedNotice({ kind });
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSavedNotice(null), 6000);
+  }
+
   // ───── Form fields ─────────────────────────────────────────────────────
   const [title, setTitle] = useState(existing?.title ?? "");
   const [slug, setSlug] = useState(existing?.slug ?? "");
@@ -145,6 +156,10 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
         if (typeof window !== "undefined") {
           window.history.replaceState(null, "", `/admin/listings/${data.id}/edit`);
         }
+        flashSaved("first");
+        // Refresh server data for the current route (e.g. the listings list
+        // below the form on /admin) so the new draft shows up immediately.
+        router.refresh();
         return;
       }
 
@@ -172,6 +187,12 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       if (transitionTo) {
         const toastKey = transitionTo === "review" ? "submitted" : "published";
         router.push(`/admin?toast=${toastKey}`);
+        router.refresh();
+      } else {
+        // Subsequent save without transition — show the in-page banner and
+        // refresh the listings list so any field changes (e.g. title edits)
+        // reflect in the row below.
+        flashSaved("update");
         router.refresh();
       }
     } catch (err) {
@@ -202,6 +223,41 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+      {savedNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border border-green-300 bg-green-50 text-green-900 px-4 py-3 flex items-center justify-between gap-4"
+        >
+          <span className="text-sm">
+            {savedNotice.kind === "first" ? (
+              <>
+                <strong>Draft saved.</strong> It's now in your{" "}
+                <a
+                  href="/admin?status=draft"
+                  className="underline underline-offset-2 hover:text-green-700"
+                >
+                  Draft tab
+                </a>
+                . Keep editing or click <strong>Submit for review</strong> when ready.
+              </>
+            ) : (
+              <>
+                <strong>Saved.</strong> Changes are live on this {status ?? "listing"}.
+              </>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSavedNotice(null)}
+            aria-label="Dismiss"
+            className="text-green-900/70 hover:text-green-900"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
           <label className={labelClass}>Title *</label>
