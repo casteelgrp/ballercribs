@@ -5,9 +5,9 @@ import { SocialLinks } from "@/components/SocialLinks";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Baller Cribs — The wildest luxury homes on the internet",
+  title: "BallerCribs — Luxury homes, mega-mansions, and architectural icons for sale",
   description:
-    "Curated luxury real estate. Mega-mansions, estates, and architectural icons from around the world."
+    "The wildest luxury homes on the internet. Curated mega-mansions, architectural estates, and iconic properties from around the world. Featured daily on Instagram and across all platforms."
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

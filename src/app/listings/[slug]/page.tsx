@@ -20,14 +20,22 @@ export async function generateMetadata({
   const { slug } = await params;
   const listing = await getListingBySlug(slug).catch(() => null);
   if (!listing) return { title: "Listing not found — Baller Cribs" };
-  const ogImage = listing.social_cover_url ?? listing.hero_image_url;
+  // OG + Twitter images are auto-wired from the sibling opengraph-image.tsx
+  // (which renders a branded card with the hero, price, title, location).
+  // If social_cover_url is set, the Next.js auto-generator still takes
+  // precedence — can swap back to manual images here if we ever want a
+  // specific cover instead of the dynamic card.
   return {
     title: `${listing.title} — Baller Cribs`,
     description: listing.description.slice(0, 160),
     openGraph: {
       title: listing.title,
-      description: listing.description.slice(0, 160),
-      images: [ogImage]
+      description: listing.description.slice(0, 160)
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: listing.title,
+      description: listing.description.slice(0, 160)
     }
   };
 }
@@ -43,6 +51,42 @@ export default async function ListingPage({
 
   const galleryItems = listing.gallery_image_urls;
 
+  // JSON-LD schema for search engines. Helps Google produce rich results
+  // (photo, price, beds/baths inline) and disambiguates the page for LLMs.
+  // Hardcoded addressCountry='US' per spec; most listings are US — can be
+  // made dynamic later if international listings become common.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
+  const locationParts = listing.location.split(",").map((s) => s.trim());
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SingleFamilyResidence",
+    name: listing.title,
+    description: listing.description.slice(0, 500),
+    url: `${siteUrl}/listings/${listing.slug}`,
+    image: [listing.hero_image_url, ...galleryItems.map((g) => g.url)].slice(0, 10),
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: locationParts[0] || listing.location,
+      addressRegion: locationParts[1] || "",
+      addressCountry: "US"
+    },
+    ...(listing.bedrooms !== null && { numberOfRooms: listing.bedrooms }),
+    ...(listing.bathrooms !== null && { numberOfBathroomsTotal: listing.bathrooms }),
+    ...(listing.square_feet !== null && {
+      floorSize: {
+        "@type": "QuantitativeValue",
+        value: listing.square_feet,
+        unitCode: "FTK"
+      }
+    }),
+    offers: {
+      "@type": "Offer",
+      price: listing.price_usd,
+      priceCurrency: "USD",
+      availability: "https://schema.org/InStock"
+    }
+  };
+
   return (
     <ListingMediaProvider
       heroUrl={listing.hero_image_url}
@@ -50,6 +94,12 @@ export default async function ListingPage({
       gallery={galleryItems}
     >
       <article>
+        <script
+          type="application/ld+json"
+          // Schema.org JSON-LD — rendered as invisible metadata, read by
+          // search engines + LLMs for rich results + summarisation.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         {/* Hero image — clickable, opens lightbox at slide 0 */}
         <ListingHeroImage src={listing.hero_image_url} alt={listing.title} />
 
