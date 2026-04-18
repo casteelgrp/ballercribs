@@ -58,8 +58,20 @@ export function AgentInquiryForm() {
 
   if (status === "success") {
     return (
-      <div className="text-center py-6">
-        <h3 className="font-display text-2xl sm:text-3xl text-paper">Got it.</h3>
+      <div className="border border-accent/60 bg-accent/5 px-8 py-10 text-center">
+        <div className="inline-flex items-center justify-center w-12 h-12 border border-accent rounded-full mb-4">
+          <svg
+            className="w-6 h-6 text-accent"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.5}
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3 className="font-display text-3xl text-paper">Got it.</h3>
         <p className="text-paper/70 mt-3 max-w-md mx-auto">
           We'll be back to you within 24 hours. Check the inbox you used for the reply.
         </p>
