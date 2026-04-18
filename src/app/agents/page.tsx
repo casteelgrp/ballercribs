@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AgentInquiryForm } from "@/components/AgentInquiryForm";
 import { FeatureTile } from "@/components/FeatureTile";
+import { HeroMosaic } from "@/components/HeroMosaic";
+import { getActiveHeroPhotos } from "@/lib/db";
 
 export const metadata: Metadata = {
   title: "Get featured on BallerCribs — For agents and brokerages",
@@ -42,33 +44,60 @@ const FAQS: Array<{ q: string; a: string }> = [
   }
 ];
 
-export default function AgentsPage() {
+export default async function AgentsPage() {
+  // Reuse hero_photos from the homepage carousel — no separate admin surface.
+  // 3+ active photos unlocks the mosaic; fewer falls back to the text-only hero.
+  const heroPhotos = await getActiveHeroPhotos().catch(() => []);
+  const hasMosaic = heroPhotos.length >= 3;
+
   return (
     <>
       {/* ─── 1. Hero ────────────────────────────────────────────────── */}
       <section className="bg-ink text-paper">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
-            Your listing in front of{" "}
-            <span className="text-accent">307,000+ luxury buyers.</span>
-          </h1>
-          <p className="mt-6 text-lg text-paper/80 max-w-2xl">
-            BallerCribs reaches millions every month on Instagram, Facebook, and TikTok. Now our
-            audience is your audience.
-          </p>
-
-          <div className="mt-10 flex flex-wrap gap-3">
-            <StatPill label="Instagram followers" value="234K" />
-            <StatPill label="Facebook followers" value="72K" />
-            <StatPill label="Monthly views" value="Millions" />
-          </div>
-
-          <a
-            href="#inquire"
-            className="inline-block mt-10 bg-accent text-ink px-8 py-3 text-sm uppercase tracking-widest hover:bg-paper transition-colors"
+        <div
+          className={
+            hasMosaic
+              ? "max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-28"
+              : "max-w-5xl mx-auto px-4 sm:px-6 py-20 sm:py-28"
+          }
+        >
+          <div
+            className={
+              hasMosaic
+                ? "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-12 lg:gap-16 items-center"
+                : ""
+            }
           >
-            Get featured →
-          </a>
+            <div>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
+                Your listing in front of{" "}
+                <span className="text-accent">307,000+ luxury buyers.</span>
+              </h1>
+              <p className="mt-6 text-lg text-paper/80 max-w-2xl">
+                BallerCribs reaches millions every month on Instagram, Facebook, and TikTok. Now
+                our audience is your audience.
+              </p>
+
+              <div className="mt-10 flex flex-wrap gap-3">
+                <StatPill label="Instagram followers" value="234K" />
+                <StatPill label="Facebook followers" value="72K" />
+                <StatPill label="Monthly views" value="Millions" />
+              </div>
+
+              <a
+                href="#inquire"
+                className="inline-block mt-10 bg-accent text-ink px-8 py-3 text-sm uppercase tracking-widest hover:bg-paper transition-colors"
+              >
+                Get featured →
+              </a>
+            </div>
+
+            {hasMosaic && (
+              <div>
+                <HeroMosaic photos={heroPhotos} />
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
