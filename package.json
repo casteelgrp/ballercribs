@@ -10,7 +10,8 @@
     "db:init": "tsx --env-file=.env.local scripts/init-db.ts",
     "migrate:users": "tsx --env-file=.env.local scripts/migrate-users.ts",
     "migrate:002": "tsx --env-file=.env.local scripts/migrate-002-gallery-structure.ts",
-    "migrate:003": "tsx --env-file=.env.local scripts/migrate-003-hero-photos.ts"
+    "migrate:003": "tsx --env-file=.env.local scripts/migrate-003-hero-photos.ts",
+    "migrate:004": "tsx --env-file=.env.local scripts/migrate-004-agent-inquiries.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

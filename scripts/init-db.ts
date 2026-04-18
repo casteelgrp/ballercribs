@@ -155,6 +155,24 @@ async function main() {
       WHERE active = TRUE;
   `;
 
+  // Agent inquiries (migration 004).
+  await sql`
+    CREATE TABLE IF NOT EXISTS agent_inquiries (
+      id            SERIAL        PRIMARY KEY,
+      name          TEXT          NOT NULL,
+      email         TEXT          NOT NULL,
+      phone         TEXT,
+      brokerage     TEXT,
+      city_state    TEXT,
+      inquiry_type  TEXT          NOT NULL CHECK (inquiry_type IN ('featured', 'referral', 'other')),
+      message       TEXT,
+      created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    );
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS agent_inquiries_created_idx ON agent_inquiries (created_at DESC);
+  `;
+
   console.log("Done.");
 }
 

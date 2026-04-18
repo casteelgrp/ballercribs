@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import type { Inquiry, Listing } from "./types";
+import type { AgentInquiry, Inquiry, Listing } from "./types";
 
 export async function sendInquiryNotification(
   inquiry: Inquiry,
@@ -43,6 +43,67 @@ export async function sendInquiryNotification(
     await resend.emails.send({ from, to, subject, html, replyTo: inquiry.email });
   } catch (err) {
     console.error("Failed to send inquiry email:", err);
+  }
+}
+
+export async function sendAgentInquiryNotification(inquiry: AgentInquiry) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.INQUIRY_NOTIFICATION_EMAIL;
+  const from = process.env.INQUIRY_FROM_EMAIL || "onboarding@resend.dev";
+
+  if (!apiKey || !to) {
+    console.warn("Resend not configured — skipping agent-inquiry email.");
+    return;
+  }
+
+  const resend = new Resend(apiKey);
+
+  const typeLabel =
+    inquiry.inquiry_type === "featured"
+      ? "Featured listing"
+      : inquiry.inquiry_type === "referral"
+        ? "Referral partnership"
+        : "Other";
+
+  const headerDetail = inquiry.brokerage || inquiry.city_state || inquiry.email;
+  const subject = `New agent inquiry: ${typeLabel} — ${inquiry.name} (${headerDetail})`;
+
+  const rows: Array<[string, string | null]> = [
+    ["Inquiry type", typeLabel],
+    ["Name", inquiry.name],
+    ["Email", inquiry.email],
+    ["Phone", inquiry.phone],
+    ["Brokerage", inquiry.brokerage],
+    ["City/State", inquiry.city_state]
+  ];
+
+  const detailRows = rows
+    .filter(([, v]) => Boolean(v))
+    .map(
+      ([label, value]) =>
+        `<p style="margin:4px 0"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(value))}</p>`
+    )
+    .join("");
+
+  const messageBlock = inquiry.message
+    ? `<p style="margin:16px 0 4px"><strong>Message:</strong></p>
+       <p style="margin:0;white-space:pre-wrap">${escapeHtml(inquiry.message)}</p>`
+    : "";
+
+  const html = `
+    <div style="font-family: -apple-system, sans-serif; max-width: 600px;">
+      <h2 style="margin:0 0 16px">New BallerCribs agent inquiry</h2>
+      ${detailRows}
+      ${messageBlock}
+      <hr style="margin:24px 0;border:none;border-top:1px solid #eee"/>
+      <p style="font-size:12px;color:#888">Agent inquiry #${inquiry.id} · ${new Date(inquiry.created_at).toLocaleString()}</p>
+    </div>
+  `;
+
+  try {
+    await resend.emails.send({ from, to, subject, html, replyTo: inquiry.email });
+  } catch (err) {
+    console.error("Failed to send agent-inquiry email:", err);
   }
 }
 

@@ -47,6 +47,20 @@ export interface Listing {
   updated_at: string;
 }
 
+export type AgentInquiryType = "featured" | "referral" | "other";
+
+export interface AgentInquiry {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  brokerage: string | null;
+  city_state: string | null;
+  inquiry_type: AgentInquiryType;
+  message: string | null;
+  created_at: string;
+}
+
 export interface HeroPhoto {
   id: number;
   url: string;

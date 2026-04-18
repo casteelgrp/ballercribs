@@ -1,5 +1,7 @@
 import { sql } from "@vercel/postgres";
 import type {
+  AgentInquiry,
+  AgentInquiryType,
   GalleryItem,
   HeroPhoto,
   Inquiry,
@@ -554,4 +556,49 @@ export async function setHeroPhotoOrders(orders: Array<{ id: number; order: numb
 
 export async function deleteHeroPhoto(id: number): Promise<void> {
   await sql`DELETE FROM hero_photos WHERE id = ${id};`;
+}
+
+// ─── Agent inquiries ────────────────────────────────────────────────────────
+
+function rowToAgentInquiry(row: any): AgentInquiry {
+  return {
+    id: Number(row.id),
+    name: row.name,
+    email: row.email,
+    phone: row.phone ?? null,
+    brokerage: row.brokerage ?? null,
+    city_state: row.city_state ?? null,
+    inquiry_type: row.inquiry_type as AgentInquiryType,
+    message: row.message ?? null,
+    created_at: row.created_at
+  };
+}
+
+export interface CreateAgentInquiryInput {
+  name: string;
+  email: string;
+  phone: string | null;
+  brokerage: string | null;
+  city_state: string | null;
+  inquiry_type: AgentInquiryType;
+  message: string | null;
+}
+
+export async function createAgentInquiry(data: CreateAgentInquiryInput): Promise<AgentInquiry> {
+  const { rows } = await sql`
+    INSERT INTO agent_inquiries (name, email, phone, brokerage, city_state, inquiry_type, message)
+    VALUES (${data.name}, ${data.email}, ${data.phone}, ${data.brokerage},
+            ${data.city_state}, ${data.inquiry_type}, ${data.message})
+    RETURNING *;
+  `;
+  return rowToAgentInquiry(rows[0]);
+}
+
+export async function getRecentAgentInquiries(limit = 50): Promise<AgentInquiry[]> {
+  const { rows } = await sql`
+    SELECT * FROM agent_inquiries
+    ORDER BY created_at DESC
+    LIMIT ${limit};
+  `;
+  return rows.map(rowToAgentInquiry);
 }
