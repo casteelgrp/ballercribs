@@ -410,13 +410,21 @@ export async function createInquiry(data: CreateInquiryInput): Promise<Inquiry> 
  * first; archived view sorts newest-archived first so the most recently
  * archived items are at the top.
  */
+export type InquiryWithListing = Inquiry & {
+  listing_title: string | null;
+  listing_slug: string | null;
+};
+
 export async function getRecentInquiries(
   opts: { archived?: boolean; limit?: number } = {}
-): Promise<(Inquiry & { listing_title: string | null })[]> {
+): Promise<InquiryWithListing[]> {
   const limit = opts.limit ?? 50;
+  // LEFT JOIN so an inquiry whose listing was deleted still shows up in admin
+  // (with listing_title/slug = null → the UI renders a 'no longer available'
+  // note instead of a broken link).
   const { rows } = opts.archived
     ? await sql`
-        SELECT i.*, l.title AS listing_title
+        SELECT i.*, l.title AS listing_title, l.slug AS listing_slug
         FROM inquiries i
         LEFT JOIN listings l ON l.id = i.listing_id
         WHERE i.archived_at IS NOT NULL
@@ -424,14 +432,14 @@ export async function getRecentInquiries(
         LIMIT ${limit};
       `
     : await sql`
-        SELECT i.*, l.title AS listing_title
+        SELECT i.*, l.title AS listing_title, l.slug AS listing_slug
         FROM inquiries i
         LEFT JOIN listings l ON l.id = i.listing_id
         WHERE i.archived_at IS NULL
         ORDER BY i.created_at DESC
         LIMIT ${limit};
       `;
-  return rows as (Inquiry & { listing_title: string | null })[];
+  return rows as InquiryWithListing[];
 }
 
 export async function countInquiriesByArchiveStatus(): Promise<{ active: number; archived: number }> {

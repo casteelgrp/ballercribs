@@ -312,9 +312,28 @@ export default async function AdminPage({
                       <InquiryActions id={i.id} kind="buyer" archived={inquiriesArchived} />
                     </div>
                   </div>
-                  {i.listing_title && (
+                  {i.listing_id && (
                     <p className="text-sm text-black/70 mt-2">
-                      Re: <span className="font-medium">{i.listing_title}</span>
+                      Re:{" "}
+                      {i.listing_slug && i.listing_title ? (
+                        <Link
+                          href={`/listings/${i.listing_slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-accent underline underline-offset-2 hover:text-ink"
+                        >
+                          {i.listing_title}
+                        </Link>
+                      ) : (
+                        <>
+                          <span className="font-medium">
+                            {i.listing_title ?? "Unknown listing"}
+                          </span>
+                          <span className="text-black/40 italic ml-2">
+                            (listing no longer available)
+                          </span>
+                        </>
+                      )}
                     </p>
                   )}
                   <div className="flex flex-wrap gap-2 mt-2 text-xs">
