@@ -26,7 +26,7 @@ export default function NewsletterPage() {
       </section>
 
       <section className="mt-12 sm:mt-16">
-        <div className="max-w-md mx-auto bg-white border border-black/10 p-8 shadow-sm">
+        <div className="max-w-sm mx-auto bg-white border border-black/10 px-6 py-8 shadow-sm">
           {/* Beacons mounts the form into this div by id. */}
           <div id="f2f955d1-9cde-4cfb-82e1-2234aff74674" />
           <Script id="beacons-newsletter-embed" strategy="afterInteractive">

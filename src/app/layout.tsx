@@ -47,31 +47,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1">{children}</main>
 
         <footer className="border-t border-black/10 mt-24 py-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4">
-            <p className="text-sm text-black/60">
-              Weekly luxury homes delivered free —{" "}
-              <Link href="/newsletter" className="text-accent hover:underline">
-                Subscribe
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row justify-between gap-4 text-sm text-black/60">
+            <p>© {new Date().getFullYear()} Baller Cribs. All rights reserved.</p>
+            <div className="flex gap-6">
+              <Link href="/listings" className="hover:text-accent">
+                Listings
               </Link>
-            </p>
-            <div className="flex flex-col sm:flex-row justify-between gap-4 text-sm text-black/60 pt-4 border-t border-black/5">
-              <p>© {new Date().getFullYear()} Baller Cribs. All rights reserved.</p>
-              <div className="flex gap-6">
-                <Link href="/listings" className="hover:text-accent">
-                  Listings
-                </Link>
-                <Link href="/newsletter" className="hover:text-accent">
-                  Newsletter
-                </Link>
-                <Link
-                  href="https://instagram.com/ballercribs"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-accent"
-                >
-                  @ballercribs
-                </Link>
-              </div>
+              <Link
+                href="https://instagram.com/ballercribs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-accent"
+              >
+                @ballercribs
+              </Link>
             </div>
           </div>
         </footer>

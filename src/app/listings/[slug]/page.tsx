@@ -135,21 +135,6 @@ export default async function ListingPage({
             </div>
           </aside>
         </div>
-
-        {/* Newsletter CTA — only on individual listing pages, captures the
-            'I just looked at one of these and I want more' moment. */}
-        <section className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center border-t border-black/10 mt-12">
-          <h2 className="font-display text-2xl sm:text-3xl">Loved this one?</h2>
-          <p className="text-black/70 mt-3 max-w-lg mx-auto">
-            Get 3-5 more like it every Sunday. Free, curated, no spam.
-          </p>
-          <Link
-            href="/newsletter"
-            className="inline-block mt-6 bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors"
-          >
-            Subscribe
-          </Link>
-        </section>
       </article>
     </ListingMediaProvider>
   );
