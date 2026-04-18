@@ -243,8 +243,68 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
   // Publish-now only for owners and only from draft (or unsaved).
   const showPublishNow = isOwner && (!isPersisted || status === "draft");
 
+  // Saved confirmation banner — rendered both at the top (next to the top
+  // save button) and at the bottom (next to the full button row). User clicks
+  // either button → sees feedback in the same place they clicked.
+  const savedBanner =
+    savedNotice && !readOnly ? (
+      <div
+        role="status"
+        aria-live="polite"
+        className="border border-green-300 bg-green-50 text-green-900 px-4 py-3 flex items-center justify-between gap-4"
+      >
+        <span className="text-sm">
+          {savedNotice.kind === "first" ? (
+            <>
+              <strong>Draft saved.</strong> Look for it in the listings table below
+              — or jump to your{" "}
+              <a
+                href="/admin?status=draft"
+                className="underline underline-offset-2 hover:text-green-700"
+              >
+                Draft tab
+              </a>
+              .
+            </>
+          ) : (
+            <>
+              <strong>Saved.</strong> Changes are live on this {status ?? "listing"}.
+            </>
+          )}
+        </span>
+        <button
+          type="button"
+          onClick={() => setSavedNotice(null)}
+          aria-label="Dismiss"
+          className="text-green-900/70 hover:text-green-900"
+        >
+          ×
+        </button>
+      </div>
+    ) : null;
+
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+      {/* Top-of-form save bar — only shown for already-saved listings so users
+          editing a long form don't have to scroll to the bottom to save. */}
+      {!readOnly && isPersisted && (
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-black/10 sticky top-0 bg-white z-10">
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => save()}
+            className="bg-ink text-paper px-5 py-2.5 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            {submitting ? "Saving…" : saveLabel}
+          </button>
+          {lastSavedAt && (
+            <span className="text-xs text-black/50">
+              Last saved {new Date(lastSavedAt).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+      )}
+      {savedBanner}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
           <label className={labelClass}>Title *</label>
@@ -478,44 +538,9 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
         </div>
       )}
 
-      {/* Saved confirmation lives here (right under the buttons) so the user
-          sees feedback without scrolling, and the listings list below picks
-          up the new draft via router.refresh(). */}
-      {savedNotice && !readOnly && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="border border-green-300 bg-green-50 text-green-900 px-4 py-3 flex items-center justify-between gap-4"
-        >
-          <span className="text-sm">
-            {savedNotice.kind === "first" ? (
-              <>
-                <strong>Draft saved.</strong> Look for it in the listings table below
-                — or jump to your{" "}
-                <a
-                  href="/admin?status=draft"
-                  className="underline underline-offset-2 hover:text-green-700"
-                >
-                  Draft tab
-                </a>
-                .
-              </>
-            ) : (
-              <>
-                <strong>Saved.</strong> Changes are live on this {status ?? "listing"}.
-              </>
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => setSavedNotice(null)}
-            aria-label="Dismiss"
-            className="text-green-900/70 hover:text-green-900"
-          >
-            ×
-          </button>
-        </div>
-      )}
+      {/* Saved confirmation duplicated at the bottom so the user sees feedback
+          regardless of which save button they clicked (top or bottom). */}
+      {savedBanner}
     </form>
   );
 }
