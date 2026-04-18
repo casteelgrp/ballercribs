@@ -150,15 +150,12 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
           router.refresh();
           return;
         }
-        // Save Draft (no transition): URL-replace into edit context so a refresh
-        // keeps the user on the same listing. window.history avoids a re-render
-        // that would discard form state.
-        if (typeof window !== "undefined") {
-          window.history.replaceState(null, "", `/admin/listings/${data.id}/edit`);
-        }
+        // Save Draft (no transition): stay on /admin so router.refresh updates
+        // the listings list below. Skipping the history.replaceState dance —
+        // it was confusing the router refresh and the listings list wasn't
+        // updating. Tradeoff: a browser reload now goes back to the empty
+        // creation form, but the draft is safely in the Draft tab to find.
         flashSaved("first");
-        // Refresh server data for the current route (e.g. the listings list
-        // below the form on /admin) so the new draft shows up immediately.
         router.refresh();
         return;
       }
@@ -223,41 +220,6 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-      {savedNotice && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="border border-green-300 bg-green-50 text-green-900 px-4 py-3 flex items-center justify-between gap-4"
-        >
-          <span className="text-sm">
-            {savedNotice.kind === "first" ? (
-              <>
-                <strong>Draft saved.</strong> It's now in your{" "}
-                <a
-                  href="/admin?status=draft"
-                  className="underline underline-offset-2 hover:text-green-700"
-                >
-                  Draft tab
-                </a>
-                . Keep editing or click <strong>Submit for review</strong> when ready.
-              </>
-            ) : (
-              <>
-                <strong>Saved.</strong> Changes are live on this {status ?? "listing"}.
-              </>
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => setSavedNotice(null)}
-            aria-label="Dismiss"
-            className="text-green-900/70 hover:text-green-900"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
           <label className={labelClass}>Title *</label>
@@ -475,6 +437,45 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
               )}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Saved confirmation lives here (right under the buttons) so the user
+          sees feedback without scrolling, and the listings list below picks
+          up the new draft via router.refresh(). */}
+      {savedNotice && !readOnly && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border border-green-300 bg-green-50 text-green-900 px-4 py-3 flex items-center justify-between gap-4"
+        >
+          <span className="text-sm">
+            {savedNotice.kind === "first" ? (
+              <>
+                <strong>Draft saved.</strong> Look for it in the listings table below
+                — or jump to your{" "}
+                <a
+                  href="/admin?status=draft"
+                  className="underline underline-offset-2 hover:text-green-700"
+                >
+                  Draft tab
+                </a>
+                .
+              </>
+            ) : (
+              <>
+                <strong>Saved.</strong> Changes are live on this {status ?? "listing"}.
+              </>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSavedNotice(null)}
+            aria-label="Dismiss"
+            className="text-green-900/70 hover:text-green-900"
+          >
+            ×
+          </button>
         </div>
       )}
     </form>
