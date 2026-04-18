@@ -47,6 +47,15 @@ export interface Listing {
   updated_at: string;
 }
 
+export interface HeroPhoto {
+  id: number;
+  url: string;
+  caption: string | null;
+  display_order: number;
+  active: boolean;
+  created_at: string;
+}
+
 export interface Inquiry {
   id: number;
   listing_id: number | null;

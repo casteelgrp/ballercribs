@@ -128,9 +128,17 @@ export default async function AdminPage({
             Account
           </Link>
           {isOwner(user) && (
-            <Link href="/admin/users" className="underline underline-offset-4 hover:text-accent">
-              Users
-            </Link>
+            <>
+              <Link
+                href="/admin/hero-photos"
+                className="underline underline-offset-4 hover:text-accent"
+              >
+                Hero Photos
+              </Link>
+              <Link href="/admin/users" className="underline underline-offset-4 hover:text-accent">
+                Users
+              </Link>
+            </>
           )}
           <form action="/api/admin/logout" method="POST">
             <button type="submit" className="underline underline-offset-4 hover:text-accent">

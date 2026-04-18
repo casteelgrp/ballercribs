@@ -9,10 +9,16 @@ export interface ProcessedUpload {
   bytes?: number | null;
 }
 
+export interface UploadOptions {
+  /** Override sharp's resize max width on the server. Default 2000; capped server-side at 4000. */
+  maxWidth?: number;
+}
+
 /** Upload a file directly to Blob, then trigger sharp processing. Returns the processed image URL. */
 export async function uploadAndProcess(
   file: File,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: UploadOptions = {}
 ): Promise<ProcessedUpload> {
   const blob = await upload(file.name, file, {
     access: "public",
@@ -22,7 +28,10 @@ export async function uploadAndProcess(
   const procRes = await fetch("/api/admin/upload/process", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ blob_url: blob.url }),
+    body: JSON.stringify({
+      blob_url: blob.url,
+      ...(options.maxWidth !== undefined ? { max_width: options.maxWidth } : {})
+    }),
     signal
   });
   if (!procRes.ok) {

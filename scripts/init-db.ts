@@ -138,6 +138,23 @@ async function main() {
     END $$;
   `;
 
+  // Hero photos (migration 003).
+  await sql`
+    CREATE TABLE IF NOT EXISTS hero_photos (
+      id            SERIAL        PRIMARY KEY,
+      url           TEXT          NOT NULL,
+      caption       TEXT,
+      display_order INTEGER       NOT NULL DEFAULT 0,
+      active        BOOLEAN       NOT NULL DEFAULT TRUE,
+      created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    );
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS hero_photos_active_order_idx
+      ON hero_photos (active, display_order)
+      WHERE active = TRUE;
+  `;
+
   console.log("Done.");
 }
 

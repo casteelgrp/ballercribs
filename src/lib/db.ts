@@ -1,6 +1,7 @@
 import { sql } from "@vercel/postgres";
 import type {
   GalleryItem,
+  HeroPhoto,
   Inquiry,
   Listing,
   ListingStatus,
@@ -483,4 +484,74 @@ export async function listUsers(): Promise<User[]> {
     SELECT * FROM users ORDER BY role DESC, created_at ASC;
   `;
   return rows.map(rowToUser);
+}
+
+// ─── Hero photos ────────────────────────────────────────────────────────────
+
+function rowToHeroPhoto(row: any): HeroPhoto {
+  return {
+    id: Number(row.id),
+    url: row.url,
+    caption: row.caption ?? null,
+    display_order: Number(row.display_order),
+    active: Boolean(row.active),
+    created_at: row.created_at
+  };
+}
+
+/** Public homepage query: only the active photos, in their display order. */
+export async function getActiveHeroPhotos(): Promise<HeroPhoto[]> {
+  const { rows } = await sql`
+    SELECT * FROM hero_photos
+    WHERE active = TRUE
+    ORDER BY display_order ASC, id ASC;
+  `;
+  return rows.map(rowToHeroPhoto);
+}
+
+/** Admin query: every row, active or not. */
+export async function listAllHeroPhotos(): Promise<HeroPhoto[]> {
+  const { rows } = await sql`
+    SELECT * FROM hero_photos
+    ORDER BY display_order ASC, id ASC;
+  `;
+  return rows.map(rowToHeroPhoto);
+}
+
+export async function createHeroPhoto(url: string, caption: string | null = null): Promise<HeroPhoto> {
+  // New photos go to the end of the order. COALESCE handles the empty-table case.
+  const { rows } = await sql`
+    INSERT INTO hero_photos (url, caption, display_order, active)
+    VALUES (
+      ${url},
+      ${caption},
+      COALESCE((SELECT MAX(display_order) + 1 FROM hero_photos), 0),
+      TRUE
+    )
+    RETURNING *;
+  `;
+  return rowToHeroPhoto(rows[0]);
+}
+
+export async function setHeroPhotoActive(id: number, active: boolean): Promise<void> {
+  await sql`UPDATE hero_photos SET active = ${active} WHERE id = ${id};`;
+}
+
+/**
+ * Bulk-update display_order from an array of {id, order} pairs.
+ * Used after the admin drags-to-reorder. Single round-trip via UPDATE FROM VALUES.
+ */
+export async function setHeroPhotoOrders(orders: Array<{ id: number; order: number }>): Promise<void> {
+  if (orders.length === 0) return;
+  // Build a VALUES clause: (id, order), (id, order), ...
+  // Using sql.unsafe-style construction is awkward with @vercel/postgres tagged
+  // template, so we just do N UPDATEs in parallel — N is at most ~10 hero photos,
+  // not worth a single-statement optimisation.
+  await Promise.all(
+    orders.map(({ id, order }) => sql`UPDATE hero_photos SET display_order = ${order} WHERE id = ${id};`)
+  );
+}
+
+export async function deleteHeroPhoto(id: number): Promise<void> {
+  await sql`DELETE FROM hero_photos WHERE id = ${id};`;
 }

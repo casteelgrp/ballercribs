@@ -6,7 +6,8 @@ import { requireUser } from "@/lib/auth";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MAX_OUTPUT_WIDTH = 2000;
+const DEFAULT_MAX_WIDTH = 2000;
+const ABSOLUTE_MAX_WIDTH = 4000; // upper bound regardless of caller request
 const WEBP_QUALITY = 80;
 
 function isOurBlobUrl(url: string): boolean {
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     return res as Response;
   }
 
-  let body: { blob_url?: unknown };
+  let body: { blob_url?: unknown; max_width?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -36,6 +37,14 @@ export async function POST(req: Request) {
   if (!blobUrl || !isOurBlobUrl(blobUrl)) {
     return NextResponse.json({ error: "Invalid or missing blob_url" }, { status: 400 });
   }
+
+  // Opt-in larger output for hero photos. Listings still use the default.
+  // Clamped to ABSOLUTE_MAX_WIDTH so a caller can't ask for an 8000px panorama.
+  const requestedMaxWidth = Number(body.max_width);
+  const maxWidth =
+    Number.isFinite(requestedMaxWidth) && requestedMaxWidth > 0
+      ? Math.min(Math.round(requestedMaxWidth), ABSOLUTE_MAX_WIDTH)
+      : DEFAULT_MAX_WIDTH;
 
   // Fetch the just-uploaded original from Blob.
   let res: Response;
@@ -63,7 +72,7 @@ export async function POST(req: Request) {
   try {
     const pipeline = sharp(inputBuffer)
       .rotate()
-      .resize({ width: MAX_OUTPUT_WIDTH, withoutEnlargement: true })
+      .resize({ width: maxWidth, withoutEnlargement: true })
       .webp({ quality: WEBP_QUALITY });
     const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
     processedBuffer = data;
