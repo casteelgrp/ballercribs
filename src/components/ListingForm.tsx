@@ -287,15 +287,30 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
 
       <div>
         <label className={labelClass}>Description *</label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-          rows={5}
-          disabled={disabled}
-          className={inputClass}
-          placeholder="Separate paragraphs with blank lines..."
-        />
+        {readOnly ? (
+          // Render as the public site does so submitters can verify before approval.
+          <div className="border border-black/10 bg-black/[0.02] px-3 py-3 text-sm">
+            {description ? (
+              description.split("\n\n").map((para, i) => (
+                <p key={i} className="text-black/80 leading-relaxed mb-3 last:mb-0 whitespace-pre-line">
+                  {para}
+                </p>
+              ))
+            ) : (
+              <p className="text-black/40 italic">No description</p>
+            )}
+          </div>
+        ) : (
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+            rows={5}
+            disabled={disabled}
+            className={inputClass}
+            placeholder="Separate paragraphs with blank lines..."
+          />
+        )}
       </div>
 
       {readOnly ? (
@@ -463,7 +478,7 @@ function ReadOnlyGallery({
                 )}
               </div>
               {item.caption && (
-                <figcaption className="px-2 py-1.5 text-xs text-black/60 border-t border-black/10">
+                <figcaption className="px-2 py-1.5 text-xs text-black/60 border-t border-black/10 whitespace-pre-line">
                   {item.caption}
                 </figcaption>
               )}

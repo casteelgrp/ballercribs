@@ -115,7 +115,9 @@ export function ListingGalleryGrid({
             />
           </button>
           {item.caption && (
-            <figcaption className="text-xs text-black/60 mt-1.5">{item.caption}</figcaption>
+            <figcaption className="text-xs text-black/60 mt-1.5 whitespace-pre-line">
+              {item.caption}
+            </figcaption>
           )}
         </figure>
       ))}

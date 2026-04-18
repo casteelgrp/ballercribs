@@ -96,7 +96,10 @@ export default async function ListingPage({
 
             <div className="prose prose-lg mt-8 max-w-none">
               {listing.description.split("\n\n").map((para, i) => (
-                <p key={i} className="text-black/80 leading-relaxed mb-4">
+                // whitespace-pre-line: preserves single \n as line breaks within a
+                // paragraph (e.g. typed lists), while \n\n still becomes a paragraph
+                // break thanks to the split above.
+                <p key={i} className="text-black/80 leading-relaxed mb-4 whitespace-pre-line">
                   {para}
                 </p>
               ))}
