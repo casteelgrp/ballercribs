@@ -32,7 +32,7 @@ export function FeatureTile({
 
   return (
     <figure className="space-y-3">
-      <div className="group relative aspect-square bg-ink overflow-hidden">
+      <div className="relative aspect-square bg-ink overflow-hidden">
         {photoFailed ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-xs uppercase tracking-widest text-paper/50">Coming soon</span>
@@ -47,13 +47,15 @@ export function FeatureTile({
               onError={() => setPhotoFailed(true)}
               className="absolute inset-0 w-full h-full object-cover"
             />
-            {/* View-stats chip. Always visible on mobile (no hover exists on
-                touch); fades in on hover on md+ so the photo reads clean at rest. */}
+            {/* View-stats chip. Always visible across breakpoints — this is a
+                key proof-point CTA on a sales page and mobile doesn't have hover
+                so a hover-gated button would be invisible to half the audience.
+                Color still shifts on hover for affordance. */}
             <button
               type="button"
               onClick={() => setLightboxOpen(true)}
               aria-label={`View Instagram Insights for ${caption}`}
-              className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 bg-black/75 text-white text-[11px] uppercase tracking-widest px-2.5 py-1.5 hover:bg-accent hover:text-ink transition-all md:opacity-0 md:group-hover:opacity-100"
+              className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 bg-black/75 text-white text-[11px] uppercase tracking-widest px-2.5 py-1.5 hover:bg-accent hover:text-ink transition-colors"
             >
               <BarChartIcon />
               <span>View stats</span>
