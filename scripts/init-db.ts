@@ -173,6 +173,12 @@ async function main() {
     CREATE INDEX IF NOT EXISTS agent_inquiries_created_idx ON agent_inquiries (created_at DESC);
   `;
 
+  // Archive column + index for inquiries and agent_inquiries (migration 005).
+  await sql`ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;`;
+  await sql`ALTER TABLE agent_inquiries ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_inquiries_archived_at ON inquiries(archived_at);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_inquiries_archived_at ON agent_inquiries(archived_at);`;
+
   console.log("Done.");
 }
 

@@ -11,7 +11,8 @@
     "migrate:users": "tsx --env-file=.env.local scripts/migrate-users.ts",
     "migrate:002": "tsx --env-file=.env.local scripts/migrate-002-gallery-structure.ts",
     "migrate:003": "tsx --env-file=.env.local scripts/migrate-003-hero-photos.ts",
-    "migrate:004": "tsx --env-file=.env.local scripts/migrate-004-agent-inquiries.ts"
+    "migrate:004": "tsx --env-file=.env.local scripts/migrate-004-agent-inquiries.ts",
+    "migrate:005": "tsx --env-file=.env.local scripts/migrate-005-inquiries-archive.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

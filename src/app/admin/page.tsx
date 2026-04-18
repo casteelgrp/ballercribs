@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { requirePageUser } from "@/lib/auth";
 import {
+  countAgentInquiriesByArchiveStatus,
+  countInquiriesByArchiveStatus,
   countListingsByStatus,
   getAdminListingsWithCreators,
   getRecentAgentInquiries,
@@ -10,6 +12,7 @@ import {
 } from "@/lib/db";
 import { ListingForm } from "@/components/ListingForm";
 import { ListingActions } from "@/components/ListingActions";
+import { InquiryActions } from "@/components/InquiryActions";
 import { Toast } from "@/components/Toast";
 import { defaultAdminTab, isOwner } from "@/lib/permissions";
 import { formatPrice } from "@/lib/format";
@@ -82,7 +85,14 @@ function toastFromParams(sp: {
 export default async function AdminPage({
   searchParams
 }: {
-  searchParams: Promise<{ status?: string; toast?: string; title?: string; who?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    toast?: string;
+    title?: string;
+    who?: string;
+    inquiries?: string;
+    agents?: string;
+  }>;
 }) {
   const user = await requirePageUser();
   const sp = await searchParams;
@@ -92,23 +102,39 @@ export default async function AdminPage({
     ? (requested as AdminListingFilter)
     : "all";
 
+  // Independent archive toggles for each inquiry section. ?inquiries=archived
+  // flips the buyer list; ?agents=archived flips the agent list.
+  const inquiriesArchived = sp.inquiries === "archived";
+  const agentsArchived = sp.agents === "archived";
+
   // Scope queries: owners see everyone's; users see only their own.
   const scopeUserId = isOwner(user) ? undefined : user.id;
 
-  const [listings, counts, inquiries, agentInquiries] = await Promise.all([
-    getAdminListingsWithCreators(currentTab, scopeUserId).catch(() => []),
-    countListingsByStatus(scopeUserId).catch(
-      (): Record<ListingStatus, number> => ({
-        draft: 0,
-        review: 0,
-        published: 0,
-        archived: 0
-      })
-    ),
-    // Inquiries are owner-only — they go to a single notification email, not per-creator.
-    isOwner(user) ? getRecentInquiries(50).catch(() => []) : Promise.resolve([]),
-    isOwner(user) ? getRecentAgentInquiries(50).catch(() => []) : Promise.resolve([])
-  ]);
+  const [listings, counts, inquiries, agentInquiries, inquiryCounts, agentInquiryCounts] =
+    await Promise.all([
+      getAdminListingsWithCreators(currentTab, scopeUserId).catch(() => []),
+      countListingsByStatus(scopeUserId).catch(
+        (): Record<ListingStatus, number> => ({
+          draft: 0,
+          review: 0,
+          published: 0,
+          archived: 0
+        })
+      ),
+      // Inquiries are owner-only — they go to a single notification email, not per-creator.
+      isOwner(user)
+        ? getRecentInquiries({ archived: inquiriesArchived, limit: 50 }).catch(() => [])
+        : Promise.resolve([]),
+      isOwner(user)
+        ? getRecentAgentInquiries({ archived: agentsArchived, limit: 50 }).catch(() => [])
+        : Promise.resolve([]),
+      isOwner(user)
+        ? countInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
+        : Promise.resolve({ active: 0, archived: 0 }),
+      isOwner(user)
+        ? countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
+        : Promise.resolve({ active: 0, archived: 0 })
+    ]);
 
   const allCount = counts.draft + counts.review + counts.published; // 'All' hides archived
   const toast = toastFromParams(sp);
@@ -249,14 +275,27 @@ export default async function AdminPage({
       {/* Recent inquiries — owner only */}
       {isOwner(user) && (
         <section>
-          <h2 className="font-display text-2xl mb-6">Recent inquiries ({inquiries.length})</h2>
+          <div className="flex items-baseline justify-between flex-wrap gap-3 mb-4">
+            <h2 className="font-display text-2xl">
+              Recent inquiries
+              {inquiriesArchived && " — Archived"} ({inquiries.length})
+            </h2>
+            <ArchiveTabs
+              section="inquiries"
+              currentArchived={inquiriesArchived}
+              activeCount={inquiryCounts.active}
+              archivedCount={inquiryCounts.archived}
+            />
+          </div>
           {inquiries.length === 0 ? (
-            <p className="text-black/50 text-sm">No inquiries yet.</p>
+            <p className="text-black/50 text-sm">
+              {inquiriesArchived ? "No archived inquiries." : "No inquiries yet."}
+            </p>
           ) : (
             <div className="border border-black/10 bg-white divide-y divide-black/10">
               {inquiries.map((i) => (
                 <div key={i.id} className="p-4">
-                  <div className="flex items-baseline justify-between gap-4">
+                  <div className="flex items-baseline justify-between gap-4 flex-wrap">
                     <div>
                       <p className="font-medium">{i.name}</p>
                       <a href={`mailto:${i.email}`} className="text-sm text-accent hover:underline">
@@ -266,9 +305,12 @@ export default async function AdminPage({
                         <span className="text-sm text-black/60 ml-2">· {i.phone}</span>
                       )}
                     </div>
-                    <p className="text-xs text-black/50 shrink-0">
-                      {new Date(i.created_at).toLocaleString()}
-                    </p>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <p className="text-xs text-black/50">
+                        {new Date(i.created_at).toLocaleString()}
+                      </p>
+                      <InquiryActions id={i.id} kind="buyer" archived={inquiriesArchived} />
+                    </div>
                   </div>
                   {i.listing_title && (
                     <p className="text-sm text-black/70 mt-2">
@@ -284,6 +326,11 @@ export default async function AdminPage({
                     {i.pre_approved && (
                       <span className="bg-accent/20 text-accent px-2 py-1">Pre-approved</span>
                     )}
+                    {i.archived_at && (
+                      <span className="bg-black/5 text-black/50 px-2 py-1">
+                        Archived {new Date(i.archived_at).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                   {i.message && (
                     <p className="text-sm text-black/80 mt-3 whitespace-pre-wrap">{i.message}</p>
@@ -295,14 +342,25 @@ export default async function AdminPage({
         </section>
       )}
 
-      {/* Agent inquiries (from /agents) — owner only, read-only list for v1. */}
+      {/* Agent inquiries (from /agents) — owner only */}
       {isOwner(user) && (
         <section className="mt-16">
-          <h2 className="font-display text-2xl mb-6">
-            Agent inquiries ({agentInquiries.length})
-          </h2>
+          <div className="flex items-baseline justify-between flex-wrap gap-3 mb-4">
+            <h2 className="font-display text-2xl">
+              Agent inquiries
+              {agentsArchived && " — Archived"} ({agentInquiries.length})
+            </h2>
+            <ArchiveTabs
+              section="agents"
+              currentArchived={agentsArchived}
+              activeCount={agentInquiryCounts.active}
+              archivedCount={agentInquiryCounts.archived}
+            />
+          </div>
           {agentInquiries.length === 0 ? (
-            <p className="text-black/50 text-sm">No agent inquiries yet.</p>
+            <p className="text-black/50 text-sm">
+              {agentsArchived ? "No archived agent inquiries." : "No agent inquiries yet."}
+            </p>
           ) : (
             <div className="border border-black/10 bg-white divide-y divide-black/10">
               {agentInquiries.map((a) => {
@@ -324,10 +382,18 @@ export default async function AdminPage({
                         >
                           {a.inquiry_type}
                         </span>
+                        {a.archived_at && (
+                          <span className="text-[10px] uppercase tracking-widest bg-black/5 text-black/50 px-1.5 py-0.5">
+                            Archived {new Date(a.archived_at).toLocaleDateString()}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-black/50 shrink-0">
-                        {new Date(a.created_at).toLocaleString()}
-                      </p>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <p className="text-xs text-black/50">
+                          {new Date(a.created_at).toLocaleString()}
+                        </p>
+                        <InquiryActions id={a.id} kind="agent" archived={agentsArchived} />
+                      </div>
                     </div>
                     <p className="text-sm mt-1">
                       <a href={`mailto:${a.email}`} className="text-accent hover:underline">
@@ -354,6 +420,52 @@ export default async function AdminPage({
           )}
         </section>
       )}
+    </div>
+  );
+}
+
+/**
+ * Two-tab segmented control for the Active / Archived filter. Server component —
+ * tabs are just Links that toggle the ?inquiries= or ?agents= search param so
+ * bookmarking + browser-back preserve state.
+ */
+function ArchiveTabs({
+  section,
+  currentArchived,
+  activeCount,
+  archivedCount
+}: {
+  section: "inquiries" | "agents";
+  currentArchived: boolean;
+  activeCount: number;
+  archivedCount: number;
+}) {
+  const activeHref = `/admin?${section}=active`;
+  const archivedHref = `/admin?${section}=archived`;
+  const base =
+    "px-3 py-1 text-xs uppercase tracking-widest border transition-colors";
+  const activeCls = "bg-ink text-paper border-ink";
+  const idleCls = "border-black/20 text-black/60 hover:border-black/50";
+  return (
+    <div className="flex gap-0 isolate" role="tablist" aria-label={`${section} filter`}>
+      <Link
+        href={activeHref}
+        scroll={false}
+        role="tab"
+        aria-selected={!currentArchived}
+        className={base + " " + (!currentArchived ? activeCls : idleCls)}
+      >
+        Active ({activeCount})
+      </Link>
+      <Link
+        href={archivedHref}
+        scroll={false}
+        role="tab"
+        aria-selected={currentArchived}
+        className={base + " -ml-px " + (currentArchived ? activeCls : idleCls)}
+      >
+        Archived ({archivedCount})
+      </Link>
     </div>
   );
 }

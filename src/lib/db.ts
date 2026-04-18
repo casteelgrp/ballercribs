@@ -405,17 +405,59 @@ export async function createInquiry(data: CreateInquiryInput): Promise<Inquiry> 
   return rows[0] as Inquiry;
 }
 
+/**
+ * Fetch inquiries filtered by archive status. Active view sorts newest-created
+ * first; archived view sorts newest-archived first so the most recently
+ * archived items are at the top.
+ */
 export async function getRecentInquiries(
-  limit = 50
+  opts: { archived?: boolean; limit?: number } = {}
 ): Promise<(Inquiry & { listing_title: string | null })[]> {
-  const { rows } = await sql`
-    SELECT i.*, l.title AS listing_title
-    FROM inquiries i
-    LEFT JOIN listings l ON l.id = i.listing_id
-    ORDER BY i.created_at DESC
-    LIMIT ${limit};
-  `;
+  const limit = opts.limit ?? 50;
+  const { rows } = opts.archived
+    ? await sql`
+        SELECT i.*, l.title AS listing_title
+        FROM inquiries i
+        LEFT JOIN listings l ON l.id = i.listing_id
+        WHERE i.archived_at IS NOT NULL
+        ORDER BY i.archived_at DESC
+        LIMIT ${limit};
+      `
+    : await sql`
+        SELECT i.*, l.title AS listing_title
+        FROM inquiries i
+        LEFT JOIN listings l ON l.id = i.listing_id
+        WHERE i.archived_at IS NULL
+        ORDER BY i.created_at DESC
+        LIMIT ${limit};
+      `;
   return rows as (Inquiry & { listing_title: string | null })[];
+}
+
+export async function countInquiriesByArchiveStatus(): Promise<{ active: number; archived: number }> {
+  const { rows } = await sql`
+    SELECT
+      SUM(CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END)::int AS active,
+      SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END)::int AS archived
+    FROM inquiries;
+  `;
+  const row = rows[0] ?? { active: 0, archived: 0 };
+  return { active: Number(row.active ?? 0), archived: Number(row.archived ?? 0) };
+}
+
+export async function archiveInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`UPDATE inquiries SET archived_at = NOW() WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
+}
+
+export async function unarchiveInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`UPDATE inquiries SET archived_at = NULL WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
+}
+
+export async function deleteInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`DELETE FROM inquiries WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
 }
 
 // ─── Users ──────────────────────────────────────────────────────────────────
@@ -570,7 +612,8 @@ function rowToAgentInquiry(row: any): AgentInquiry {
     city_state: row.city_state ?? null,
     inquiry_type: row.inquiry_type as AgentInquiryType,
     message: row.message ?? null,
-    created_at: row.created_at
+    created_at: row.created_at,
+    archived_at: row.archived_at ?? null
   };
 }
 
@@ -594,11 +637,51 @@ export async function createAgentInquiry(data: CreateAgentInquiryInput): Promise
   return rowToAgentInquiry(rows[0]);
 }
 
-export async function getRecentAgentInquiries(limit = 50): Promise<AgentInquiry[]> {
-  const { rows } = await sql`
-    SELECT * FROM agent_inquiries
-    ORDER BY created_at DESC
-    LIMIT ${limit};
-  `;
+export async function getRecentAgentInquiries(
+  opts: { archived?: boolean; limit?: number } = {}
+): Promise<AgentInquiry[]> {
+  const limit = opts.limit ?? 50;
+  const { rows } = opts.archived
+    ? await sql`
+        SELECT * FROM agent_inquiries
+        WHERE archived_at IS NOT NULL
+        ORDER BY archived_at DESC
+        LIMIT ${limit};
+      `
+    : await sql`
+        SELECT * FROM agent_inquiries
+        WHERE archived_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT ${limit};
+      `;
   return rows.map(rowToAgentInquiry);
+}
+
+export async function countAgentInquiriesByArchiveStatus(): Promise<{
+  active: number;
+  archived: number;
+}> {
+  const { rows } = await sql`
+    SELECT
+      SUM(CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END)::int AS active,
+      SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END)::int AS archived
+    FROM agent_inquiries;
+  `;
+  const row = rows[0] ?? { active: 0, archived: 0 };
+  return { active: Number(row.active ?? 0), archived: Number(row.archived ?? 0) };
+}
+
+export async function archiveAgentInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`UPDATE agent_inquiries SET archived_at = NOW() WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
+}
+
+export async function unarchiveAgentInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`UPDATE agent_inquiries SET archived_at = NULL WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
+}
+
+export async function deleteAgentInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`DELETE FROM agent_inquiries WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
 }

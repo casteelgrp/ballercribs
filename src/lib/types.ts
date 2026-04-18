@@ -59,6 +59,7 @@ export interface AgentInquiry {
   inquiry_type: AgentInquiryType;
   message: string | null;
   created_at: string;
+  archived_at: string | null;
 }
 
 export interface HeroPhoto {
@@ -80,4 +81,5 @@ export interface Inquiry {
   pre_approved: boolean;
   timeline: string | null;
   created_at: string;
+  archived_at: string | null;
 }
