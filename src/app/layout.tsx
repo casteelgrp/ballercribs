@@ -33,6 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/newsletter" className="hover:text-accent transition-colors">
                 Newsletter
               </Link>
+              <Link href="/agents" className="hover:text-accent transition-colors">
+                For Agents
+              </Link>
               {/* Vertical divider — hidden on the very narrow viewports
                   where every horizontal pixel matters. */}
               <span className="hidden sm:inline-block h-4 w-px bg-black/20" aria-hidden="true" />
@@ -49,6 +52,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="flex items-center gap-6">
               <Link href="/listings" className="hover:text-accent">
                 Listings
+              </Link>
+              <Link href="/agents" className="hover:text-accent">
+                For Agents
               </Link>
               <SocialLinks />
             </div>

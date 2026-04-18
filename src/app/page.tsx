@@ -90,7 +90,7 @@ export default async function HomePage() {
           />
           <p className="text-xs uppercase tracking-widest text-accent">For agents</p>
           <h2 className="font-display text-3xl sm:text-4xl mt-3">
-            Put your listing in front of 300K+ followers and millions of monthly viewers.
+            Put your listing in front of millions.
           </h2>
           <p className="mt-4 text-paper/70 max-w-2xl mx-auto">
             Seen by millions every month across Instagram, Facebook, and TikTok. Featured

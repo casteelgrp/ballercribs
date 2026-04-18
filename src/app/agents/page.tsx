@@ -70,12 +70,11 @@ export default async function AgentsPage() {
           >
             <div>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
-                Your listing in front of{" "}
-                <span className="text-accent">307,000+ luxury buyers.</span>
+                Put your listing in front of{" "}
+                <span className="text-accent">millions.</span>
               </h1>
               <p className="mt-6 text-lg text-paper/80 max-w-2xl">
-                BallerCribs reaches millions every month on Instagram, Facebook, and TikTok. Now
-                our audience is your audience.
+                Seen every month across Instagram, Facebook, and TikTok.
               </p>
 
               <div className="mt-10 flex flex-wrap gap-3">
