@@ -1,49 +1,54 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getFeaturedListings } from "@/lib/db";
+import { getActiveHeroPhotos, getFeaturedListings } from "@/lib/db";
 import { ListingCard } from "@/components/ListingCard";
+import { HeroCarousel } from "@/components/HeroCarousel";
 
 export const revalidate = 60;
 
 export default async function HomePage() {
-  let listings: Awaited<ReturnType<typeof getFeaturedListings>> = [];
-  try {
-    listings = await getFeaturedListings(6);
-  } catch {
-    listings = [];
-  }
+  // Fetch listings + hero photos in parallel. Both are best-effort — DB hiccups
+  // shouldn't take down the homepage.
+  const [listings, heroPhotos] = await Promise.all([
+    getFeaturedListings(6).catch(() => []),
+    getActiveHeroPhotos().catch(() => [])
+  ]);
 
   return (
     <>
-      {/* Hero */}
-      <section className="border-b border-black/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
-          <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl leading-[1.05] tracking-tight">
-            The wildest luxury homes<br />
-            <span className="text-accent">on the internet.</span>
-          </h1>
-          <p className="mt-6 text-lg text-black/70 max-w-2xl mx-auto">
-            Curated mega-mansions, architectural icons, and estates you won't find on Zillow.
-            Seen by millions on Instagram — now with direct lines to the agents.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
-              href="/listings"
-              className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors"
-            >
-              Browse listings
-            </Link>
-            <Link
-              href="https://ballercribs.beehiiv.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
-            >
-              Get the newsletter
-            </Link>
+      {/* Hero — photo carousel when curated photos exist, else the original
+          text-on-cream block (two-tier fallback per spec). */}
+      {heroPhotos.length > 0 ? (
+        <HeroCarousel photos={heroPhotos} />
+      ) : (
+        <section className="border-b border-black/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+            <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl leading-[1.05] tracking-tight">
+              The wildest luxury homes
+              <br />
+              <span className="text-accent">on the internet.</span>
+            </h1>
+            <p className="mt-6 text-lg text-black/70 max-w-2xl mx-auto">
+              Curated mega-mansions, architectural icons, and estates you won't find on Zillow.
+              Seen by millions on Instagram — now with direct lines to the agents.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link
+                href="/listings"
+                className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors"
+              >
+                Browse listings
+              </Link>
+              <Link
+                href="/newsletter"
+                className="border border-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
+              >
+                Get the newsletter
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Featured listings */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
