@@ -15,7 +15,20 @@ export default async function AdminHeroPhotosPage() {
   // so the existence of the route isn't telegraphed.
   if (!isOwner(user)) notFound();
 
-  const photos = await listAllHeroPhotos();
+  // If the migration hasn't been run yet, show a clear instruction instead
+  // of a server-side exception. Same defensive pattern the homepage uses.
+  let photos: Awaited<ReturnType<typeof listAllHeroPhotos>> = [];
+  let dbError: string | null = null;
+  try {
+    photos = await listAllHeroPhotos();
+  } catch (err) {
+    const e = err as { code?: string; message?: string } | null;
+    if (e?.code === "42P01") {
+      dbError = "Migration 003 hasn't been run yet — run `npm run migrate:003` against your DB.";
+    } else {
+      dbError = e?.message ?? "Failed to load hero photos.";
+    }
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
@@ -41,7 +54,13 @@ export default async function AdminHeroPhotosPage() {
         </div>
       </div>
 
-      <HeroPhotosManager initial={photos} />
+      {dbError ? (
+        <div className="border border-amber-300 bg-amber-50 text-amber-900 px-4 py-3 text-sm">
+          <strong>Hero photos can't load.</strong> {dbError}
+        </div>
+      ) : (
+        <HeroPhotosManager initial={photos} />
+      )}
     </div>
   );
 }
