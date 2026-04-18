@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { requirePageUser } from "@/lib/auth";
 import {
   countListingsByStatus,
@@ -11,7 +12,7 @@ import { ListingActions } from "@/components/ListingActions";
 import { Toast } from "@/components/Toast";
 import { defaultAdminTab, isOwner } from "@/lib/permissions";
 import { formatPrice } from "@/lib/format";
-import type { ListingStatus } from "@/lib/types";
+import type { ListingStatus, User } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,20 @@ const STATUS_BADGE: Record<ListingStatus, string> = {
   archived: "bg-black/5 text-black/40"
 };
 
-// Role-aware page title is added in a follow-up commit (bug 5).
+function pageTitleFor(user: User): string {
+  return isOwner(user) ? "Admin" : "Listing Dashboard";
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  // Best-effort role-aware title; falls back to "Admin" if not authed (the page
+  // itself handles the redirect, this is just for the <title>).
+  try {
+    const user = await requirePageUser();
+    return { title: `${pageTitleFor(user)} — Baller Cribs` };
+  } catch {
+    return { title: "Admin — Baller Cribs" };
+  }
+}
 
 function toastFromParams(sp: {
   toast?: string;
@@ -96,7 +110,7 @@ export default async function AdminPage({
 
   const allCount = counts.draft + counts.review + counts.published; // 'All' hides archived
   const toast = toastFromParams(sp);
-  const heading = "Admin";
+  const heading = pageTitleFor(user);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">

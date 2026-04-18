@@ -264,7 +264,7 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
         <GalleryEditor
           label="Gallery"
           gallery={gallery}
-          onGalleryChange={setGallery}
+          setGallery={setGallery}
           heroUrl={heroUrl}
           onHeroChange={setHeroUrl}
           socialCoverUrl={socialCoverUrl}

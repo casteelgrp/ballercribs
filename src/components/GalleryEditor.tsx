@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dispatch, SetStateAction } from "react";
 import { useRef, useState } from "react";
 import Image from "next/image";
 import {
@@ -25,7 +26,17 @@ import type { GalleryItem } from "@/lib/types";
 type Props = {
   label?: string;
   gallery: GalleryItem[];
-  onGalleryChange: (g: GalleryItem[]) => void;
+  /**
+   * React-style setter so all mutations use functional updates.
+   * Critical for parallel uploads: when N files complete close together,
+   * each completion must read the latest gallery, not the closure snapshot
+   * from when the upload was kicked off. setGallery(prev => …) handles that.
+   * The previous (broken) pattern took `onGalleryChange: (g) => void` and
+   * called `onGalleryChange([...gallery, item])`, where `gallery` was a
+   * stale closure capture — so 5 parallel completions all wrote back the
+   * original empty array + their one item, and the last write won.
+   */
+  setGallery: Dispatch<SetStateAction<GalleryItem[]>>;
   heroUrl: string;
   onHeroChange: (url: string) => void;
   socialCoverUrl: string | null;
@@ -48,7 +59,7 @@ function newId() {
 export function GalleryEditor({
   label,
   gallery,
-  onGalleryChange,
+  setGallery,
   heroUrl,
   onHeroChange,
   socialCoverUrl,
@@ -65,28 +76,24 @@ export function GalleryEditor({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  function appendItem(item: GalleryItem) {
-    onGalleryChange([...gallery, item]);
-  }
-
   function updateItem(url: string, patch: Partial<GalleryItem>) {
-    onGalleryChange(gallery.map((g) => (g.url === url ? { ...g, ...patch } : g)));
+    setGallery((prev) => prev.map((g) => (g.url === url ? { ...g, ...patch } : g)));
   }
 
   function removeItem(url: string) {
-    onGalleryChange(gallery.filter((g) => g.url !== url));
+    setGallery((prev) => prev.filter((g) => g.url !== url));
     if (socialCoverUrl === url) onSocialCoverChange(null);
   }
 
   function setAsHero(url: string) {
-    // Swap: clicked item becomes the hero; current hero (if any) drops into the gallery.
-    const item = gallery.find((g) => g.url === url);
-    if (!item) return;
-    const remaining = gallery.filter((g) => g.url !== url);
-    if (heroUrl) {
-      remaining.push({ url: heroUrl, caption: null });
-    }
-    onGalleryChange(remaining);
+    // Swap: clicked item becomes hero; current hero (if any) drops into the gallery.
+    setGallery((prev) => {
+      const item = prev.find((g) => g.url === url);
+      if (!item) return prev;
+      const remaining = prev.filter((g) => g.url !== url);
+      if (heroUrl) remaining.push({ url: heroUrl, caption: null });
+      return remaining;
+    });
     onHeroChange(url);
   }
 
@@ -101,7 +108,8 @@ export function GalleryEditor({
     const timeout = setTimeout(() => abort.abort(), 60_000);
     try {
       const result = await uploadAndProcess(file, abort.signal);
-      appendItem({ url: result.url, caption: null });
+      // ⚡ Functional setState — works correctly for parallel uploads.
+      setGallery((prev) => [...prev, { url: result.url, caption: null }]);
       setPending((p) => p.filter((x) => x.id !== id));
     } catch (err) {
       const msg =
@@ -121,7 +129,7 @@ export function GalleryEditor({
 
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    // Parallel uploads — Promise.allSettled so one failure doesn't cancel the rest.
+    // Promise.allSettled so one failure doesn't cancel the rest.
     const arr = Array.from(files);
     void Promise.allSettled(arr.map((f) => uploadOne(f)));
   }
@@ -133,21 +141,19 @@ export function GalleryEditor({
   function addUrl() {
     const url = urlInput.trim();
     if (!url) return;
-    if (gallery.some((g) => g.url === url)) {
-      setUrlInput("");
-      return;
-    }
-    appendItem({ url, caption: null });
+    setGallery((prev) => (prev.some((g) => g.url === url) ? prev : [...prev, { url, caption: null }]));
     setUrlInput("");
   }
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = gallery.findIndex((g) => g.url === active.id);
-    const newIndex = gallery.findIndex((g) => g.url === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-    onGalleryChange(arrayMove(gallery, oldIndex, newIndex));
+    setGallery((prev) => {
+      const oldIndex = prev.findIndex((g) => g.url === active.id);
+      const newIndex = prev.findIndex((g) => g.url === over.id);
+      if (oldIndex < 0 || newIndex < 0) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
   }
 
   return (
@@ -315,7 +321,6 @@ function SortableThumb({
   return (
     <div ref={setNodeRef} style={style} className="border border-black/10 bg-white">
       <div className="relative group aspect-square overflow-hidden bg-black/5">
-        {/* Drag handle covers the image; mouse-down begins drag (5px threshold). */}
         <div
           {...attributes}
           {...listeners}
@@ -331,14 +336,12 @@ function SortableThumb({
           unoptimized
         />
 
-        {/* Badges (top-left) */}
         {isSocial && (
           <span className="absolute top-1 left-1 text-[10px] uppercase tracking-widest bg-accent text-ink px-1.5 py-0.5 z-10">
             Social
           </span>
         )}
 
-        {/* Action buttons (top-right). Always visible on touch (sm:opacity-0); show on hover on desktop. */}
         <div className="absolute top-1 right-1 flex gap-1 z-10 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
             type="button"
@@ -363,9 +366,7 @@ function SortableThumb({
             aria-pressed={isSocial}
             className={
               "px-1.5 py-1 leading-none " +
-              (isSocial
-                ? "bg-accent text-ink"
-                : "bg-black/70 text-white hover:bg-accent")
+              (isSocial ? "bg-accent text-ink" : "bg-black/70 text-white hover:bg-accent")
             }
           >
             <ShareIcon />
