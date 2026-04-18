@@ -1,23 +1,23 @@
 import { ImageResponse } from "next/og";
+import sharp from "sharp";
 import { getListingBySlug } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
 
-export const runtime = "edge";
+// Node runtime, not edge: satori doesn't support WebP, and every listing
+// hero photo goes through our sharp pipeline that outputs .webp. We pre-
+// fetch the hero, transcode to PNG with sharp (Node-only native dep), and
+// embed as a data URI so satori never sees the WebP directly.
+export const runtime = "nodejs";
 export const alt = "BallerCribs featured listing";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+export const revalidate = false; // cache forever; Next auto-invalidates on slug change
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
 const LOGO_URL = `${SITE_URL}/logo-white.png`;
-// Native logo is 2664x1752 (~1.52:1). Top-left watermark rendered at 200 wide.
+// Native logo is 2664x1752 (~1.52:1). Attributes below preserve aspect.
 const LOGO_WATERMARK_WIDTH = 200;
 const LOGO_WATERMARK_HEIGHT = 132;
-
-// Satori requires explicit pixel width AND height as HTML attributes on any
-// <img> with an external src — it can't introspect the remote binary to
-// compute intrinsic dimensions. Without these, the edge handler returns a
-// 200 OK + Content-Type image/png with a 0-byte body and the edge log
-// records: "Image size cannot be determined."
 
 export default async function OpengraphImage({
   params
@@ -28,6 +28,8 @@ export default async function OpengraphImage({
     const { slug } = await params;
     const listing = await getListingBySlug(slug).catch(() => null);
     if (!listing) return fallbackOG();
+
+    const heroDataUri = await fetchAsPng(listing.hero_image_url);
 
     return new ImageResponse(
       (
@@ -41,11 +43,11 @@ export default async function OpengraphImage({
             background: "#0a0a0a"
           }}
         >
-          {/* Full-bleed hero photo. width+height are the canvas dimensions —
-              satori needs them explicitly; object-fit handles aspect. */}
+          {/* Full-bleed hero — data URI, so satori doesn't re-fetch the remote
+              WebP (which it can't decode). width+height = canvas dims. */}
           {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
           <img
-            src={listing.hero_image_url}
+            src={heroDataUri}
             width={1200}
             height={630}
             style={{
@@ -58,7 +60,7 @@ export default async function OpengraphImage({
             }}
           />
 
-          {/* Bottom gradient for text legibility */}
+          {/* Bottom gradient for legibility */}
           <div
             style={{
               position: "absolute",
@@ -72,8 +74,7 @@ export default async function OpengraphImage({
             }}
           />
 
-          {/* Logo watermark top-left. Absolute URL because edge runtime
-              can't resolve /public relative paths. */}
+          {/* Logo watermark top-left — PNG, satori-safe, absolute URL. */}
           {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
           <img
             src={LOGO_URL}
@@ -142,6 +143,27 @@ export default async function OpengraphImage({
     console.error("[opengraph-image:listing] generation failed:", err);
     return fallbackOG();
   }
+}
+
+/**
+ * Fetch a remote image, resize to the OG canvas, transcode to PNG, return
+ * a data URI. Handles WebP/JPEG/PNG/AVIF/HEIC — whatever the hero happens
+ * to be — because sharp decodes all of them but satori only reads PNG/JPEG/GIF.
+ *
+ * Resizing here (not just at satori render time) keeps the embedded payload
+ * small: a 2000px hero transcodes to ~150-400KB PNG at 1200x630 vs several MB
+ * if we embedded the full-res transcode.
+ */
+async function fetchAsPng(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Hero fetch failed (${res.status}) for ${url}`);
+  const bytes = Buffer.from(await res.arrayBuffer());
+  const png = await sharp(bytes)
+    .rotate() // respect EXIF orientation
+    .resize({ width: 1200, height: 630, fit: "cover" })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+  return `data:image/png;base64,${png.toString("base64")}`;
 }
 
 function fallbackOG() {
