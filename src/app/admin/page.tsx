@@ -45,9 +45,9 @@ export async function generateMetadata(): Promise<Metadata> {
   // itself handles the redirect, this is just for the <title>).
   try {
     const user = await requirePageUser();
-    return { title: `${pageTitleFor(user)} — Baller Cribs` };
+    return { title: `${pageTitleFor(user)} — BallerCribs` };
   } catch {
-    return { title: "Admin — Baller Cribs" };
+    return { title: "Admin — BallerCribs" };
   }
 }
 

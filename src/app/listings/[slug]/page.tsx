@@ -19,14 +19,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const listing = await getListingBySlug(slug).catch(() => null);
-  if (!listing) return { title: "Listing not found — Baller Cribs" };
+  if (!listing) return { title: "Listing not found — BallerCribs" };
   // OG + Twitter images are auto-wired from the sibling opengraph-image.tsx
   // (which renders a branded card with the hero, price, title, location).
   // If social_cover_url is set, the Next.js auto-generator still takes
   // precedence — can swap back to manual images here if we ever want a
   // specific cover instead of the dynamic card.
   return {
-    title: `${listing.title} — Baller Cribs`,
+    title: `${listing.title} — BallerCribs`,
     description: listing.description.slice(0, 160),
     openGraph: {
       title: listing.title,

@@ -48,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <footer className="border-t border-black/10 mt-24 py-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-black/60">
-            <p>© {new Date().getFullYear()} Baller Cribs. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} BallerCribs. All rights reserved.</p>
             <div className="flex items-center gap-6">
               <Link href="/listings" className="hover:text-accent">
                 Listings
