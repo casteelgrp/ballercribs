@@ -2,18 +2,21 @@
 // concerns, so we use Simple Icons paths (CC0) directly. Lighter than pulling
 // in another icon dep for three SVGs.
 
-const SOCIALS = [
+export const SOCIALS = [
   {
+    name: "Instagram",
     href: "https://instagram.com/ballercribs",
     label: "BallerCribs on Instagram",
     Icon: InstagramIcon
   },
   {
+    name: "Facebook",
     href: "https://www.facebook.com/ballercribs",
     label: "BallerCribs on Facebook",
     Icon: FacebookIcon
   },
   {
+    name: "TikTok",
     href: "https://www.tiktok.com/@ballercribs",
     label: "BallerCribs on TikTok",
     Icon: TikTokIcon
