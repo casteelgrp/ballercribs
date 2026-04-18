@@ -112,7 +112,10 @@ export async function POST(req: Request) {
     console.error("Failed to create listing:", err);
     if (err?.code === "23505") {
       return NextResponse.json(
-        { error: "A listing with this slug already exists." },
+        {
+          error:
+            "A listing with this title already exists — try a more specific title (e.g. add the neighbourhood or street name)."
+        },
         { status: 409 }
       );
     }

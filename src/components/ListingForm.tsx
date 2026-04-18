@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImageUpload } from "./ImageUpload";
 import { GalleryEditor } from "./GalleryEditor";
@@ -9,27 +9,39 @@ import type { GalleryItem, Listing, ListingStatus, User } from "@/lib/types";
 type Props = {
   /** Current logged-in user — drives which status actions are available. */
   currentUser: User;
-  /** When provided, the form edits this listing via PATCH. Otherwise it creates one via POST. */
+  /** When provided, the form starts in edit mode (PATCH endpoint). Otherwise it creates. */
   existing?: Listing;
-  /** Render all fields disabled, hide save buttons. Used when a viewer can see but not edit. */
+  /** Render all fields disabled, hide save buttons. */
   readOnly?: boolean;
 };
 
 export function ListingForm({ currentUser, existing, readOnly = false }: Props) {
   const router = useRouter();
-  const isEdit = Boolean(existing);
   const isOwner = currentUser.role === "owner";
 
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string>("");
+  // ───── Identity / status state ─────────────────────────────────────────
+  // currentListingId is null until either we open in edit mode (existing) OR
+  // we save a new listing and capture its id from the create response. Once
+  // set, every subsequent save uses PATCH — fixes the bug where Save Draft
+  // followed by Submit for Review was POSTing twice and hitting unique-slug.
+  const [currentListingId, setCurrentListingId] = useState<number | null>(existing?.id ?? null);
+  const [currentStatus, setCurrentStatus] = useState<ListingStatus | null>(
+    existing?.status ?? null
+  );
+  const [currentSlug, setCurrentSlug] = useState<string | null>(existing?.slug ?? null);
 
-  // Form state
+  const [submitting, setSubmitting] = useState(false);
+  // Synchronous guard against double-click — useState updates aren't visible
+  // to a second click that fires before the first re-render.
+  const inFlightRef = useRef(false);
+  const [error, setError] = useState<string>("");
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+
+  // ───── Form fields ─────────────────────────────────────────────────────
   const [title, setTitle] = useState(existing?.title ?? "");
   const [slug, setSlug] = useState(existing?.slug ?? "");
   const [location, setLocation] = useState(existing?.location ?? "");
-  const [priceUsd, setPriceUsd] = useState<string>(
-    existing ? String(existing.price_usd) : ""
-  );
+  const [priceUsd, setPriceUsd] = useState<string>(existing ? String(existing.price_usd) : "");
   const [bedrooms, setBedrooms] = useState<string>(
     existing?.bedrooms !== null && existing?.bedrooms !== undefined ? String(existing.bedrooms) : ""
   );
@@ -82,65 +94,90 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
     return null;
   }
 
-  async function submitCreate(targetStatus: ListingStatus) {
-    setSubmitting(true);
+  /**
+   * Single save entry-point. `transitionTo` controls whether we change status:
+   *   - undefined  → save fields only, stay on form (Save Draft, Save Changes)
+   *   - "review"   → submit for review and redirect
+   *   - "published"→ publish now (owner) and redirect
+   * Routes to POST (create) when no listing id yet, otherwise PATCH (update).
+   */
+  async function save(transitionTo?: "review" | "published") {
+    if (inFlightRef.current) return;
     setError("");
     const v = validate();
     if (v) {
       setError(v);
-      setSubmitting(false);
       return;
     }
+    inFlightRef.current = true;
+    setSubmitting(true);
     try {
-      const res = await fetch("/api/listings", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...commonFields(), status: targetStatus })
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to create listing.");
-      }
-      const toast =
-        targetStatus === "review"
-          ? "submitted"
-          : targetStatus === "published"
-            ? "published"
-            : "draft_saved";
-      router.push(`/admin?toast=${toast}`);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+      // ── CREATE path ─────────────────────────────────────────────────
+      if (currentListingId === null) {
+        // For a brand-new listing, status sent inline = final desired status
+        // (no separate transition step needed since it's a single INSERT).
+        const desiredStatus: ListingStatus = transitionTo ?? "draft";
+        const res = await fetch("/api/listings", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...commonFields(), status: desiredStatus })
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to create listing.");
+        }
+        const data: { id: number; slug: string; status: ListingStatus } = await res.json();
+        setCurrentListingId(data.id);
+        setCurrentStatus(data.status);
+        setCurrentSlug(data.slug);
+        setLastSavedAt(Date.now());
 
-  async function submitEdit() {
-    if (!existing) return;
-    setSubmitting(true);
-    setError("");
-    const v = validate();
-    if (v) {
-      setError(v);
-      setSubmitting(false);
-      return;
-    }
-    try {
-      const res = await fetch(`/api/admin/listings/${existing.id}`, {
+        if (transitionTo) {
+          // Created directly in target status → go to admin with the matching toast.
+          const toastKey = transitionTo === "review" ? "submitted" : "published";
+          router.push(`/admin?toast=${toastKey}`);
+          router.refresh();
+          return;
+        }
+        // Save Draft (no transition): URL-replace into edit context so a refresh
+        // keeps the user on the same listing. window.history avoids a re-render
+        // that would discard form state.
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", `/admin/listings/${data.id}/edit`);
+        }
+        return;
+      }
+
+      // ── UPDATE path ─────────────────────────────────────────────────
+      const res = await fetch(`/api/admin/listings/${currentListingId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "update_fields", fields: commonFields() })
+        body: JSON.stringify({
+          action: "update_fields",
+          fields: commonFields(),
+          transition_to: transitionTo ?? null
+        })
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to update listing.");
+        throw new Error(data.error || "Failed to save listing.");
       }
-      router.push("/admin?toast=saved");
-      router.refresh();
+      const data: { listing?: Listing } = await res.json();
+      if (data.listing) {
+        setCurrentStatus(data.listing.status);
+        setCurrentSlug(data.listing.slug);
+      }
+      setLastSavedAt(Date.now());
+
+      if (transitionTo) {
+        const toastKey = transitionTo === "review" ? "submitted" : "published";
+        router.push(`/admin?toast=${toastKey}`);
+        router.refresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
+      inFlightRef.current = false;
       setSubmitting(false);
     }
   }
@@ -149,6 +186,19 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
     "w-full border border-black/20 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none disabled:bg-black/5 disabled:text-black/60 disabled:cursor-not-allowed";
   const labelClass = "block text-xs uppercase tracking-widest text-black/60 mb-1";
   const disabled = readOnly;
+
+  // What the primary save button says, based on current state.
+  const isPersisted = currentListingId !== null;
+  const status = currentStatus;
+  const saveLabel = !isPersisted
+    ? "Save as draft"
+    : status === "draft"
+      ? "Save draft"
+      : "Save changes";
+  // Submit-for-review only makes sense from draft (or unsaved new listing).
+  const showSubmitForReview = !isPersisted || status === "draft";
+  // Publish-now only for owners and only from draft (or unsaved).
+  const showPublishNow = isOwner && (!isPersisted || status === "draft");
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
@@ -171,8 +221,8 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
             onChange={(e) => setSlug(e.target.value)}
             className={inputClass}
             placeholder="bel-air-modern-estate"
-            disabled={disabled || isEdit}
-            title={isEdit ? "Slug is fixed after creation" : undefined}
+            disabled={disabled || isPersisted}
+            title={isPersisted ? "Slug is fixed after creation" : undefined}
           />
         </div>
         <div>
@@ -311,48 +361,51 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {!readOnly &&
-        (isEdit ? (
-          <div className="flex flex-wrap gap-2">
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => save()}
+            className={
+              "px-6 py-3 text-sm uppercase tracking-widest disabled:opacity-50 transition-colors " +
+              (status === "draft" || !isPersisted
+                ? "border border-black/30 hover:border-accent hover:text-accent"
+                : "bg-ink text-paper hover:bg-accent")
+            }
+          >
+            {submitting ? "Saving…" : saveLabel}
+          </button>
+          {showSubmitForReview && (
             <button
               type="button"
               disabled={submitting}
-              onClick={submitEdit}
-              className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50"
-            >
-              {submitting ? "Saving…" : "Save changes"}
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => submitCreate("draft")}
-              className="border border-black/30 px-6 py-3 text-sm uppercase tracking-widest hover:border-accent hover:text-accent disabled:opacity-50"
-            >
-              Save as draft
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => submitCreate("review")}
+              onClick={() => save("review")}
               className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50"
             >
               Submit for review
             </button>
-            {isOwner && (
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => submitCreate("published")}
-                className="bg-accent text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors disabled:opacity-50"
-              >
-                Publish now
-              </button>
-            )}
-          </div>
-        ))}
+          )}
+          {showPublishNow && (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => save("published")}
+              className="bg-accent text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors disabled:opacity-50"
+            >
+              Publish now
+            </button>
+          )}
+          {lastSavedAt && (
+            <span className="text-xs text-black/50">
+              Saved at {new Date(lastSavedAt).toLocaleTimeString()}
+              {currentSlug && isPersisted && status === "draft" && (
+                <> · slug: <code className="font-mono">{currentSlug}</code></>
+              )}
+            </span>
+          )}
+        </div>
+      )}
     </form>
   );
 }

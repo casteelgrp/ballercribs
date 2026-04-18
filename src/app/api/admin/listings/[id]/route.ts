@@ -70,7 +70,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Listing not found." }, { status: 404 });
   }
 
-  let body: { action?: unknown; fields?: any };
+  let body: { action?: unknown; fields?: any; transition_to?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -139,7 +139,60 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!updated) {
       return NextResponse.json({ error: "Update failed." }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, listing: updated });
+
+    // Optional atomic transition. Form's "Submit for Review" path sends
+    // update_fields + transition_to='review' so we save fields and flip
+    // status in one round-trip — no risk of saving without transitioning
+    // (or vice versa) due to a network glitch between two requests.
+    const transitionTo = body.transition_to;
+    if (transitionTo === undefined || transitionTo === null) {
+      return NextResponse.json({ ok: true, listing: updated });
+    }
+    if (
+      transitionTo !== "draft" &&
+      transitionTo !== "review" &&
+      transitionTo !== "published" &&
+      transitionTo !== "archived"
+    ) {
+      return NextResponse.json({ error: "Invalid transition_to value." }, { status: 400 });
+    }
+
+    // Re-check permissions against the *updated* listing state.
+    let allowed = false;
+    let reviewerId: number | null = null;
+    switch (transitionTo) {
+      case "review":
+        allowed = canSubmitForReview(user, updated);
+        break;
+      case "published":
+        // Owner can either approve a review submission or publish their own draft directly.
+        if (canApprove(user, updated)) {
+          allowed = true;
+          reviewerId = user.id;
+        } else if (canPublishDirect(user, updated)) {
+          allowed = true;
+          reviewerId = user.id;
+        }
+        break;
+      case "draft":
+        allowed = canSendBackToDraft(user, updated) || canRestoreFromArchive(user, updated);
+        break;
+      case "archived":
+        allowed = canArchive(user, updated);
+        break;
+    }
+    if (!allowed) {
+      return NextResponse.json(
+        { error: `Saved fields, but not allowed to transition to ${transitionTo}.` },
+        { status: 403 }
+      );
+    }
+
+    const transitioned = await transitionListingStatus(id, transitionTo, reviewerId);
+    if (!transitioned) {
+      return NextResponse.json({ error: "Transition failed after save." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, listing: transitioned });
   }
 
   // ── Status transitions ───────────────────────────────────────────────────
