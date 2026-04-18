@@ -188,17 +188,20 @@ export default function AgentsPage() {
           </h2>
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
             <FeatureTile
-              src="/feature-1.png"
+              photoSrc="/feature-1-photo.jpg"
+              statsSrc="/feature-1-stats.png"
               caption="Mark Wahlberg's $37M Florida mansion"
               stats="1.37M views · 53K likes · 16K shares · 272 days of watch time"
             />
             <FeatureTile
-              src="/feature-2.png"
+              photoSrc="/feature-2-photo.jpg"
+              statsSrc="/feature-2-stats.png"
               caption="Arizona estate with everything"
               stats="1.22M views · 83K interactions · 27.6K shares · 5.9K saves"
             />
             <FeatureTile
-              src="/feature-3.png"
+              photoSrc="/feature-3-photo.jpg"
+              statsSrc="/feature-3-stats.png"
               caption="$100M in the Hamptons"
               stats="272K views · 13.5K interactions · 1.1K shares"
             />

@@ -1,49 +1,108 @@
 "use client";
 
 import { useState } from "react";
+import Lightbox from "yet-another-react-lightbox";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import "yet-another-react-lightbox/styles.css";
 
 /**
- * A 'Recent features' tile. Tries to load /{src}; if the file 404s or any
- * load error, renders a dark 'Coming soon' placeholder so the page doesn't
- * show a broken image icon while Jay uploads the real screenshots.
+ * A 'Recent features' tile. Photo is the primary visual. A small 'View stats'
+ * chip in the bottom-right corner opens a lightbox with the Instagram Insights
+ * screenshot — pinch-to-zoom works on mobile for reading the numbers.
+ *
+ * The chip shows on hover (desktop) and is always visible on touch. Photo is
+ * decorative — only the chip opens the lightbox.
+ *
+ * Photo also degrades to a dark 'Coming soon' block if the file 404s so the
+ * layout never shows a broken-image icon.
  */
 export function FeatureTile({
-  src,
+  photoSrc,
+  statsSrc,
   caption,
   stats
 }: {
-  src: string;
+  photoSrc: string;
+  statsSrc: string;
   caption: string;
   stats: string;
 }) {
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   return (
     <figure className="space-y-3">
-      <div className="relative aspect-square bg-ink overflow-hidden">
-        {loadFailed ? (
+      <div className="group relative aspect-square bg-ink overflow-hidden">
+        {photoFailed ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-xs uppercase tracking-widest text-paper/50">Coming soon</span>
           </div>
         ) : (
-          // Plain <img> — we need the onError hook, and these screenshots come
-          // from /public so next/image optimisation isn't worth the friction.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={src}
-            alt={caption}
-            onError={() => setLoadFailed(true)}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          <>
+            {/* Photo is decorative — no click handler. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoSrc}
+              alt={caption}
+              onError={() => setPhotoFailed(true)}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* View-stats chip. Always visible on mobile (no hover exists on
+                touch); fades in on hover on md+ so the photo reads clean at rest. */}
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              aria-label={`View Instagram Insights for ${caption}`}
+              className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 bg-black/75 text-white text-[11px] uppercase tracking-widest px-2.5 py-1.5 hover:bg-accent hover:text-ink transition-all md:opacity-0 md:group-hover:opacity-100"
+            >
+              <BarChartIcon />
+              <span>View stats</span>
+            </button>
+          </>
         )}
       </div>
       <figcaption>
-        {/* Title is the context; stats are the persuader. Flip the typographic
-            hierarchy so the numbers hit the eye first: regular-weight muted
-            title above a bolder, smaller, ink-coloured stats line. */}
+        {/* Title is context; stats are the persuader. Muted regular-weight title
+            above a bolder, smaller, ink stats line — flipped hierarchy. */}
         <p className="text-base font-normal text-black/70">{caption}</p>
         <p className="text-sm font-semibold text-ink mt-1">{stats}</p>
       </figcaption>
+
+      <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={[{ src: statsSrc, alt: `Instagram Insights — ${caption}` }]}
+        plugins={[Zoom]}
+        carousel={{ finite: true }}
+        controller={{ closeOnBackdropClick: true, closeOnPullDown: true }}
+        zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
+        styles={{ container: { backgroundColor: "rgba(0, 0, 0, 0.95)" } }}
+        render={{
+          // Single-slide: hide the prev/next arrows since they do nothing.
+          buttonPrev: () => null,
+          buttonNext: () => null
+        }}
+      />
     </figure>
+  );
+}
+
+function BarChartIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="12" y1="20" x2="12" y2="10" />
+      <line x1="18" y1="20" x2="18" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
   );
 }
