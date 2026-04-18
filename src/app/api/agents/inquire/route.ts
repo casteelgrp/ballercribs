@@ -59,10 +59,20 @@ export async function POST(req: Request) {
       message
     });
 
-    // Fire-and-forget — don't block the response if email fails.
-    sendAgentInquiryNotification(inquiry).catch((err) =>
-      console.error("Agent inquiry email failed:", err)
-    );
+    // Awaited, not fire-and-forget. Fire-and-forget was probably the bug:
+    // on Vercel serverless the function can be terminated the moment the
+    // response is sent, so the async Resend HTTP call (and its logs) never
+    // complete. Adds ~200-500ms to the form response but guarantees the
+    // email attempt finishes and the logs flush.
+    console.log("[agent-route] about to send notification", { inquiryId: inquiry.id });
+    try {
+      await sendAgentInquiryNotification(inquiry);
+      console.log("[agent-route] notification call completed", { inquiryId: inquiry.id });
+    } catch (err) {
+      // sendAgentInquiryNotification catches its own errors, so this is
+      // belt-and-braces for anything that escapes.
+      console.error("[agent-route] notification threw unexpectedly", err);
+    }
 
     return NextResponse.json({ ok: true, id: inquiry.id });
   } catch (err) {

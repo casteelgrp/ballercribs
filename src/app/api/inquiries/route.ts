@@ -50,10 +50,16 @@ export async function POST(req: Request) {
 
     const listing = listing_id ? await getListingByIdAdmin(listing_id) : null;
 
-    // Fire-and-forget email - don't block response if it fails
-    sendInquiryNotification(inquiry, listing).catch((err) =>
-      console.error("Email notification failed:", err)
-    );
+    // Awaited (was fire-and-forget, but serverless can tear the fn down
+    // before the Resend HTTP call finishes and its logs flush). Small
+    // latency cost, guaranteed send + full log trail.
+    console.log("[buyer-route] about to send notification", { inquiryId: inquiry.id });
+    try {
+      await sendInquiryNotification(inquiry, listing);
+      console.log("[buyer-route] notification call completed", { inquiryId: inquiry.id });
+    } catch (err) {
+      console.error("[buyer-route] notification threw unexpectedly", err);
+    }
 
     return NextResponse.json({ ok: true, id: inquiry.id });
   } catch (err) {

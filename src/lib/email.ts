@@ -1,16 +1,27 @@
 import { Resend } from "resend";
 import type { AgentInquiry, Inquiry, Listing } from "./types";
 
+// Unwrap Resend SDK's { data, error } response shape.
+type ResendResult = { data?: { id?: string } | null; error?: { message?: string; name?: string } | null };
+
 export async function sendInquiryNotification(
   inquiry: Inquiry,
   listing: Listing | null
 ) {
+  console.log("[buyer-email] function entered", { inquiryId: inquiry.id });
+
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.INQUIRY_NOTIFICATION_EMAIL;
   const from = process.env.INQUIRY_FROM_EMAIL || "onboarding@resend.dev";
 
+  console.log("[buyer-email] env check", {
+    hasApiKey: Boolean(apiKey),
+    from,
+    to
+  });
+
   if (!apiKey || !to) {
-    console.warn("Resend not configured - skipping email notification.");
+    console.warn("[buyer-email] Resend not configured — skipping email notification.");
     return;
   }
 
@@ -40,19 +51,43 @@ export async function sendInquiryNotification(
   `;
 
   try {
-    await resend.emails.send({ from, to, subject, html, replyTo: inquiry.email });
+    console.log("[buyer-email] calling resend", { to, from, subject });
+    const result = (await resend.emails.send({
+      from,
+      to,
+      subject,
+      html,
+      replyTo: inquiry.email
+    })) as ResendResult;
+    console.log("[buyer-email] resend returned", {
+      error: result?.error ?? null,
+      id: result?.data?.id ?? null
+    });
+    if (result?.error) {
+      console.error("[buyer-email] Resend returned error object", result.error);
+      return;
+    }
+    console.log("[buyer-email] email sent", { id: inquiry.id, to });
   } catch (err) {
-    console.error("Failed to send inquiry email:", err);
+    console.error("[buyer-email] threw", err);
   }
 }
 
 export async function sendAgentInquiryNotification(inquiry: AgentInquiry) {
+  console.log("[agent-email] function entered", { inquiryId: inquiry.id });
+
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.INQUIRY_NOTIFICATION_EMAIL;
   const from = process.env.INQUIRY_FROM_EMAIL || "onboarding@resend.dev";
 
+  console.log("[agent-email] env check", {
+    hasApiKey: Boolean(apiKey),
+    from,
+    to
+  });
+
   if (!apiKey || !to) {
-    console.warn("Resend not configured — skipping agent-inquiry email.");
+    console.warn("[agent-email] Resend not configured — skipping agent-inquiry email.");
     return;
   }
 
@@ -101,9 +136,25 @@ export async function sendAgentInquiryNotification(inquiry: AgentInquiry) {
   `;
 
   try {
-    await resend.emails.send({ from, to, subject, html, replyTo: inquiry.email });
+    console.log("[agent-email] calling resend", { to, from, subject });
+    const result = (await resend.emails.send({
+      from,
+      to,
+      subject,
+      html,
+      replyTo: inquiry.email
+    })) as ResendResult;
+    console.log("[agent-email] resend returned", {
+      error: result?.error ?? null,
+      id: result?.data?.id ?? null
+    });
+    if (result?.error) {
+      console.error("[agent-email] Resend returned error object", result.error);
+      return;
+    }
+    console.log("[agent-email] email sent", { id: inquiry.id, to });
   } catch (err) {
-    console.error("Failed to send agent-inquiry email:", err);
+    console.error("[agent-email] threw", err);
   }
 }
 
