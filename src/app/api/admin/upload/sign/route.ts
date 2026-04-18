@@ -23,29 +23,58 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  console.log("[BLOB_UPLOAD_DEBUG] incoming body type:", body?.type);
+  console.log("[BLOB_UPLOAD_DEBUG] BLOB_READ_WRITE_TOKEN set:", Boolean(process.env.BLOB_READ_WRITE_TOKEN));
+  console.log("[BLOB_UPLOAD_DEBUG] VERCEL_ENV:", process.env.VERCEL_ENV);
+
   try {
     const jsonResponse = await handleUpload({
       body,
       request,
-      // Auth check happens here. We deliberately omit onUploadCompleted
-      // because we do the sharp processing in a separate /process route
-      // the client calls explicitly — a webhook callback would force Blob
-      // to wait on a no-op handler and adds a hang surface for nothing.
-      onBeforeGenerateToken: async () => {
+      onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
         await requireUser();
-        return {
+        const opts = {
           allowedContentTypes: ALLOWED_MIME,
           maximumSizeInBytes: MAX_BYTES,
           addRandomSuffix: true
         };
+        console.log("[BLOB_UPLOAD_DEBUG] generating token", {
+          pathname,
+          clientPayload,
+          multipart,
+          tokenOptions: opts
+        });
+        return opts;
       }
+    });
+    console.log("[BLOB_UPLOAD_DEBUG] handleUpload returned", {
+      type: (jsonResponse as { type: string }).type,
+      // Don't log the full token. Just length so we can confirm it generated.
+      tokenLength:
+        "clientToken" in jsonResponse ? (jsonResponse.clientToken as string).length : null
     });
     return NextResponse.json(jsonResponse);
   } catch (err) {
     if (err instanceof Response) return err;
-    console.error("upload/sign failed:", err);
+    // Capture EVERYTHING from the error so we can see whatever Vercel Blob is upset about.
+    const e = err as Error & Record<string, unknown>;
+    console.error("[BLOB_UPLOAD_ERROR] handleUpload threw", {
+      message: e?.message,
+      name: e?.name,
+      stack: e?.stack,
+      // Vercel Blob's BlobError subclasses often hang extra fields off the error object.
+      cause: e?.cause,
+      code: e?.code,
+      status: e?.status,
+      response: e?.response,
+      body: e?.body,
+      // Spread anything else attached to the error.
+      raw: JSON.parse(
+        JSON.stringify(e, Object.getOwnPropertyNames(e))
+      )
+    });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Token generation failed" },
+      { error: e?.message || "Token generation failed" },
       { status: 400 }
     );
   }
