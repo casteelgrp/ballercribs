@@ -4,6 +4,7 @@ import { requirePageUser } from "@/lib/auth";
 import {
   countListingsByStatus,
   getAdminListingsWithCreators,
+  getRecentAgentInquiries,
   getRecentInquiries,
   type AdminListingFilter
 } from "@/lib/db";
@@ -94,7 +95,7 @@ export default async function AdminPage({
   // Scope queries: owners see everyone's; users see only their own.
   const scopeUserId = isOwner(user) ? undefined : user.id;
 
-  const [listings, counts, inquiries] = await Promise.all([
+  const [listings, counts, inquiries, agentInquiries] = await Promise.all([
     getAdminListingsWithCreators(currentTab, scopeUserId).catch(() => []),
     countListingsByStatus(scopeUserId).catch(
       (): Record<ListingStatus, number> => ({
@@ -105,7 +106,8 @@ export default async function AdminPage({
       })
     ),
     // Inquiries are owner-only — they go to a single notification email, not per-creator.
-    isOwner(user) ? getRecentInquiries(50).catch(() => []) : Promise.resolve([])
+    isOwner(user) ? getRecentInquiries(50).catch(() => []) : Promise.resolve([]),
+    isOwner(user) ? getRecentAgentInquiries(50).catch(() => []) : Promise.resolve([])
   ]);
 
   const allCount = counts.draft + counts.review + counts.published; // 'All' hides archived
@@ -288,6 +290,66 @@ export default async function AdminPage({
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Agent inquiries (from /agents) — owner only, read-only list for v1. */}
+      {isOwner(user) && (
+        <section className="mt-16">
+          <h2 className="font-display text-2xl mb-6">
+            Agent inquiries ({agentInquiries.length})
+          </h2>
+          {agentInquiries.length === 0 ? (
+            <p className="text-black/50 text-sm">No agent inquiries yet.</p>
+          ) : (
+            <div className="border border-black/10 bg-white divide-y divide-black/10">
+              {agentInquiries.map((a) => {
+                const typeBadge =
+                  a.inquiry_type === "featured"
+                    ? "bg-accent/20 text-accent"
+                    : a.inquiry_type === "referral"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-black/10 text-black/70";
+                return (
+                  <div key={a.id} className="p-4">
+                    <div className="flex items-baseline justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium">{a.name}</p>
+                        <span
+                          className={
+                            "text-[10px] uppercase tracking-widest px-1.5 py-0.5 " + typeBadge
+                          }
+                        >
+                          {a.inquiry_type}
+                        </span>
+                      </div>
+                      <p className="text-xs text-black/50 shrink-0">
+                        {new Date(a.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <p className="text-sm mt-1">
+                      <a href={`mailto:${a.email}`} className="text-accent hover:underline">
+                        {a.email}
+                      </a>
+                      {a.phone && <span className="text-black/60 ml-2">· {a.phone}</span>}
+                    </p>
+                    {(a.brokerage || a.city_state) && (
+                      <p className="text-xs text-black/60 mt-1">
+                        {a.brokerage}
+                        {a.brokerage && a.city_state ? " · " : ""}
+                        {a.city_state}
+                      </p>
+                    )}
+                    {a.message && (
+                      <p className="text-sm text-black/80 mt-3 whitespace-pre-wrap">
+                        {a.message}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
