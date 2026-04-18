@@ -1,18 +1,62 @@
 import Link from "next/link";
 import { requirePageUser } from "@/lib/auth";
-import { getAdminListingsWithCreators, getRecentInquiries } from "@/lib/db";
-import { NewListingForm } from "@/components/NewListingForm";
+import {
+  countListingsByStatus,
+  getAdminListingsWithCreators,
+  getRecentInquiries,
+  type AdminListingFilter
+} from "@/lib/db";
+import { ListingForm } from "@/components/ListingForm";
+import { ListingActions } from "@/components/ListingActions";
+import { defaultAdminTab } from "@/lib/permissions";
 import { formatPrice } from "@/lib/format";
+import type { ListingStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
-  const user = await requirePageUser();
+const TAB_ORDER: AdminListingFilter[] = ["all", "draft", "review", "published", "archived"];
+const TAB_LABEL: Record<AdminListingFilter, string> = {
+  all: "All",
+  draft: "Draft",
+  review: "Review",
+  published: "Published",
+  archived: "Archived"
+};
 
-  const [listings, inquiries] = await Promise.all([
-    getAdminListingsWithCreators().catch(() => []),
+const STATUS_BADGE: Record<ListingStatus, string> = {
+  draft: "bg-black/10 text-black/70",
+  review: "bg-amber-100 text-amber-800",
+  published: "bg-green-100 text-green-800",
+  archived: "bg-black/5 text-black/40"
+};
+
+export default async function AdminPage({
+  searchParams
+}: {
+  searchParams: Promise<{ status?: string; tab?: string }>;
+}) {
+  const user = await requirePageUser();
+  const sp = await searchParams;
+
+  const requested = (sp.status as AdminListingFilter | undefined) ?? defaultAdminTab(user);
+  const currentTab: AdminListingFilter = TAB_ORDER.includes(requested as AdminListingFilter)
+    ? (requested as AdminListingFilter)
+    : "all";
+
+  const [listings, counts, inquiries] = await Promise.all([
+    getAdminListingsWithCreators(currentTab).catch(() => []),
+    countListingsByStatus().catch(
+      (): Record<ListingStatus, number> => ({
+        draft: 0,
+        review: 0,
+        published: 0,
+        archived: 0
+      })
+    ),
     getRecentInquiries(50).catch(() => [])
   ]);
+
+  const allCount = counts.draft + counts.review + counts.published; // 'All' hides archived
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
@@ -44,40 +88,84 @@ export default async function AdminPage() {
       <section className="mb-16">
         <h2 className="font-display text-2xl mb-1">New listing</h2>
         <p className="text-sm text-black/60 mb-6">
-          Paste image URLs from any host — Vercel Blob, Instagram, agent sites, etc.
+          {user.role === "owner"
+            ? "Save as draft, submit for review, or publish directly."
+            : "Save as draft to keep editing, or submit for review when it's ready."}
         </p>
         <div className="border border-black/10 bg-white p-6">
-          <NewListingForm />
+          <ListingForm currentUser={user} />
         </div>
       </section>
 
-      {/* Existing listings */}
+      {/* Listings with status tabs */}
       <section className="mb-16">
-        <h2 className="font-display text-2xl mb-6">Listings ({listings.length})</h2>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <h2 className="font-display text-2xl">Listings</h2>
+        </div>
+        <div className="flex gap-1 border-b border-black/10 mb-6 overflow-x-auto">
+          {TAB_ORDER.map((tab) => {
+            const count =
+              tab === "all" ? allCount : counts[tab as ListingStatus];
+            const active = tab === currentTab;
+            return (
+              <Link
+                key={tab}
+                href={`/admin?status=${tab}`}
+                className={
+                  "px-3 py-2 text-sm uppercase tracking-widest border-b-2 -mb-px transition-colors whitespace-nowrap " +
+                  (active
+                    ? "border-accent text-ink"
+                    : "border-transparent text-black/50 hover:text-ink")
+                }
+              >
+                {TAB_LABEL[tab]} <span className="text-black/40">({count})</span>
+              </Link>
+            );
+          })}
+        </div>
+
         {listings.length === 0 ? (
-          <p className="text-black/50 text-sm">No listings yet.</p>
+          <p className="text-black/50 text-sm">Nothing here.</p>
         ) : (
           <div className="border border-black/10 bg-white divide-y divide-black/10">
             {listings.map((l) => (
-              <div key={l.id} className="flex items-center gap-4 p-4">
+              <div key={l.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/listings/${l.slug}`}
-                    className="font-medium hover:text-accent truncate block"
-                  >
-                    {l.title}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                      href={`/listings/${l.slug}`}
+                      className="font-medium hover:text-accent truncate"
+                    >
+                      {l.title}
+                    </Link>
+                    <span
+                      className={
+                        "text-[10px] uppercase tracking-widest px-1.5 py-0.5 " +
+                        STATUS_BADGE[l.status]
+                      }
+                    >
+                      {l.status}
+                    </span>
                     {l.featured && (
-                      <span className="ml-2 text-[10px] uppercase tracking-widest bg-accent text-ink px-1.5 py-0.5">
+                      <span className="text-[10px] uppercase tracking-widest bg-accent text-ink px-1.5 py-0.5">
                         Featured
                       </span>
                     )}
-                  </Link>
-                  <p className="text-xs text-black/60">{l.location}</p>
-                  <p className="text-xs text-black/40 mt-1">
+                  </div>
+                  <p className="text-xs text-black/60 mt-0.5">
+                    {l.location} · {formatPrice(l.price_usd)}
+                  </p>
+                  <p className="text-xs text-black/40 mt-0.5">
                     Created by {l.creator_name ?? "—"}
+                    {l.status === "review" && l.submitted_at && (
+                      <> · submitted {new Date(l.submitted_at).toLocaleString()}</>
+                    )}
+                    {l.status === "published" && l.published_at && (
+                      <> · published {new Date(l.published_at).toLocaleString()}</>
+                    )}
                   </p>
                 </div>
-                <div className="text-sm text-accent font-medium">{formatPrice(l.price_usd)}</div>
+                <ListingActions user={user} listing={l} />
               </div>
             ))}
           </div>
