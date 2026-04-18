@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { deleteHeroPhoto, setHeroPhotoActive } from "@/lib/db";
 import { requireOwner } from "@/lib/auth";
 
@@ -28,6 +29,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   await setHeroPhotoActive(id, body.active);
+  revalidatePath("/");
   return NextResponse.json({ ok: true });
 }
 
@@ -43,5 +45,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Invalid id." }, { status: 400 });
   }
   await deleteHeroPhoto(id);
+  revalidatePath("/");
   return NextResponse.json({ ok: true });
 }

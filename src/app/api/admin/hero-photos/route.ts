@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createHeroPhoto, listAllHeroPhotos } from "@/lib/db";
 import { requireOwner } from "@/lib/auth";
 
@@ -36,5 +37,8 @@ export async function POST(req: Request) {
     typeof body.caption === "string" && body.caption.trim() ? body.caption.trim() : null;
 
   const photo = await createHeroPhoto(url, caption);
+  // Bust the homepage cache so the new photo appears on next request,
+  // not after the next 60s revalidate window.
+  revalidatePath("/");
   return NextResponse.json({ ok: true, photo });
 }

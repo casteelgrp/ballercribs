@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { setHeroPhotoOrders } from "@/lib/db";
 import { requireOwner } from "@/lib/auth";
 
@@ -37,5 +38,6 @@ export async function PATCH(req: Request) {
   }
 
   await setHeroPhotoOrders(cleaned);
+  revalidatePath("/");
   return NextResponse.json({ ok: true, updated: cleaned.length });
 }
