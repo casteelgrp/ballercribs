@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { availableTransitions } from "@/lib/permissions";
+import { availableTransitions, isOwner } from "@/lib/permissions";
 import type { Listing, User } from "@/lib/types";
 
 type Action =
@@ -22,6 +22,14 @@ export function ListingActions({ user, listing }: { user: User; listing: Listing
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const t = availableTransitions(user, listing);
+
+  // Bug 4: when an OWNER is reviewing someone ELSE's submission, force them through
+  // the edit page (full editorial context) — no shortcut approve from the dashboard.
+  // Owners reviewing their OWN submissions can still approve directly.
+  const isReviewingExternalSubmission =
+    listing.status === "review" &&
+    isOwner(user) &&
+    listing.created_by_user_id !== user.id;
 
   async function transition(action: Action) {
     const confirmMsg = CONFIRMS[action];
@@ -64,6 +72,16 @@ export function ListingActions({ user, listing }: { user: User; listing: Listing
 
   return (
     <div className="flex flex-wrap gap-1.5">
+      {/* External submissions: route through edit page for QC. */}
+      {isReviewingExternalSubmission && (
+        <a
+          href={`/admin/listings/${listing.id}/edit`}
+          className={btn + " bg-accent text-ink border-accent hover:bg-ink hover:text-paper inline-block"}
+        >
+          Review →
+        </a>
+      )}
+
       {t.edit && (
         <a
           href={`/admin/listings/${listing.id}/edit`}
@@ -82,6 +100,7 @@ export function ListingActions({ user, listing }: { user: User; listing: Listing
           Submit for review
         </button>
       )}
+      {/* Direct publish: only when not in review (review goes through ReviewActions on edit page). */}
       {t.publishDirect && listing.status !== "review" && (
         <button
           type="button"
@@ -92,7 +111,8 @@ export function ListingActions({ user, listing }: { user: User; listing: Listing
           Publish now
         </button>
       )}
-      {t.approve && (
+      {/* Approve from dashboard: only when reviewing OWN submission. External ones use Review→. */}
+      {t.approve && !isReviewingExternalSubmission && (
         <button
           type="button"
           disabled={busy}
@@ -102,7 +122,8 @@ export function ListingActions({ user, listing }: { user: User; listing: Listing
           Approve & publish
         </button>
       )}
-      {t.sendBack && (
+      {/* Send back from dashboard: same — only for own submissions. External: use edit page. */}
+      {t.sendBack && !isReviewingExternalSubmission && (
         <button
           type="button"
           disabled={busy}

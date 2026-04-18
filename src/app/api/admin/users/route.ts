@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createUser, getUserByEmailWithHash, listUsers } from "@/lib/db";
 import { hashPassword, requireOwner } from "@/lib/auth";
+import { sendInviteEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -15,8 +16,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  let inviter;
   try {
-    await requireOwner();
+    inviter = await requireOwner();
   } catch (res) {
     return res as Response;
   }
@@ -60,5 +62,27 @@ export async function POST(req: Request) {
     must_change_password: true
   });
 
-  return NextResponse.json({ ok: true, id: newUser.id });
+  // Best-effort invite email. We always report success on user-creation; email
+  // result is communicated separately so the UI can show "share manually" fallback.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
+  const loginUrl = `${siteUrl.replace(/\/$/, "")}/admin/login`;
+  const emailResult = await sendInviteEmail({
+    toEmail: email,
+    toName: name,
+    tempPassword,
+    inviterEmail: inviter.email,
+    inviterName: inviter.name,
+    loginUrl
+  });
+
+  return NextResponse.json({
+    ok: true,
+    id: newUser.id,
+    email_sent: emailResult.ok,
+    email_error: emailResult.ok ? null : emailResult.error ?? "Unknown error",
+    // We send back temp password ONLY if email failed, so the owner can share manually.
+    // (Email succeeded → no need to display, reduce on-screen exposure.)
+    fallback_temp_password: emailResult.ok ? null : tempPassword
+  });
 }

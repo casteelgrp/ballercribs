@@ -113,43 +113,84 @@ export async function getListingByIdAdmin(id: number): Promise<Listing | null> {
 
 export type AdminListingFilter = ListingStatus | "all";
 
+/**
+ * Pass `creatorUserId` to scope to one user's listings (regular-user dashboard).
+ * Pass undefined to see everyone's (owner dashboard).
+ */
 export async function getAdminListingsWithCreators(
-  filter: AdminListingFilter = "all"
+  filter: AdminListingFilter = "all",
+  creatorUserId?: number
 ): Promise<(Listing & { creator_name: string | null })[]> {
   // 'all' tab hides archived (per product spec — archived is the out-of-sight state).
+  // Four query variants because @vercel/postgres tagged template can't compose dynamic predicates.
   const { rows } =
     filter === "all"
-      ? await sql`
-          SELECT l.*, u.name AS creator_name
-          FROM listings l
-          LEFT JOIN users u ON u.id = l.created_by_user_id
-          WHERE l.status <> 'archived'
-          ORDER BY
-            CASE l.status WHEN 'review' THEN 0 WHEN 'draft' THEN 1 WHEN 'published' THEN 2 ELSE 3 END,
-            l.featured DESC,
-            COALESCE(l.submitted_at, l.updated_at) DESC;
-        `
-      : await sql`
-          SELECT l.*, u.name AS creator_name
-          FROM listings l
-          LEFT JOIN users u ON u.id = l.created_by_user_id
-          WHERE l.status = ${filter}
-          ORDER BY
-            CASE l.status
-              WHEN 'review' THEN COALESCE(l.submitted_at, l.updated_at)
-              WHEN 'published' THEN COALESCE(l.published_at, l.updated_at)
-              ELSE l.updated_at
-            END DESC;
-        `;
+      ? creatorUserId !== undefined
+        ? await sql`
+            SELECT l.*, u.name AS creator_name
+            FROM listings l
+            LEFT JOIN users u ON u.id = l.created_by_user_id
+            WHERE l.status <> 'archived' AND l.created_by_user_id = ${creatorUserId}
+            ORDER BY
+              CASE l.status WHEN 'review' THEN 0 WHEN 'draft' THEN 1 WHEN 'published' THEN 2 ELSE 3 END,
+              l.featured DESC,
+              COALESCE(l.submitted_at, l.updated_at) DESC;
+          `
+        : await sql`
+            SELECT l.*, u.name AS creator_name
+            FROM listings l
+            LEFT JOIN users u ON u.id = l.created_by_user_id
+            WHERE l.status <> 'archived'
+            ORDER BY
+              CASE l.status WHEN 'review' THEN 0 WHEN 'draft' THEN 1 WHEN 'published' THEN 2 ELSE 3 END,
+              l.featured DESC,
+              COALESCE(l.submitted_at, l.updated_at) DESC;
+          `
+      : creatorUserId !== undefined
+        ? await sql`
+            SELECT l.*, u.name AS creator_name
+            FROM listings l
+            LEFT JOIN users u ON u.id = l.created_by_user_id
+            WHERE l.status = ${filter} AND l.created_by_user_id = ${creatorUserId}
+            ORDER BY
+              CASE l.status
+                WHEN 'review' THEN COALESCE(l.submitted_at, l.updated_at)
+                WHEN 'published' THEN COALESCE(l.published_at, l.updated_at)
+                ELSE l.updated_at
+              END DESC;
+          `
+        : await sql`
+            SELECT l.*, u.name AS creator_name
+            FROM listings l
+            LEFT JOIN users u ON u.id = l.created_by_user_id
+            WHERE l.status = ${filter}
+            ORDER BY
+              CASE l.status
+                WHEN 'review' THEN COALESCE(l.submitted_at, l.updated_at)
+                WHEN 'published' THEN COALESCE(l.published_at, l.updated_at)
+                ELSE l.updated_at
+              END DESC;
+          `;
   return rows.map((r: any) => ({ ...rowToListing(r), creator_name: r.creator_name ?? null }));
 }
 
-export async function countListingsByStatus(): Promise<Record<ListingStatus, number>> {
-  const { rows } = await sql`
-    SELECT status, COUNT(*)::int AS n
-    FROM listings
-    GROUP BY status;
-  `;
+/** Counts by status, optionally scoped to one creator. */
+export async function countListingsByStatus(
+  creatorUserId?: number
+): Promise<Record<ListingStatus, number>> {
+  const { rows } =
+    creatorUserId !== undefined
+      ? await sql`
+          SELECT status, COUNT(*)::int AS n
+          FROM listings
+          WHERE created_by_user_id = ${creatorUserId}
+          GROUP BY status;
+        `
+      : await sql`
+          SELECT status, COUNT(*)::int AS n
+          FROM listings
+          GROUP BY status;
+        `;
   const out: Record<ListingStatus, number> = {
     draft: 0,
     review: 0,

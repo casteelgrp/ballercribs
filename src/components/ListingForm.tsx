@@ -11,9 +11,11 @@ type Props = {
   currentUser: User;
   /** When provided, the form edits this listing via PATCH. Otherwise it creates one via POST. */
   existing?: Listing;
+  /** Render all fields disabled, hide save buttons. Used when a viewer can see but not edit. */
+  readOnly?: boolean;
 };
 
-export function ListingForm({ currentUser, existing }: Props) {
+export function ListingForm({ currentUser, existing, readOnly = false }: Props) {
   const router = useRouter();
   const isEdit = Boolean(existing);
   const isOwner = currentUser.role === "owner";
@@ -99,7 +101,13 @@ export function ListingForm({ currentUser, existing }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to create listing.");
       }
-      router.push("/admin");
+      const toast =
+        targetStatus === "review"
+          ? "submitted"
+          : targetStatus === "published"
+            ? "published"
+            : "draft_saved";
+      router.push(`/admin?toast=${toast}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -128,7 +136,7 @@ export function ListingForm({ currentUser, existing }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to update listing.");
       }
-      router.push("/admin");
+      router.push("/admin?toast=saved");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -138,14 +146,12 @@ export function ListingForm({ currentUser, existing }: Props) {
   }
 
   const inputClass =
-    "w-full border border-black/20 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none";
+    "w-full border border-black/20 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none disabled:bg-black/5 disabled:text-black/60 disabled:cursor-not-allowed";
   const labelClass = "block text-xs uppercase tracking-widest text-black/60 mb-1";
+  const disabled = readOnly;
 
   return (
-    <form
-      onSubmit={(e) => e.preventDefault()}
-      className="space-y-6"
-    >
+    <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
           <label className={labelClass}>Title *</label>
@@ -153,6 +159,7 @@ export function ListingForm({ currentUser, existing }: Props) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
+            disabled={disabled}
             className={inputClass}
             placeholder="Bel Air Modern Estate"
           />
@@ -164,7 +171,7 @@ export function ListingForm({ currentUser, existing }: Props) {
             onChange={(e) => setSlug(e.target.value)}
             className={inputClass}
             placeholder="bel-air-modern-estate"
-            disabled={isEdit}
+            disabled={disabled || isEdit}
             title={isEdit ? "Slug is fixed after creation" : undefined}
           />
         </div>
@@ -174,6 +181,7 @@ export function ListingForm({ currentUser, existing }: Props) {
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             required
+            disabled={disabled}
             className={inputClass}
             placeholder="Bel Air, CA"
           />
@@ -186,6 +194,7 @@ export function ListingForm({ currentUser, existing }: Props) {
             onChange={(e) => setPriceUsd(e.target.value)}
             required
             min="0"
+            disabled={disabled}
             className={inputClass}
             placeholder="25000000"
           />
@@ -197,6 +206,7 @@ export function ListingForm({ currentUser, existing }: Props) {
             value={bedrooms}
             onChange={(e) => setBedrooms(e.target.value)}
             min="0"
+            disabled={disabled}
             className={inputClass}
           />
         </div>
@@ -208,6 +218,7 @@ export function ListingForm({ currentUser, existing }: Props) {
             onChange={(e) => setBathrooms(e.target.value)}
             min="0"
             step="0.5"
+            disabled={disabled}
             className={inputClass}
           />
         </div>
@@ -218,6 +229,7 @@ export function ListingForm({ currentUser, existing }: Props) {
             value={squareFeet}
             onChange={(e) => setSquareFeet(e.target.value)}
             min="0"
+            disabled={disabled}
             className={inputClass}
           />
         </div>
@@ -230,22 +242,35 @@ export function ListingForm({ currentUser, existing }: Props) {
           onChange={(e) => setDescription(e.target.value)}
           required
           rows={5}
+          disabled={disabled}
           className={inputClass}
           placeholder="Separate paragraphs with blank lines..."
         />
       </div>
 
-      <ImageUpload label="Hero image *" value={heroUrl} onChange={setHeroUrl} />
+      {readOnly ? (
+        <ReadOnlyImage label="Hero image" url={heroUrl} />
+      ) : (
+        <ImageUpload label="Hero image *" value={heroUrl} onChange={setHeroUrl} />
+      )}
 
-      <GalleryEditor
-        label="Gallery"
-        gallery={gallery}
-        onGalleryChange={setGallery}
-        heroUrl={heroUrl}
-        onHeroChange={setHeroUrl}
-        socialCoverUrl={socialCoverUrl}
-        onSocialCoverChange={setSocialCoverUrl}
-      />
+      {readOnly ? (
+        <ReadOnlyGallery
+          gallery={gallery}
+          heroUrl={heroUrl}
+          socialCoverUrl={socialCoverUrl}
+        />
+      ) : (
+        <GalleryEditor
+          label="Gallery"
+          gallery={gallery}
+          onGalleryChange={setGallery}
+          heroUrl={heroUrl}
+          onHeroChange={setHeroUrl}
+          socialCoverUrl={socialCoverUrl}
+          onSocialCoverChange={setSocialCoverUrl}
+        />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -253,6 +278,7 @@ export function ListingForm({ currentUser, existing }: Props) {
           <input
             value={agentName}
             onChange={(e) => setAgentName(e.target.value)}
+            disabled={disabled}
             className={inputClass}
           />
         </div>
@@ -261,16 +287,23 @@ export function ListingForm({ currentUser, existing }: Props) {
           <input
             value={agentBrokerage}
             onChange={(e) => setAgentBrokerage(e.target.value)}
+            disabled={disabled}
             className={inputClass}
           />
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
+      <label
+        className={
+          "flex items-center gap-2 text-sm " +
+          (disabled ? "text-black/40 cursor-not-allowed" : "cursor-pointer")
+        }
+      >
         <input
           type="checkbox"
           checked={featured}
           onChange={(e) => setFeatured(e.target.checked)}
+          disabled={disabled}
           className="accent-accent"
         />
         <span>Featured</span>
@@ -278,48 +311,113 @@ export function ListingForm({ currentUser, existing }: Props) {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {/* Action buttons. Different surface area depending on create vs edit and role. */}
-      {isEdit ? (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={submitEdit}
-            className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50"
-          >
-            {submitting ? "Saving…" : "Save changes"}
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => submitCreate("draft")}
-            className="border border-black/30 px-6 py-3 text-sm uppercase tracking-widest hover:border-accent hover:text-accent disabled:opacity-50"
-          >
-            Save as draft
-          </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => submitCreate("review")}
-            className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50"
-          >
-            {isOwner ? "Submit for review" : "Submit for review"}
-          </button>
-          {isOwner && (
+      {!readOnly &&
+        (isEdit ? (
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={submitting}
-              onClick={() => submitCreate("published")}
-              className="bg-accent text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors disabled:opacity-50"
+              onClick={submitEdit}
+              className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50"
             >
-              Publish now
+              {submitting ? "Saving…" : "Save changes"}
             </button>
-          )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => submitCreate("draft")}
+              className="border border-black/30 px-6 py-3 text-sm uppercase tracking-widest hover:border-accent hover:text-accent disabled:opacity-50"
+            >
+              Save as draft
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => submitCreate("review")}
+              className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50"
+            >
+              Submit for review
+            </button>
+            {isOwner && (
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => submitCreate("published")}
+                className="bg-accent text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors disabled:opacity-50"
+              >
+                Publish now
+              </button>
+            )}
+          </div>
+        ))}
+    </form>
+  );
+}
+
+// Lightweight read-only renderers — avoid loading the upload SDK / dnd-kit when we don't need them.
+
+function ReadOnlyImage({ label, url }: { label: string; url: string }) {
+  return (
+    <div>
+      <label className="block text-xs uppercase tracking-widest text-black/60 mb-1">{label}</label>
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt=""
+          className="max-w-md aspect-[4/3] object-cover border border-black/10 bg-black/5"
+        />
+      ) : (
+        <p className="text-sm text-black/40">No image</p>
+      )}
+    </div>
+  );
+}
+
+function ReadOnlyGallery({
+  gallery,
+  heroUrl,
+  socialCoverUrl
+}: {
+  gallery: GalleryItem[];
+  heroUrl: string;
+  socialCoverUrl: string | null;
+}) {
+  return (
+    <div>
+      <label className="block text-xs uppercase tracking-widest text-black/60 mb-2">Gallery</label>
+      {gallery.length === 0 ? (
+        <p className="text-sm text-black/40">No gallery images</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {gallery.map((item) => (
+            <figure key={item.url} className="border border-black/10 bg-white">
+              <div className="relative aspect-square overflow-hidden bg-black/5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={item.url} alt={item.caption ?? ""} className="w-full h-full object-cover" />
+                {item.url === heroUrl && (
+                  <span className="absolute top-1 left-1 text-[10px] uppercase tracking-widest bg-accent text-ink px-1.5 py-0.5">
+                    Hero
+                  </span>
+                )}
+                {item.url === socialCoverUrl && (
+                  <span className="absolute top-1 right-1 text-[10px] uppercase tracking-widest bg-accent text-ink px-1.5 py-0.5">
+                    Social
+                  </span>
+                )}
+              </div>
+              {item.caption && (
+                <figcaption className="px-2 py-1.5 text-xs text-black/60 border-t border-black/10">
+                  {item.caption}
+                </figcaption>
+              )}
+            </figure>
+          ))}
         </div>
       )}
-    </form>
+    </div>
   );
 }
