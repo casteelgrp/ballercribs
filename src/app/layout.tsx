@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { SocialLinks } from "@/components/SocialLinks";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,21 +26,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 priority
               />
             </Link>
-            <nav className="flex items-center gap-6 text-sm">
+            <nav className="flex items-center gap-3 sm:gap-5 text-sm">
               <Link href="/listings" className="hover:text-accent transition-colors">
                 Listings
               </Link>
               <Link href="/newsletter" className="hover:text-accent transition-colors">
                 Newsletter
               </Link>
-              <Link
-                href="https://instagram.com/ballercribs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-accent transition-colors hidden sm:inline"
-              >
-                Instagram
-              </Link>
+              {/* Vertical divider — hidden on the very narrow viewports
+                  where every horizontal pixel matters. */}
+              <span className="hidden sm:inline-block h-4 w-px bg-black/20" aria-hidden="true" />
+              <SocialLinks />
             </nav>
           </div>
         </header>
@@ -47,20 +44,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1">{children}</main>
 
         <footer className="border-t border-black/10 mt-24 py-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row justify-between gap-4 text-sm text-black/60">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-black/60">
             <p>© {new Date().getFullYear()} Baller Cribs. All rights reserved.</p>
-            <div className="flex gap-6">
+            <div className="flex items-center gap-6">
               <Link href="/listings" className="hover:text-accent">
                 Listings
               </Link>
-              <Link
-                href="https://instagram.com/ballercribs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-accent"
-              >
-                @ballercribs
-              </Link>
+              <SocialLinks />
             </div>
           </div>
         </footer>
