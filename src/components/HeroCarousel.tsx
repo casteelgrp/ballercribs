@@ -69,31 +69,36 @@ export function HeroCarousel({ photos }: { photos: HeroPhoto[] }) {
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent pointer-events-none" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20 md:bg-gradient-to-r md:from-black/70 md:via-black/30 md:to-transparent pointer-events-none" />
 
-      {/* Overlay text — left-aligned, anchored to bottom-left of the hero. */}
+      {/* Overlay text — left-aligned, anchored to bottom-left of the hero.
+          Inner max-w-2xl block constrains headline + subhead + CTAs to the
+          left half so the headline wraps cleanly: 'The wildest luxury homes'
+          on line 1, 'on the internet.' on line 2. */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 h-full flex flex-col justify-end pb-16 sm:pb-24 lg:pb-28">
-        <h1
-          className="font-display text-4xl sm:text-6xl lg:text-7xl text-white leading-[1.05] tracking-tight max-w-4xl"
-          style={{ textShadow: "0 2px 16px rgba(0,0,0,0.5)" }}
-        >
-          The wildest luxury homes <span className="text-accent">on the internet.</span>
-        </h1>
-        <p className="mt-5 sm:mt-6 text-base sm:text-lg text-white/80 max-w-2xl">
-          Curated mega-mansions, architectural icons, and estates you won't find on Zillow. Seen
-          by millions on Instagram — now with direct lines to the agents.
-        </p>
-        <div className="mt-7 sm:mt-8 flex flex-wrap gap-3">
-          <Link
-            href="/listings"
-            className="bg-white text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors"
+        <div className="max-w-2xl">
+          <h1
+            className="font-display text-4xl sm:text-6xl lg:text-7xl text-white leading-[1.05] tracking-tight"
+            style={{ textShadow: "0 2px 16px rgba(0,0,0,0.5)" }}
           >
-            Browse listings
-          </Link>
-          <Link
-            href="/newsletter"
-            className="border border-white/80 text-white px-6 py-3 text-sm uppercase tracking-widest hover:bg-white hover:text-ink transition-colors"
-          >
-            Get the newsletter
-          </Link>
+            The wildest luxury homes <span className="text-accent">on the internet.</span>
+          </h1>
+          <p className="mt-5 sm:mt-6 text-base sm:text-lg text-white/80">
+            Curated mega-mansions, architectural icons, and estates you won't find on Zillow. Seen
+            by millions on Instagram — now with direct lines to the agents.
+          </p>
+          <div className="mt-7 sm:mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/listings"
+              className="bg-white text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors"
+            >
+              Browse listings
+            </Link>
+            <Link
+              href="/newsletter"
+              className="border border-white/80 text-white px-6 py-3 text-sm uppercase tracking-widest hover:bg-white hover:text-ink transition-colors"
+            >
+              Get the newsletter
+            </Link>
+          </div>
         </div>
       </div>
 
