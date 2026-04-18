@@ -38,8 +38,11 @@ export function FeatureTile({
         )}
       </div>
       <figcaption>
-        <p className="font-medium">{caption}</p>
-        <p className="text-sm text-black/60 mt-0.5">{stats}</p>
+        {/* Title is the context; stats are the persuader. Flip the typographic
+            hierarchy so the numbers hit the eye first: regular-weight muted
+            title above a bolder, smaller, ink-coloured stats line. */}
+        <p className="text-base font-normal text-black/70">{caption}</p>
+        <p className="text-sm font-semibold text-ink mt-1">{stats}</p>
       </figcaption>
     </figure>
   );

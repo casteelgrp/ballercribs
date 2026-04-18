@@ -183,22 +183,24 @@ export default function AgentsPage() {
       {/* ─── 5. Recent features ─────────────────────────────────────── */}
       <section className="bg-black/[0.02] border-y border-black/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
-          <h2 className="font-display text-3xl sm:text-4xl text-center">Recent features.</h2>
+          <h2 className="font-display text-3xl sm:text-4xl text-center">
+            Recent features that moved.
+          </h2>
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
             <FeatureTile
               src="/feature-1.png"
-              caption="[Property name] · Beverly Hills"
-              stats="1.8M views · 32K saves"
+              caption="Mark Wahlberg's $37M Florida mansion"
+              stats="1.37M views · 53K likes · 16K shares · 272 days of watch time"
             />
             <FeatureTile
               src="/feature-2.png"
-              caption="[Property name] · Miami"
-              stats="2.4M views · 51K likes"
+              caption="Arizona estate with everything"
+              stats="1.22M views · 83K interactions · 27.6K shares · 5.9K saves"
             />
             <FeatureTile
               src="/feature-3.png"
-              caption="[Property name] · Dubai"
-              stats="3.1M views · 89K comments"
+              caption="$100M in the Hamptons"
+              stats="272K views · 13.5K interactions · 1.1K shares"
             />
           </div>
         </div>
