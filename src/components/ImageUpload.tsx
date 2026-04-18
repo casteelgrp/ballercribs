@@ -63,10 +63,17 @@ export function ImageUpload(props: Props) {
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random()}`;
     setPending((p) => [...p, { id, name: file.name, status: "uploading" }]);
+
+    // 60s safety timeout — if upload never resolves we want a clear error,
+    // not an indefinitely stuck "uploading…".
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), 60_000);
+
     try {
       const blob = await upload(file.name, file, {
         access: "public",
-        handleUploadUrl: "/api/admin/upload/sign"
+        handleUploadUrl: "/api/admin/upload/sign",
+        abortSignal: abort.signal
       });
       setPending((p) =>
         p.map((x) => (x.id === id ? { ...x, status: "processing" } : x))
@@ -84,10 +91,18 @@ export function ImageUpload(props: Props) {
       appendUrl(url);
       setPending((p) => p.filter((x) => x.id !== id));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Upload failed";
+      const msg =
+        err instanceof Error
+          ? err.name === "AbortError" || abort.signal.aborted
+            ? "Upload timed out after 60s — check browser console + network tab"
+            : err.message
+          : "Upload failed";
+      console.error("[ImageUpload] upload failed:", err);
       setPending((p) =>
         p.map((x) => (x.id === id ? { ...x, status: "error", error: msg } : x))
       );
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

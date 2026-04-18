@@ -27,9 +27,10 @@ export async function POST(request: Request) {
     const jsonResponse = await handleUpload({
       body,
       request,
-      // Auth check happens here. handleUpload calls onBeforeGenerateToken
-      // ONLY for the initial token request from the client — not for the
-      // post-upload webhook from Vercel — so requireUser() is correct here.
+      // Auth check happens here. We deliberately omit onUploadCompleted
+      // because we do the sharp processing in a separate /process route
+      // the client calls explicitly — a webhook callback would force Blob
+      // to wait on a no-op handler and adds a hang surface for nothing.
       onBeforeGenerateToken: async () => {
         await requireUser();
         return {
@@ -37,11 +38,6 @@ export async function POST(request: Request) {
           maximumSizeInBytes: MAX_BYTES,
           addRandomSuffix: true
         };
-      },
-      onUploadCompleted: async () => {
-        // Webhook fires after Blob receives the file. We do the sharp
-        // processing in a separate /process route triggered by the client,
-        // so nothing to do here.
       }
     });
     return NextResponse.json(jsonResponse);
