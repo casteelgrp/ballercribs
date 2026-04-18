@@ -248,6 +248,7 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
 }
 
 export interface UpdateListingInput {
+  slug?: string;
   title?: string;
   location?: string;
   price_usd?: number;
@@ -268,6 +269,7 @@ export async function updateListing(id: number, data: UpdateListingInput): Promi
   const { rows } = await sql`
     UPDATE listings
     SET
+      slug              = COALESCE(${data.slug ?? null}, slug),
       title             = COALESCE(${data.title ?? null}, title),
       location          = COALESCE(${data.location ?? null}, location),
       price_usd         = COALESCE(${data.price_usd ?? null}, price_usd),
@@ -347,6 +349,35 @@ export async function transitionListingStatus(
 
 export async function deleteListing(id: number): Promise<void> {
   await sql`DELETE FROM listings WHERE id = ${id};`;
+}
+
+/**
+ * Insert with auto-dedupe: if data.slug collides with an existing row, retries
+ * with `${slug}-2`, `${slug}-3`, … up to 50 attempts. Race-safe because we
+ * catch the actual unique-violation error from the DB rather than pre-checking.
+ */
+export async function createListingWithUniqueSlug(data: CreateListingInput): Promise<Listing> {
+  const baseSlug = data.slug;
+  let attempt = 0;
+  // 50 attempts is way more than realistic; protects against an unbounded loop.
+  while (attempt < 50) {
+    const candidate = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
+    try {
+      return await createListing({ ...data, slug: candidate });
+    } catch (err: unknown) {
+      const e = err as { code?: string; constraint?: string } | null;
+      // 23505 = unique_violation. The listings table has only one unique
+      // constraint (slug) so we don't need to inspect `constraint`, but
+      // checking it makes the intent obvious and future-proofs against
+      // adding another unique column later.
+      if (e?.code === "23505" && (!e.constraint || e.constraint.includes("slug"))) {
+        attempt++;
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("Could not generate a unique slug after 50 attempts.");
 }
 
 // ─── Inquiries ──────────────────────────────────────────────────────────────

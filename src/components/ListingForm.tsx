@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImageUpload } from "./ImageUpload";
 import { GalleryEditor } from "./GalleryEditor";
+import { generateSlug, validateSlug } from "@/lib/format";
 import type { GalleryItem, Listing, ListingStatus, User } from "@/lib/types";
 
 type Props = {
@@ -52,6 +53,25 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
   const [title, setTitle] = useState(existing?.title ?? "");
   const [slug, setSlug] = useState(existing?.slug ?? "");
   const [location, setLocation] = useState(existing?.location ?? "");
+
+  // Slug auto-gen: debounced from title+location while still in "auto" mode.
+  // Once the user types anything in the slug input directly, ownership transfers
+  // and we stop overwriting their value. Existing listings start owned (the user
+  // already has a slug; we don't want to re-derive it from a title edit).
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(Boolean(existing?.slug));
+  useEffect(() => {
+    if (slugManuallyEdited) return;
+    if (!title.trim() && !location.trim()) return;
+    const timer = setTimeout(() => {
+      setSlug(generateSlug(title, location));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [title, location, slugManuallyEdited]);
+
+  const slugError = slug.trim() ? validateSlug(slug.trim()) : null;
+  const siteHost = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ballercribs.vercel.app")
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
   const [priceUsd, setPriceUsd] = useState<string>(existing ? String(existing.price_usd) : "");
   const [bedrooms, setBedrooms] = useState<string>(
     existing?.bedrooms !== null && existing?.bedrooms !== undefined ? String(existing.bedrooms) : ""
@@ -102,6 +122,11 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
     if (!heroUrl.trim()) return "Hero image is required.";
     const p = Number(priceUsd);
     if (!Number.isFinite(p) || p < 0) return "Valid price is required.";
+    // Server will auto-generate from title+location if slug is empty, so we
+    // only need to block when an explicit value is invalid.
+    if (slug.trim() && validateSlug(slug.trim())) {
+      return "Slug is invalid — see the field below the title.";
+    }
     return null;
   }
 
@@ -233,15 +258,28 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
           />
         </div>
         <div>
-          <label className={labelClass}>Slug (optional — auto-generated)</label>
+          <label className={labelClass}>Slug</label>
           <input
             value={slug}
-            onChange={(e) => setSlug(e.target.value)}
+            onChange={(e) => {
+              setSlug(e.target.value);
+              setSlugManuallyEdited(true);
+            }}
             className={inputClass}
-            placeholder="bel-air-modern-estate"
-            disabled={disabled || isPersisted}
-            title={isPersisted ? "Slug is fixed after creation" : undefined}
+            placeholder="los-angeles-bel-air-fortress"
+            disabled={disabled}
+            aria-invalid={slugError ? true : undefined}
+            aria-describedby="slug-help"
           />
+          <p id="slug-help" className="mt-1 text-xs text-black/50 break-all">
+            {siteHost}/listings/<span className="text-black/80">{slug || "[auto]"}</span>
+            {!slugManuallyEdited && !disabled && (
+              <span className="ml-2 text-black/40">· auto-updates from title + location</span>
+            )}
+          </p>
+          {slugError && (
+            <p className="mt-1 text-xs text-red-600">{slugError.message}</p>
+          )}
         </div>
         <div>
           <label className={labelClass}>Location *</label>

@@ -16,6 +16,7 @@ import {
   canSendBackToDraft,
   canSubmitForReview
 } from "@/lib/permissions";
+import { validateSlug } from "@/lib/format";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -88,6 +89,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     // Normalize partial input. undefined = leave alone; explicit null = clear (for nullable fields).
     const updates: Parameters<typeof updateListing>[1] = {};
+    if (typeof fields.slug === "string" && fields.slug.trim()) {
+      const newSlug = fields.slug.trim().toLowerCase();
+      if (newSlug !== listing.slug) {
+        const slugError = validateSlug(newSlug);
+        if (slugError) {
+          return NextResponse.json({ error: `Slug: ${slugError.message}` }, { status: 400 });
+        }
+        updates.slug = newSlug;
+      }
+    }
     if (typeof fields.title === "string") updates.title = fields.title.trim();
     if (typeof fields.location === "string") updates.location = fields.location.trim();
     if (typeof fields.description === "string") updates.description = fields.description.trim();
@@ -135,7 +146,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
     if ("featured" in fields) updates.featured = Boolean(fields.featured);
 
-    const updated = await updateListing(id, updates);
+    let updated;
+    try {
+      updated = await updateListing(id, updates);
+    } catch (err: unknown) {
+      const e = err as { code?: string; constraint?: string } | null;
+      if (e?.code === "23505") {
+        return NextResponse.json(
+          { error: "That slug is already taken — try another." },
+          { status: 409 }
+        );
+      }
+      throw err;
+    }
     if (!updated) {
       return NextResponse.json({ error: "Update failed." }, { status: 500 });
     }

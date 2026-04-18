@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createListing } from "@/lib/db";
+import { createListingWithUniqueSlug } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { slugify } from "@/lib/format";
+import { generateSlug, validateSlug } from "@/lib/format";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 import { isOwner } from "@/lib/permissions";
 
@@ -64,9 +64,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Valid price is required." }, { status: 400 });
   }
 
-  const slug = body?.slug ? slugify(String(body.slug)) : slugify(title);
-  if (!slug) {
-    return NextResponse.json({ error: "Could not generate slug." }, { status: 400 });
+  // Slug: use the client-provided value if any (already shaped by the form),
+  // otherwise derive from title + location with the same algorithm the form uses.
+  const requestedSlug = typeof body?.slug === "string" ? body.slug.trim().toLowerCase() : "";
+  const slug = requestedSlug || generateSlug(title, location);
+  const slugError = validateSlug(slug);
+  if (slugError) {
+    return NextResponse.json({ error: `Slug: ${slugError.message}` }, { status: 400 });
   }
 
   const gallery = normalizeGalleryInput(body?.gallery_image_urls);
@@ -80,7 +84,7 @@ export async function POST(req: Request) {
   const status: ListingStatus = allowed.includes(requested) ? requested : "draft";
 
   try {
-    const listing = await createListing({
+    const listing = await createListingWithUniqueSlug({
       slug,
       title,
       location,
