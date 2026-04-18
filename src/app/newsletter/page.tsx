@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+import { NewsletterForm } from "@/components/NewsletterForm";
 
 export const metadata: Metadata = {
   title: "Subscribe — BallerCribs",
@@ -26,28 +26,14 @@ export default function NewsletterPage() {
       </section>
 
       <section className="mt-12 sm:mt-16">
-        <div className="max-w-7xl mx-auto bg-white border border-black/10 px-6 sm:px-10 py-10 sm:py-12 shadow-sm">
-          {/* Beacons mounts the form into this div by id. */}
-          <div id="f2f955d1-9cde-4cfb-82e1-2234aff74674" />
-          <Script id="beacons-newsletter-embed" strategy="afterInteractive">
-            {`
-              (function () {
-                var s = document.createElement("script");
-                var t = Math.floor(new Date().getTime() / 120000);
-                s.type = "module";
-                s.async = 1;
-                s.src = "https://beacons.ai/embeds/emailForm.js?v=" + t + "&b=ballercribs&f=f2f955d1-9cde-4cfb-82e1-2234aff74674";
-                document.body.appendChild(s);
-              })();
-            `}
-          </Script>
+        <div className="max-w-md mx-auto">
+          <NewsletterForm />
         </div>
       </section>
 
       <section className="mt-16 sm:mt-20 text-center">
         <p className="text-sm text-black/60">
-          234,000+ Instagram followers · Featured listings from top agents · Tens of millions of
-          monthly views
+          234K Instagram · 72K Facebook · Tens of millions of monthly views
         </p>
       </section>
     </div>

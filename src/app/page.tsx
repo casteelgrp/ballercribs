@@ -90,18 +90,27 @@ export default async function HomePage() {
           />
           <p className="text-xs uppercase tracking-widest text-accent">For agents</p>
           <h2 className="font-display text-3xl sm:text-4xl mt-3">
-            Put your listing in front of 300K+ luxury buyers.
+            Put your listing in front of 300K+ followers and millions of monthly viewers.
           </h2>
           <p className="mt-4 text-paper/70 max-w-2xl mx-auto">
-            Our Instagram audience drives tens of millions of views per month. Featured placements
-            include a carousel post, a Reel, a dedicated listing page, and direct buyer inquiries.
+            Seen by millions every month across Instagram, Facebook, and TikTok. Featured
+            placements include a carousel post, a Reel, a dedicated listing page, and direct buyer
+            inquiries.
           </p>
-          <a
-            href="mailto:jay@example.com?subject=Featured%20listing%20inquiry"
-            className="inline-block mt-8 bg-accent text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-paper transition-colors"
-          >
-            Get featured
-          </a>
+          <div className="mt-8 flex flex-wrap justify-center items-center gap-4">
+            <Link
+              href="/agents"
+              className="inline-block bg-accent text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-paper transition-colors"
+            >
+              Get featured
+            </Link>
+            <a
+              href="mailto:theballercribs@gmail.com?subject=Featured%20listing%20inquiry"
+              className="text-sm text-paper/70 hover:text-paper underline underline-offset-4"
+            >
+              Or email us directly
+            </a>
+          </div>
         </div>
       </section>
     </>
