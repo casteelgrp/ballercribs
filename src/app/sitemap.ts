@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getAllListings } from "@/lib/db";
+import { getListings } from "@/lib/db";
 
 // Next.js auto-exposes this as /sitemap.xml. Rebuilt on every request
 // unless we add a revalidate — leaving dynamic so a newly-published
@@ -7,9 +7,8 @@ import { getAllListings } from "@/lib/db";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
 
-  // getAllListings returns all status='published' rows — including sold ones,
-  // which we intentionally keep indexed for SEO + history.
-  const listings = await getAllListings().catch(() => []);
+  // All published rows — including sold ones, intentionally kept indexed for SEO + history.
+  const listings = await getListings("all").catch(() => []);
 
   const listingRoutes: MetadataRoute.Sitemap = listings.map((l) => ({
     url: `${baseUrl}/listings/${l.slug}`,
@@ -26,12 +25,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9
-    },
-    {
-      url: `${baseUrl}/sold`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.6
     },
     {
       url: `${baseUrl}/newsletter`,

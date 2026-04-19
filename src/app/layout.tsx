@@ -25,9 +25,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/listings" className="hover:text-accent">
                 Listings
               </Link>
-              <Link href="/sold" className="hover:text-accent">
-                Sold
-              </Link>
               <Link href="/agents" className="hover:text-accent">
                 For Agents
               </Link>

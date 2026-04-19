@@ -88,11 +88,36 @@ function rowToUserWithHash(row: any): UserWithHash {
 
 // ─── Public listing reads ───────────────────────────────────────────────────
 
-export async function getAllListings(): Promise<Listing[]> {
-  // Active listings first (sold_at IS NULL → bucket 0), then sold (bucket 1).
-  // Within active: featured first, then newest-published.
-  // Within sold: most-recently-sold first. Sold rows stay `status='published'`
-  // — the sold_at column is the "is this sold?" flag, orthogonal to status.
+export type PublicListingStatusFilter = "active" | "sold" | "all";
+
+/**
+ * Public listings feed. status:
+ *   - 'active' (default): for-sale listings, featured first then newest-published
+ *   - 'sold': closed sales, most-recently-sold first
+ *   - 'all':  everything published — active bucket first, then sold
+ *
+ * All variants exclude draft/review/archived via `status = 'published'`.
+ */
+export async function getListings(
+  status: PublicListingStatusFilter = "active"
+): Promise<Listing[]> {
+  if (status === "active") {
+    const { rows } = await sql`
+      SELECT * FROM listings
+      WHERE status = 'published' AND sold_at IS NULL
+      ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
+    `;
+    return rows.map(rowToListing);
+  }
+  if (status === "sold") {
+    const { rows } = await sql`
+      SELECT * FROM listings
+      WHERE status = 'published' AND sold_at IS NOT NULL
+      ORDER BY sold_at DESC;
+    `;
+    return rows.map(rowToListing);
+  }
+  // 'all' — active bucket first (sold_at IS NULL → 0), then sold bucket.
   const { rows } = await sql`
     SELECT * FROM listings
     WHERE status = 'published'
@@ -104,6 +129,28 @@ export async function getAllListings(): Promise<Listing[]> {
   return rows.map(rowToListing);
 }
 
+/** Counts for the /listings filter tabs — single round-trip via conditional aggregation. */
+export async function countPublishedListingsBySoldState(): Promise<{
+  active: number;
+  sold: number;
+  all: number;
+}> {
+  const { rows } = await sql`
+    SELECT
+      SUM(CASE WHEN sold_at IS NULL THEN 1 ELSE 0 END)::int AS active,
+      SUM(CASE WHEN sold_at IS NOT NULL THEN 1 ELSE 0 END)::int AS sold,
+      COUNT(*)::int AS all
+    FROM listings
+    WHERE status = 'published';
+  `;
+  const row = rows[0] ?? { active: 0, sold: 0, all: 0 };
+  return {
+    active: Number(row.active ?? 0),
+    sold: Number(row.sold ?? 0),
+    all: Number(row.all ?? 0)
+  };
+}
+
 export async function getFeaturedListings(limit = 6): Promise<Listing[]> {
   const { rows } = await sql`
     SELECT * FROM listings
@@ -113,16 +160,6 @@ export async function getFeaturedListings(limit = 6): Promise<Listing[]> {
       featured DESC,
       COALESCE(sold_at, published_at, created_at) DESC
     LIMIT ${limit};
-  `;
-  return rows.map(rowToListing);
-}
-
-/** Only sold listings, newest-sold first. Powers the /sold archive page. */
-export async function getSoldListings(): Promise<Listing[]> {
-  const { rows } = await sql`
-    SELECT * FROM listings
-    WHERE status = 'published' AND sold_at IS NOT NULL
-    ORDER BY sold_at DESC;
   `;
   return rows.map(rowToListing);
 }
