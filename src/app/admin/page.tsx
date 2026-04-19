@@ -8,10 +8,12 @@ import {
   getAdminListingsWithCreators,
   getRecentAgentInquiries,
   getRecentInquiries,
+  getStaleListings,
   type AdminListingFilter
 } from "@/lib/db";
 import { ListingForm } from "@/components/ListingForm";
 import { ListingActions } from "@/components/ListingActions";
+import { SoldActions, StillActiveButton } from "@/components/SoldActions";
 import { InquiryActions } from "@/components/InquiryActions";
 import { Toast } from "@/components/Toast";
 import { defaultAdminTab, isOwner } from "@/lib/permissions";
@@ -110,31 +112,41 @@ export default async function AdminPage({
   // Scope queries: owners see everyone's; users see only their own.
   const scopeUserId = isOwner(user) ? undefined : user.id;
 
-  const [listings, counts, inquiries, agentInquiries, inquiryCounts, agentInquiryCounts] =
-    await Promise.all([
-      getAdminListingsWithCreators(currentTab, scopeUserId).catch(() => []),
-      countListingsByStatus(scopeUserId).catch(
-        (): Record<ListingStatus, number> => ({
-          draft: 0,
-          review: 0,
-          published: 0,
-          archived: 0
-        })
-      ),
-      // Inquiries are owner-only — they go to a single notification email, not per-creator.
-      isOwner(user)
-        ? getRecentInquiries({ archived: inquiriesArchived, limit: 50 }).catch(() => [])
-        : Promise.resolve([]),
-      isOwner(user)
-        ? getRecentAgentInquiries({ archived: agentsArchived, limit: 50 }).catch(() => [])
-        : Promise.resolve([]),
-      isOwner(user)
-        ? countInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
-        : Promise.resolve({ active: 0, archived: 0 }),
-      isOwner(user)
-        ? countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
-        : Promise.resolve({ active: 0, archived: 0 })
-    ]);
+  const [
+    listings,
+    counts,
+    inquiries,
+    agentInquiries,
+    inquiryCounts,
+    agentInquiryCounts,
+    staleListings
+  ] = await Promise.all([
+    getAdminListingsWithCreators(currentTab, scopeUserId).catch(() => []),
+    countListingsByStatus(scopeUserId).catch(
+      (): Record<ListingStatus, number> => ({
+        draft: 0,
+        review: 0,
+        published: 0,
+        archived: 0
+      })
+    ),
+    // Inquiries are owner-only — they go to a single notification email, not per-creator.
+    isOwner(user)
+      ? getRecentInquiries({ archived: inquiriesArchived, limit: 50 }).catch(() => [])
+      : Promise.resolve([]),
+    isOwner(user)
+      ? getRecentAgentInquiries({ archived: agentsArchived, limit: 50 }).catch(() => [])
+      : Promise.resolve([]),
+    isOwner(user)
+      ? countInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
+      : Promise.resolve({ active: 0, archived: 0 }),
+    isOwner(user)
+      ? countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
+      : Promise.resolve({ active: 0, archived: 0 }),
+    // Stale queue is owner-only — keeping credibility of the public site is
+    // an admin-owner concern, not a per-creator one.
+    isOwner(user) ? getStaleListings().catch(() => []) : Promise.resolve([])
+  ]);
 
   const allCount = counts.draft + counts.review + counts.published; // 'All' hides archived
   const toast = toastFromParams(sp);
@@ -189,6 +201,61 @@ export default async function AdminPage({
         </div>
       </section>
 
+      {/* Stale listings needing review — owner only, hidden when empty */}
+      {isOwner(user) && staleListings.length > 0 && (
+        <section className="mb-16">
+          <h2 className="font-display text-2xl mb-1">Stale listings needing review</h2>
+          <p className="text-sm text-black/60 mb-4">
+            Published more than 90 days ago and not marked sold. Confirm still active to
+            snooze for another 90 days, or mark sold to retire from the active grid.
+          </p>
+          <div className="border border-amber-200 bg-amber-50/50 divide-y divide-amber-200">
+            {staleListings.map((l) => {
+              const publishedAt = l.published_at ? new Date(l.published_at) : null;
+              const days = publishedAt
+                ? Math.floor((Date.now() - publishedAt.getTime()) / (1000 * 60 * 60 * 24))
+                : null;
+              return (
+                <div
+                  key={l.id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      href={`/admin/listings/${l.id}/edit`}
+                      className="font-medium hover:text-accent truncate"
+                    >
+                      {l.title}
+                    </Link>
+                    <p className="text-xs text-black/60 mt-0.5">
+                      {l.location} · {formatPrice(l.price_usd)}
+                    </p>
+                    <p className="text-xs text-black/50 mt-0.5">
+                      {days !== null ? `Published ${days} days ago` : "Published"}
+                      {l.last_reviewed_at && (
+                        <>
+                          {" · last confirmed "}
+                          {new Date(l.last_reviewed_at).toLocaleDateString()}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <StillActiveButton listingId={l.id} />
+                    <SoldActions user={user} listing={l} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+      {isOwner(user) && staleListings.length === 0 && (
+        <section className="mb-10">
+          <p className="text-sm text-black/50">All listings recently reviewed ✓</p>
+        </section>
+      )}
+
       {/* Listings with status tabs */}
       <section className="mb-16">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -238,6 +305,11 @@ export default async function AdminPage({
                     >
                       {l.status}
                     </span>
+                    {l.sold_at && (
+                      <span className="text-[10px] uppercase tracking-widest bg-red-100 text-red-800 px-1.5 py-0.5">
+                        Sold
+                      </span>
+                    )}
                     {l.featured && (
                       <span className="text-[10px] uppercase tracking-widest bg-accent text-ink px-1.5 py-0.5">
                         Featured
@@ -263,9 +335,19 @@ export default async function AdminPage({
                     {l.status === "published" && l.published_at && (
                       <> · published {new Date(l.published_at).toLocaleString()}</>
                     )}
+                    {l.sold_at && (
+                      <>
+                        {" · sold "}
+                        {new Date(l.sold_at).toLocaleDateString()}
+                        {l.sold_price_usd !== null && <> for {formatPrice(l.sold_price_usd)}</>}
+                      </>
+                    )}
                   </p>
                 </div>
-                <ListingActions user={user} listing={l} />
+                <div className="flex flex-wrap gap-1.5">
+                  <ListingActions user={user} listing={l} />
+                  <SoldActions user={user} listing={l} />
+                </div>
               </div>
             ))}
           </div>

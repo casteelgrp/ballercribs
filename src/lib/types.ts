@@ -45,6 +45,15 @@ export interface Listing {
   created_by_user_id: number | null;
   created_at: string;
   updated_at: string;
+  // Sold workflow. sold_at NULL = active; any timestamp = sold.
+  // sold_price_usd nullable so NDA / undisclosed sales are representable
+  // ("SOLD · Price undisclosed" on the public page).
+  sold_at: string | null;
+  sold_price_usd: number | null;
+  sale_notes: string | null;
+  // Bumped by the "Still active" button in the admin stale-listing queue;
+  // a listing only reappears in the queue 90 days after the last review.
+  last_reviewed_at: string | null;
 }
 
 export type AgentInquiryType = "featured" | "referral" | "other";

@@ -7,15 +7,16 @@ import { getAllListings } from "@/lib/db";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
 
-  // getAllListings only returns status='published' rows — exactly what
-  // we want in the public sitemap (no drafts leaking).
+  // getAllListings returns all status='published' rows — including sold ones,
+  // which we intentionally keep indexed for SEO + history.
   const listings = await getAllListings().catch(() => []);
 
   const listingRoutes: MetadataRoute.Sitemap = listings.map((l) => ({
     url: `${baseUrl}/listings/${l.slug}`,
-    lastModified: new Date(l.updated_at || l.created_at),
-    changeFrequency: "weekly",
-    priority: 0.8
+    // If sold, the sold date is a more honest "last changed" signal than updated_at.
+    lastModified: new Date(l.sold_at || l.updated_at || l.created_at),
+    changeFrequency: l.sold_at ? "yearly" : "weekly",
+    priority: l.sold_at ? 0.5 : 0.8
   }));
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -25,6 +26,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9
+    },
+    {
+      url: `${baseUrl}/sold`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.6
     },
     {
       url: `${baseUrl}/newsletter`,

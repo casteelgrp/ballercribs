@@ -72,7 +72,16 @@ export function ListingMediaProvider({
 }
 
 /** Clickable hero image — opens the lightbox at slide 0. */
-export function ListingHeroImage({ src, alt }: { src: string; alt: string }) {
+export function ListingHeroImage({
+  src,
+  alt,
+  soldLabel
+}: {
+  src: string;
+  alt: string;
+  /** When set, renders a SOLD pill over the top-right of the hero. */
+  soldLabel?: string;
+}) {
   const { open } = useListingLightbox();
   return (
     <button
@@ -82,6 +91,11 @@ export function ListingHeroImage({ src, alt }: { src: string; alt: string }) {
       className="relative w-full aspect-[16/9] sm:aspect-[21/9] bg-black/5 cursor-zoom-in block overflow-hidden"
     >
       <Image src={src} alt={alt} fill priority sizes="100vw" className="object-cover" />
+      {soldLabel && (
+        <span className="pointer-events-none absolute top-4 right-4 sm:top-6 sm:right-6 bg-red-600 text-white text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] px-4 py-2 shadow-lg">
+          {soldLabel}
+        </span>
+      )}
     </button>
   );
 }

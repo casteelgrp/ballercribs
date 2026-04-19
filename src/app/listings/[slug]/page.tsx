@@ -50,6 +50,7 @@ export default async function ListingPage({
   if (!listing) notFound();
 
   const galleryItems = listing.gallery_image_urls;
+  const isSold = !!listing.sold_at;
 
   // JSON-LD schema for search engines. Helps Google produce rich results
   // (photo, price, beds/baths inline) and disambiguates the page for LLMs.
@@ -81,9 +82,12 @@ export default async function ListingPage({
     }),
     offers: {
       "@type": "Offer",
-      price: listing.price_usd,
+      // Sold listings still surface an offer price for search rich-results —
+      // use the sale price when disclosed, otherwise fall back to the original
+      // ask. Availability flips so SERPs show the correct state.
+      price: isSold && listing.sold_price_usd !== null ? listing.sold_price_usd : listing.price_usd,
       priceCurrency: "USD",
-      availability: "https://schema.org/InStock"
+      availability: isSold ? "https://schema.org/SoldOut" : "https://schema.org/InStock"
     }
   };
 
@@ -101,7 +105,11 @@ export default async function ListingPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         {/* Hero image — clickable, opens lightbox at slide 0 */}
-        <ListingHeroImage src={listing.hero_image_url} alt={listing.title} />
+        <ListingHeroImage
+          src={listing.hero_image_url}
+          alt={listing.title}
+          soldLabel={isSold ? "Sold" : undefined}
+        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Main content */}
@@ -119,10 +127,26 @@ export default async function ListingPage({
 
             <div className="mt-6 flex flex-wrap items-baseline gap-x-8 gap-y-3 border-y border-black/10 py-6">
               <div>
-                <p className="text-xs uppercase tracking-widest text-black/50">Price</p>
-                <p className="font-display text-2xl text-accent mt-1">
-                  {formatPrice(listing.price_usd)}
-                </p>
+                {isSold ? (
+                  <>
+                    <p className="text-xs uppercase tracking-widest text-black/50">Sold</p>
+                    <p className="font-display text-2xl text-accent mt-1">
+                      {listing.sold_price_usd !== null
+                        ? `Sold for ${formatPrice(listing.sold_price_usd)}`
+                        : "Sold · Price undisclosed"}
+                    </p>
+                    <p className="text-xs text-black/50 mt-1">
+                      Originally listed at {formatPrice(listing.price_usd)}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs uppercase tracking-widest text-black/50">Price</p>
+                    <p className="font-display text-2xl text-accent mt-1">
+                      {formatPrice(listing.price_usd)}
+                    </p>
+                  </>
+                )}
               </div>
               {listing.bedrooms !== null && (
                 <div>
@@ -174,14 +198,36 @@ export default async function ListingPage({
             )}
           </div>
 
-          {/* Sidebar - inquire form */}
+          {/* Sidebar - inquire form (hidden once sold; replaced with a browse-active link) */}
           <aside className="lg:col-span-1">
             <div className="lg:sticky lg:top-24 border border-black/10 bg-white p-6">
-              <h2 className="font-display text-2xl">Interested?</h2>
-              <p className="text-sm text-black/60 mt-1 mb-6">
-                Get connected directly with the listing agent.
-              </p>
-              <InquireForm listingId={listing.id} listingTitle={listing.title} />
+              {isSold ? (
+                <>
+                  <h2 className="font-display text-2xl">This property has been sold.</h2>
+                  <p className="text-sm text-black/60 mt-2 mb-6">
+                    {listing.sold_at && (
+                      <>
+                        Sale closed {new Date(listing.sold_at).toLocaleDateString()}. Explore
+                        other properties currently on the market.
+                      </>
+                    )}
+                  </p>
+                  <Link
+                    href="/listings"
+                    className="inline-block bg-ink text-paper px-5 py-3 text-xs uppercase tracking-widest hover:bg-accent transition-colors"
+                  >
+                    Browse active listings →
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <h2 className="font-display text-2xl">Interested?</h2>
+                  <p className="text-sm text-black/60 mt-1 mb-6">
+                    Get connected directly with the listing agent.
+                  </p>
+                  <InquireForm listingId={listing.id} listingTitle={listing.title} />
+                </>
+              )}
             </div>
           </aside>
         </div>

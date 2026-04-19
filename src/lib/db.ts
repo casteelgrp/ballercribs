@@ -42,7 +42,14 @@ function rowToListing(row: any): Listing {
         ? Number(row.created_by_user_id)
         : null,
     created_at: row.created_at,
-    updated_at: row.updated_at
+    updated_at: row.updated_at,
+    sold_at: row.sold_at ?? null,
+    sold_price_usd:
+      row.sold_price_usd !== null && row.sold_price_usd !== undefined
+        ? Number(row.sold_price_usd)
+        : null,
+    sale_notes: row.sale_notes ?? null,
+    last_reviewed_at: row.last_reviewed_at ?? null
   };
 }
 
@@ -82,10 +89,17 @@ function rowToUserWithHash(row: any): UserWithHash {
 // ─── Public listing reads ───────────────────────────────────────────────────
 
 export async function getAllListings(): Promise<Listing[]> {
+  // Active listings first (sold_at IS NULL → bucket 0), then sold (bucket 1).
+  // Within active: featured first, then newest-published.
+  // Within sold: most-recently-sold first. Sold rows stay `status='published'`
+  // — the sold_at column is the "is this sold?" flag, orthogonal to status.
   const { rows } = await sql`
     SELECT * FROM listings
     WHERE status = 'published'
-    ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
+    ORDER BY
+      CASE WHEN sold_at IS NULL THEN 0 ELSE 1 END,
+      featured DESC,
+      COALESCE(sold_at, published_at, created_at) DESC;
   `;
   return rows.map(rowToListing);
 }
@@ -94,8 +108,21 @@ export async function getFeaturedListings(limit = 6): Promise<Listing[]> {
   const { rows } = await sql`
     SELECT * FROM listings
     WHERE status = 'published'
-    ORDER BY featured DESC, COALESCE(published_at, created_at) DESC
+    ORDER BY
+      CASE WHEN sold_at IS NULL THEN 0 ELSE 1 END,
+      featured DESC,
+      COALESCE(sold_at, published_at, created_at) DESC
     LIMIT ${limit};
+  `;
+  return rows.map(rowToListing);
+}
+
+/** Only sold listings, newest-sold first. Powers the /sold archive page. */
+export async function getSoldListings(): Promise<Listing[]> {
+  const { rows } = await sql`
+    SELECT * FROM listings
+    WHERE status = 'published' AND sold_at IS NOT NULL
+    ORDER BY sold_at DESC;
   `;
   return rows.map(rowToListing);
 }
@@ -352,6 +379,67 @@ export async function transitionListingStatus(
 
 export async function deleteListing(id: number): Promise<void> {
   await sql`DELETE FROM listings WHERE id = ${id};`;
+}
+
+// ─── Sold workflow ──────────────────────────────────────────────────────────
+
+export interface MarkSoldInput {
+  /** ISO date string — validated by caller; must be <= today. */
+  sold_at: string;
+  /** Nullable — undisclosed / NDA sales are allowed. */
+  sold_price_usd: number | null;
+  sale_notes: string | null;
+}
+
+export async function markListingSold(id: number, input: MarkSoldInput): Promise<Listing | null> {
+  const { rows } = await sql`
+    UPDATE listings
+    SET sold_at = ${input.sold_at},
+        sold_price_usd = ${input.sold_price_usd},
+        sale_notes = ${input.sale_notes},
+        updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *;
+  `;
+  return rows[0] ? rowToListing(rows[0]) : null;
+}
+
+export async function unmarkListingSold(id: number): Promise<Listing | null> {
+  const { rows } = await sql`
+    UPDATE listings
+    SET sold_at = NULL,
+        sold_price_usd = NULL,
+        sale_notes = NULL,
+        updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *;
+  `;
+  return rows[0] ? rowToListing(rows[0]) : null;
+}
+
+/** Bumps last_reviewed_at = NOW() — removes the listing from the stale queue for 90 days. */
+export async function markListingReviewed(id: number): Promise<boolean> {
+  const { rowCount } = await sql`
+    UPDATE listings SET last_reviewed_at = NOW(), updated_at = NOW() WHERE id = ${id};
+  `;
+  return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Listings that have been published >90 days, aren't sold, and either haven't
+ * been reviewed yet or were last reviewed >90 days ago. Oldest-published first
+ * so the admin chews through the backlog in age order.
+ */
+export async function getStaleListings(): Promise<Listing[]> {
+  const { rows } = await sql`
+    SELECT * FROM listings
+    WHERE status = 'published'
+      AND sold_at IS NULL
+      AND published_at < NOW() - INTERVAL '90 days'
+      AND (last_reviewed_at IS NULL OR last_reviewed_at < NOW() - INTERVAL '90 days')
+    ORDER BY published_at ASC;
+  `;
+  return rows.map(rowToListing);
 }
 
 /**

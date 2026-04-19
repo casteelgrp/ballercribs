@@ -29,7 +29,9 @@ const STOP_WORDS = new Set<string>([
   "living", "home", "house", "property", "estate", "mansion", "residence"
 ]);
 
-const RESERVED_SLUGS = new Set<string>(["admin", "api", "listings", "login", "new", "edit"]);
+const RESERVED_SLUGS = new Set<string>([
+  "admin", "api", "listings", "login", "new", "edit", "sold"
+]);
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const MAX_SLUG_LENGTH = 60;
