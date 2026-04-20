@@ -176,27 +176,27 @@ export default async function AgentsPage() {
       {/* ─── 4. Referral partner program ────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 border-t border-black/10 pt-16 py-20">
         <h2 className="font-display text-3xl sm:text-4xl max-w-3xl">
-          Already have our audience's attention? Send us a buyer.
+          We've got the buyer. You close the deal.
         </h2>
         <p className="mt-6 text-black/70 max-w-3xl leading-relaxed">
-          Not every property is right for a paid feature. But if you're a licensed agent who wants
-          qualified buyers in your market, we have a referral network too. When a buyer inquires
-          through BallerCribs about a property in your area, we route them to a partner agent —
-          and share in the commission.
+          Not every property is right for a paid feature — but qualified buyers still come through
+          our inbox every week. When one inquires about a home in your market, we route them to a
+          partner agent and share in the commission. You do what you already do best. We bring the
+          lead.
         </p>
 
         <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-8">
           <ReferralSpec
             title="25-35% referral fee"
-            body="Standard rate, negotiable on luxury transactions."
+            body="Standard rate at close. Negotiable on luxury transactions."
           />
           <ReferralSpec
-            title="Licensed in Texas, cooperative nationwide"
-            body="We work through broker-to-broker agreements to refer buyers anywhere."
+            title="Licensed referral network, cooperative nationwide"
+            body="Broker-to-broker agreements let us refer buyers in any market."
           />
           <ReferralSpec
             title="Pre-qualified leads only"
-            body="Every buyer completes a full inquiry form with timeline and financing info."
+            body="Every buyer completes a full inquiry form — timeline, budget, and financing before it hits your inbox."
           />
         </div>
 
@@ -204,7 +204,7 @@ export default async function AgentsPage() {
           href="/agents?type=referral#inquire"
           className="inline-block mt-10 border border-ink text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
         >
-          Become a referral partner →
+          Become a partner agent →
         </Link>
       </section>
 
