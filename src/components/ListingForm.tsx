@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DescriptionEditor } from "./DescriptionEditor";
 import { ImageUpload } from "./ImageUpload";
 import { GalleryEditor } from "./GalleryEditor";
+import { ListingDescription } from "./ListingDescription";
 import { generateSlug, validateSlug } from "@/lib/format";
 import type { GalleryItem, Listing, ListingStatus, User } from "@/lib/types";
 
@@ -415,24 +417,22 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
           // Render as the public site does so submitters can verify before approval.
           <div className="border border-black/10 bg-black/[0.02] px-3 py-3 text-sm">
             {description ? (
-              description.split("\n\n").map((para, i) => (
-                <p key={i} className="text-black/80 leading-relaxed mb-3 last:mb-0 whitespace-pre-line">
-                  {para}
-                </p>
-              ))
+              <ListingDescription markdown={description} />
             ) : (
               <p className="text-black/40 italic">No description</p>
             )}
           </div>
         ) : (
-          <textarea
+          <DescriptionEditor
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            required
-            rows={5}
+            onChange={setDescription}
             disabled={disabled}
-            className={inputClass}
-            placeholder="Separate paragraphs with blank lines..."
+            required
+            rows={8}
+            inputClass={inputClass}
+            placeholder={
+              "Separate paragraphs with blank lines. Use the toolbar for headings, bold, links…"
+            }
           />
         )}
       </div>
