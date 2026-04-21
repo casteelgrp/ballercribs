@@ -18,6 +18,7 @@ import {
 } from "@/lib/permissions";
 import { validateSlug } from "@/lib/format";
 import { isCurrencyCode } from "@/lib/currency";
+import { revalidateListingSurfaces } from "@/lib/revalidate-listings";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -187,6 +188,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // (or vice versa) due to a network glitch between two requests.
     const transitionTo = body.transition_to;
     if (transitionTo === undefined || transitionTo === null) {
+      // Only invalidate public caches when the edit could be seen —
+      // drafts and review-queue rows aren't on any public surface.
+      if (updated.status === "published") {
+        revalidateListingSurfaces(updated.slug);
+      }
       return NextResponse.json({ ok: true, listing: updated });
     }
     if (
@@ -233,6 +239,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!transitioned) {
       return NextResponse.json({ error: "Transition failed after save." }, { status: 500 });
     }
+    // Transition either added the row to public surfaces (→ published) or
+    // removed it (→ archived / draft from published). Either way the public
+    // grid + homepage need to re-render; the slug page also needs it so a
+    // newly-unpublished listing doesn't linger on the detail URL.
+    revalidateListingSurfaces(transitioned.slug);
     return NextResponse.json({ ok: true, listing: transitioned });
   }
 
@@ -281,6 +292,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!updated) {
     return NextResponse.json({ error: "Transition failed." }, { status: 500 });
   }
+  revalidateListingSurfaces(updated.slug);
   return NextResponse.json({ ok: true, listing: updated });
 }
 
@@ -302,6 +314,13 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Invalid id." }, { status: 400 });
   }
 
+  // Grab the pre-delete state so we can invalidate the correct slug on its
+  // way out. A published listing being deleted needs /, /listings, and its
+  // slug page purged; draft / archived rows don't touch public caches.
+  const existing = await getListingByIdAdmin(id);
   await deleteListing(id);
+  if (existing?.status === "published") {
+    revalidateListingSurfaces(existing.slug);
+  }
   return NextResponse.json({ ok: true });
 }

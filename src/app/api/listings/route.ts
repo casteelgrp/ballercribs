@@ -3,6 +3,7 @@ import { createListingWithUniqueSlug } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { generateSlug, validateSlug } from "@/lib/format";
 import { DEFAULT_CURRENCY, isCurrencyCode } from "@/lib/currency";
+import { revalidateListingSurfaces } from "@/lib/revalidate-listings";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 import { isOwner } from "@/lib/permissions";
 
@@ -125,6 +126,11 @@ export async function POST(req: Request) {
           ? body.seo_description.trim()
           : null
     });
+    // Only published creations affect public surfaces; drafts and
+    // review-queue rows aren't visible yet, so skip the invalidation.
+    if (listing.status === "published") {
+      revalidateListingSurfaces(listing.slug);
+    }
     return NextResponse.json({ ok: true, id: listing.id, slug: listing.slug, status: listing.status });
   } catch (err: any) {
     console.error("Failed to create listing:", err);

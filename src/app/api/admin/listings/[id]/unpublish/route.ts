@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { getListingByIdAdmin, unpublishListing } from "@/lib/db";
 import { canUnpublish } from "@/lib/permissions";
+import { revalidateListingSurfaces } from "@/lib/revalidate-listings";
 
 export const runtime = "nodejs";
 
@@ -40,5 +41,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (!updated) {
     return NextResponse.json({ error: "Unpublish failed." }, { status: 500 });
   }
+  // Was published before this call (canUnpublish guards that) — purge every
+  // public surface so the slug page 404s and the grid / homepage drop it.
+  revalidateListingSurfaces(updated.slug);
   return NextResponse.json({ ok: true, listing: updated });
 }

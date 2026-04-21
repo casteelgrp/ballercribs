@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getListingByIdAdmin, markListingSold } from "@/lib/db";
 import { requireOwner } from "@/lib/auth";
+import { revalidateListingSurfaces } from "@/lib/revalidate-listings";
 
 export const runtime = "nodejs";
 
@@ -81,5 +82,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!updated) {
     return NextResponse.json({ error: "Update failed." }, { status: 500 });
   }
+  // Sold state changes the badge on the grid card, the price block on the
+  // detail page, and ordering on the homepage (sold drops below active).
+  revalidateListingSurfaces(updated.slug);
   return NextResponse.json({ ok: true, listing: updated });
 }

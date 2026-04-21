@@ -1,6 +1,6 @@
-// formatPrice moved to src/lib/currency.ts so it can carry a currency code.
-// All listing prices are multi-currency now; format.ts stays focused on
-// non-currency helpers (sqft, slug generation, validation).
+// Currency-aware price formatting lives in src/lib/currency.ts.
+// format.ts is focused on non-currency helpers (sqft, slug generation,
+// validation).
 
 export function formatSqft(sqft: number | null): string {
   if (!sqft) return "—";
