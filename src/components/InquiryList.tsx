@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { InquiryCard } from "./InquiryCard";
 import type { AgentInquiry, Inquiry } from "@/lib/types";
+import type { Payment } from "@/lib/payments/types";
 
 type BuyerInquiry = Inquiry & {
   listing_title: string | null;
@@ -16,10 +17,15 @@ type BuyerInquiry = Inquiry & {
  */
 export function InquiryList({
   inquiries,
-  kind
+  kind,
+  isOwner = false,
+  paymentsByInquiry = {}
 }: {
   inquiries: (BuyerInquiry | AgentInquiry)[];
   kind: "buyer" | "agent";
+  isOwner?: boolean;
+  /** Keyed by inquiry id. Empty array / missing key = no payments yet. */
+  paymentsByInquiry?: Record<number, Payment[]>;
 }) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -30,6 +36,8 @@ export function InquiryList({
           key={inq.id}
           inquiry={inq}
           kind={kind}
+          isOwner={isOwner}
+          payments={paymentsByInquiry[inq.id] ?? []}
           expanded={expandedId === inq.id}
           onToggle={() => setExpandedId((cur) => (cur === inq.id ? null : inq.id))}
         />

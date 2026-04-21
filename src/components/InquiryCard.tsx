@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { InquiryActions } from "./InquiryActions";
+import { PaymentsSection } from "./admin/PaymentsSection";
 import type {
   AgentInquiry,
   InquiryStatus,
   Inquiry
 } from "@/lib/types";
+import type { Payment } from "@/lib/payments/types";
 
 // InquiryWithListing (from db.ts) extends Inquiry with listing_title/slug.
 // Importing the concrete interface would pull in @vercel/postgres-adjacent
@@ -45,12 +47,14 @@ const STATUS_LABEL: Record<InquiryStatus, string> = {
 
 const STATUS_OPTIONS: InquiryStatus[] = ["new", "working", "won", "dead"];
 
-// Canonical tier values the Square flow will write. Anything unexpected just
-// renders the raw value uppercase so we can still see weird data in admin.
+// Semantic tier keys (featured/premium/elite/custom) are written by the
+// payments flow. We map them to compact $-denominated badges for the card
+// header. Unknown values fall through to uppercase so anything stale from
+// pre-payments-integration doesn't crash the card.
 const TIER_LABEL: Record<string, string> = {
-  "1500": "$1.5K",
-  "3750": "$3.75K",
-  "5000": "$5K",
+  featured: "$1.5K",
+  premium: "$3.75K",
+  elite: "$5K",
   custom: "CUSTOM"
 };
 
@@ -72,12 +76,16 @@ export function InquiryCard({
   inquiry,
   kind,
   expanded,
-  onToggle
+  onToggle,
+  isOwner = false,
+  payments = []
 }: {
   inquiry: BuyerInquiry | AgentInquiry;
   kind: Kind;
   expanded: boolean;
   onToggle: () => void;
+  isOwner?: boolean;
+  payments?: Payment[];
 }) {
   const router = useRouter();
 
@@ -384,6 +392,24 @@ export function InquiryCard({
                 Log contact
               </button>
             </div>
+
+            {kind === "agent" && (
+              <PaymentsSection
+                inquiryId={inquiry.id}
+                inquiryName={inquiry.name}
+                payments={payments}
+                // Generating a payment link is gated to owner + agent +
+                // 'working' — new is too early (not qualified yet), dead is
+                // self-explanatory.
+                canGenerate={isOwner && status === "working"}
+                canMarkPaid={isOwner}
+                defaultDescription={
+                  agent?.brokerage
+                    ? `BallerCribs feature — ${agent.brokerage}`
+                    : `BallerCribs feature — ${inquiry.name}`
+                }
+              />
+            )}
 
             <p className="text-xs text-black/40">
               Status changed to {STATUS_LABEL[inquiry.status].toLowerCase()}{" "}

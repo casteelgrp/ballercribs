@@ -8,6 +8,8 @@ import {
   getRecentAgentInquiries,
   getRecentInquiries
 } from "@/lib/db";
+import { listPayments } from "@/lib/payments";
+import type { Payment } from "@/lib/payments/types";
 import { InquiryList } from "@/components/InquiryList";
 import { isOwner } from "@/lib/permissions";
 
@@ -28,12 +30,20 @@ export default async function AdminInquiriesPage({
   const inquiriesArchived = sp.inquiries === "archived";
   const agentsArchived = sp.agents === "archived";
 
-  const [inquiries, agentInquiries, inquiryCounts, agentInquiryCounts] = await Promise.all([
-    getRecentInquiries({ archived: inquiriesArchived, limit: 50 }).catch(() => []),
-    getRecentAgentInquiries({ archived: agentsArchived, limit: 50 }).catch(() => []),
-    countInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 })),
-    countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
-  ]);
+  const [inquiries, agentInquiries, inquiryCounts, agentInquiryCounts, allPayments] =
+    await Promise.all([
+      getRecentInquiries({ archived: inquiriesArchived, limit: 50 }).catch(() => []),
+      getRecentAgentInquiries({ archived: agentsArchived, limit: 50 }).catch(() => []),
+      countInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 })),
+      countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 })),
+      // Single fetch + in-memory group is cheaper than N queries for the
+      // current volume; revisit with a joined query if the inquiries table
+      // grows past a few hundred rows.
+      listPayments({ limit: 500 }).catch(() => [])
+    ]);
+
+  const agentPayments = groupPaymentsByInquiry(allPayments, "agent_feature");
+  const buyerPayments = groupPaymentsByInquiry(allPayments, "buyer_lead");
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
@@ -55,7 +65,12 @@ export default async function AdminInquiriesPage({
             {inquiriesArchived ? "No archived inquiries." : "No inquiries yet."}
           </p>
         ) : (
-          <InquiryList inquiries={inquiries} kind="buyer" />
+          <InquiryList
+            inquiries={inquiries}
+            kind="buyer"
+            isOwner={true}
+            paymentsByInquiry={buyerPayments}
+          />
         )}
       </section>
 
@@ -77,11 +92,29 @@ export default async function AdminInquiriesPage({
             {agentsArchived ? "No archived agent inquiries." : "No agent inquiries yet."}
           </p>
         ) : (
-          <InquiryList inquiries={agentInquiries} kind="agent" />
+          <InquiryList
+            inquiries={agentInquiries}
+            kind="agent"
+            isOwner={true}
+            paymentsByInquiry={agentPayments}
+          />
         )}
       </section>
     </div>
   );
+}
+
+function groupPaymentsByInquiry(
+  payments: Payment[],
+  type: Payment["inquiry_type"]
+): Record<number, Payment[]> {
+  const out: Record<number, Payment[]> = {};
+  for (const p of payments) {
+    if (p.inquiry_type !== type) continue;
+    if (!out[p.inquiry_id]) out[p.inquiry_id] = [];
+    out[p.inquiry_id].push(p);
+  }
+  return out;
 }
 
 /**
