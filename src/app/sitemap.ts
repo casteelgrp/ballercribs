@@ -37,6 +37,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.5
+    },
+    // Legal pages — indexable for trust + search compliance, but low
+    // priority since they're supporting content, not the site's reason to
+    // exist. Updated only when we revise the policy text itself.
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3
+    },
+    {
+      url: `${baseUrl}/terms`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3
+    },
+    {
+      url: `${baseUrl}/referral-disclosure`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3
     }
   ];
 
