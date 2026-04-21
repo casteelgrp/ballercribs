@@ -96,6 +96,12 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
   const [agentBrokerage, setAgentBrokerage] = useState(existing?.agent_brokerage ?? "");
   const [featured, setFeatured] = useState(existing?.featured ?? false);
 
+  // Optional SEO overrides — null/empty means the public page falls back to
+  // auto-derived <title> and <meta description> via generateMetadata. The
+  // section stays collapsed by default since most listings don't need it.
+  const [seoTitle, setSeoTitle] = useState(existing?.seo_title ?? "");
+  const [seoDescription, setSeoDescription] = useState(existing?.seo_description ?? "");
+
   function commonFields() {
     return {
       title: title.trim(),
@@ -111,7 +117,11 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       social_cover_url: socialCoverUrl,
       agent_name: agentName.trim() || null,
       agent_brokerage: agentBrokerage.trim() || null,
-      featured
+      featured,
+      // Empty → null so the DB stores a clean NULL and generateMetadata
+      // knows to fall back to the auto-derived title/description.
+      seo_title: seoTitle.trim() || null,
+      seo_description: seoDescription.trim() || null
     };
   }
 
@@ -488,6 +498,14 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
         <span>Featured</span>
       </label>
 
+      <SeoOverrides
+        seoTitle={seoTitle}
+        seoDescription={seoDescription}
+        onTitleChange={setSeoTitle}
+        onDescriptionChange={setSeoDescription}
+        disabled={disabled}
+      />
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {!readOnly && (
@@ -605,5 +623,116 @@ function ReadOnlyGallery({
         </div>
       )}
     </div>
+  );
+}
+
+// ─── SEO overrides ─────────────────────────────────────────────────────────
+//
+// Collapsed by default — most listings don't need handcrafted SERP snippets.
+// Character counters turn amber past the "safe" zone and red past the hard
+// cap so the owner gets live feedback without truncation surprises on Google.
+
+const TITLE_SAFE = 60;
+const TITLE_WARN = 70;
+const DESC_SAFE = 155;
+const DESC_WARN = 170;
+
+function counterTone(len: number, safeMax: number, warnMax: number): string {
+  if (len === 0 || len <= safeMax) return "text-black/50";
+  if (len <= warnMax) return "text-amber-700";
+  return "text-red-600";
+}
+
+function SeoOverrides({
+  seoTitle,
+  seoDescription,
+  onTitleChange,
+  onDescriptionChange,
+  disabled
+}: {
+  seoTitle: string;
+  seoDescription: string;
+  onTitleChange: (v: string) => void;
+  onDescriptionChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  const inputClass =
+    "w-full border border-black/20 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none disabled:bg-black/5 disabled:text-black/60 disabled:cursor-not-allowed";
+  const labelClass = "block text-xs uppercase tracking-widest text-black/60 mb-1";
+  const helpClass = "mt-1 text-xs text-black/50";
+  const titleLen = seoTitle.length;
+  const descLen = seoDescription.length;
+  const hasOverrides = Boolean(seoTitle.trim() || seoDescription.trim());
+
+  return (
+    <details
+      className="border border-black/10 bg-black/[0.02] group"
+      // Auto-expand on edit when overrides already exist so the owner sees
+      // what's there without hunting for the disclosure triangle.
+      open={hasOverrides}
+    >
+      <summary className="cursor-pointer select-none px-4 py-3 text-sm flex items-center justify-between hover:bg-black/5">
+        <span className="uppercase tracking-widest text-xs text-black/70">SEO overrides</span>
+        <span className="text-[11px] text-black/50 normal-case tracking-normal">
+          {hasOverrides ? "Custom" : "Optional — click to customize"}
+        </span>
+      </summary>
+
+      <div className="px-4 pb-4 pt-2 space-y-4 border-t border-black/10">
+        <div>
+          <label className={labelClass} htmlFor="seo-title">
+            SEO title (optional)
+          </label>
+          <input
+            id="seo-title"
+            type="text"
+            value={seoTitle}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder="Leave blank to use the listing title"
+            disabled={disabled}
+            className={inputClass}
+          />
+          <div className="flex items-start justify-between gap-3 mt-1">
+            <p className={helpClass}>
+              Customize how this listing appears in Google search results. Best under{" "}
+              {TITLE_SAFE} characters.
+            </p>
+            <span
+              aria-live="polite"
+              className={"text-xs tabular-nums shrink-0 " + counterTone(titleLen, TITLE_SAFE, TITLE_WARN)}
+            >
+              {titleLen} / {TITLE_SAFE}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="seo-description">
+            SEO description (optional)
+          </label>
+          <textarea
+            id="seo-description"
+            rows={3}
+            value={seoDescription}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder="Leave blank to auto-generate from description"
+            disabled={disabled}
+            className={inputClass}
+          />
+          <div className="flex items-start justify-between gap-3 mt-1">
+            <p className={helpClass}>
+              Customize the blurb Google shows under the title. Best 120–{DESC_SAFE} characters.
+              Write for human clickers, not keywords.
+            </p>
+            <span
+              aria-live="polite"
+              className={"text-xs tabular-nums shrink-0 " + counterTone(descLen, DESC_SAFE, DESC_WARN)}
+            >
+              {descLen} / {DESC_SAFE}
+            </span>
+          </div>
+        </div>
+      </div>
+    </details>
   );
 }
