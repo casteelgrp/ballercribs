@@ -1,5 +1,4 @@
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { listUsers } from "@/lib/db";
 import { InviteUserForm } from "@/components/InviteUserForm";
@@ -17,13 +16,6 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
-      <div className="flex items-center justify-between mb-10">
-        <h1 className="font-display text-3xl">Users</h1>
-        <Link href="/admin" className="text-sm underline underline-offset-4 hover:text-accent">
-          Back to admin
-        </Link>
-      </div>
-
       <section className="mb-12">
         <h2 className="font-display text-2xl mb-1">Invite user</h2>
         <p className="text-sm text-black/60 mb-6">

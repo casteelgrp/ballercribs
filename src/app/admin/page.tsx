@@ -150,43 +150,10 @@ export default async function AdminPage({
 
   const allCount = counts.draft + counts.review + counts.published; // 'All' hides archived
   const toast = toastFromParams(sp);
-  const heading = pageTitleFor(user);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
       {toast && <Toast message={toast.message} variant={toast.variant} />}
-
-      <div className="flex items-center justify-between mb-10 gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display text-3xl">{heading}</h1>
-          <p className="text-sm text-black/60 mt-1">
-            Signed in as {user.name} ({user.email})
-          </p>
-        </div>
-        <nav className="flex items-center gap-6 text-sm">
-          <Link href="/admin/account" className="underline underline-offset-4 hover:text-accent">
-            Account
-          </Link>
-          {isOwner(user) && (
-            <>
-              <Link
-                href="/admin/hero-photos"
-                className="underline underline-offset-4 hover:text-accent"
-              >
-                Hero Photos
-              </Link>
-              <Link href="/admin/users" className="underline underline-offset-4 hover:text-accent">
-                Users
-              </Link>
-            </>
-          )}
-          <form action="/api/admin/logout" method="POST">
-            <button type="submit" className="underline underline-offset-4 hover:text-accent">
-              Sign out
-            </button>
-          </form>
-        </nav>
-      </div>
 
       {/* New listing */}
       <section className="mb-16">

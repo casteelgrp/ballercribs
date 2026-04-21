@@ -53,18 +53,13 @@ export default async function AdminEditListingPage({
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
-      <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display text-3xl">
-            {editable ? "Edit listing" : "View listing"}
-          </h1>
-          <p className="text-sm text-black/60 mt-1">
-            {listing.title} · status: {listing.status}
-          </p>
-        </div>
-        <Link href="/admin" className="text-sm underline underline-offset-4 hover:text-accent">
-          Back to dashboard
-        </Link>
+      <div className="mb-8">
+        <h2 className="font-display text-2xl">
+          {editable ? "Edit listing" : "View listing"}
+        </h2>
+        <p className="text-sm text-black/60 mt-1">
+          {listing.title} · status: {listing.status}
+        </p>
       </div>
 
       {showReviewActions && (

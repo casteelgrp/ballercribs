@@ -32,26 +32,21 @@ export default async function AdminHeroPhotosPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
-      <div className="flex items-center justify-between mb-10 gap-4 flex-wrap">
+      <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display text-3xl">Hero Photos</h1>
+          <h2 className="font-display text-2xl">Hero Photos</h2>
           <p className="text-sm text-black/60 mt-1">
             Curated separately from listing photos. These rotate on the homepage hero.
           </p>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <Link
-            href="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-4 hover:text-accent"
-          >
-            Preview live hero ↗
-          </Link>
-          <Link href="/admin" className="underline underline-offset-4 hover:text-accent">
-            Back to admin
-          </Link>
-        </div>
+        <Link
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm underline underline-offset-4 hover:text-accent"
+        >
+          Preview live hero ↗
+        </Link>
       </div>
 
       {dbError ? (
