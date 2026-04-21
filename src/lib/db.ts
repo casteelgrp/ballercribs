@@ -648,6 +648,20 @@ export async function updateUserPassword(
   `;
 }
 
+export async function updateUserProfile(
+  userId: number,
+  data: { name: string; email: string }
+): Promise<User> {
+  const { rows } = await sql`
+    UPDATE users
+    SET name = ${data.name.trim()},
+        email = ${data.email.trim().toLowerCase()}
+    WHERE id = ${userId}
+    RETURNING *;
+  `;
+  return rowToUser(rows[0]);
+}
+
 export async function setUserActive(userId: number, active: boolean): Promise<void> {
   await sql`UPDATE users SET is_active = ${active} WHERE id = ${userId};`;
 }
