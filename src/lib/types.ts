@@ -58,6 +58,12 @@ export interface Listing {
 
 export type AgentInquiryType = "featured" | "referral" | "other";
 
+/**
+ * Pipeline stage for inquiries. Independent of archived_at — an inquiry can
+ * be won + archived simultaneously. Default for new submissions is 'new'.
+ */
+export type InquiryStatus = "new" | "working" | "won" | "dead";
+
 export interface AgentInquiry {
   id: number;
   name: string;
@@ -69,6 +75,16 @@ export interface AgentInquiry {
   message: string | null;
   created_at: string;
   archived_at: string | null;
+  status: InquiryStatus;
+  notes: string | null;
+  last_contacted_at: string | null;
+  status_updated_at: string;
+  status_updated_by: number | null;
+  // Populated via JOIN in admin queries so the UI can render "changed by X".
+  status_updated_by_name: string | null;
+  // Package tier selected at checkout — nullable until the Square flow
+  // captures it. Canonical values: '1500' | '3750' | '5000' | 'custom'.
+  tier: string | null;
 }
 
 export interface HeroPhoto {
@@ -91,4 +107,11 @@ export interface Inquiry {
   timeline: string | null;
   created_at: string;
   archived_at: string | null;
+  status: InquiryStatus;
+  notes: string | null;
+  last_contacted_at: string | null;
+  status_updated_at: string;
+  status_updated_by: number | null;
+  // Populated via JOIN in admin queries so the UI can render "changed by X".
+  status_updated_by_name: string | null;
 }

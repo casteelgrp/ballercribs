@@ -5,6 +5,7 @@ import type {
   GalleryItem,
   HeroPhoto,
   Inquiry,
+  InquiryStatus,
   Listing,
   ListingStatus,
   User,
@@ -529,6 +530,30 @@ export async function createListingWithUniqueSlug(data: CreateListingInput): Pro
 
 // ─── Inquiries ──────────────────────────────────────────────────────────────
 
+function rowToInquiry(row: any): Inquiry {
+  return {
+    id: Number(row.id),
+    listing_id: row.listing_id !== null && row.listing_id !== undefined ? Number(row.listing_id) : null,
+    name: row.name,
+    email: row.email,
+    phone: row.phone ?? null,
+    message: row.message ?? null,
+    pre_approved: Boolean(row.pre_approved),
+    timeline: row.timeline ?? null,
+    created_at: row.created_at,
+    archived_at: row.archived_at ?? null,
+    status: (row.status ?? "new") as InquiryStatus,
+    notes: row.notes ?? null,
+    last_contacted_at: row.last_contacted_at ?? null,
+    status_updated_at: row.status_updated_at,
+    status_updated_by:
+      row.status_updated_by !== null && row.status_updated_by !== undefined
+        ? Number(row.status_updated_by)
+        : null,
+    status_updated_by_name: row.status_updated_by_name ?? null
+  };
+}
+
 export interface CreateInquiryInput {
   listing_id: number | null;
   name: string;
@@ -546,44 +571,57 @@ export async function createInquiry(data: CreateInquiryInput): Promise<Inquiry> 
             ${data.message}, ${data.pre_approved}, ${data.timeline})
     RETURNING *;
   `;
-  return rows[0] as Inquiry;
+  return rowToInquiry(rows[0]);
 }
 
 /**
  * Fetch inquiries filtered by archive status. Active view sorts newest-created
  * first; archived view sorts newest-archived first so the most recently
  * archived items are at the top.
+ *
+ * LEFT JOINs pull listing title/slug for the "Re: [listing]" line and the
+ * status-updater's name for the expanded card's history row — one round trip
+ * instead of N+1.
  */
 export type InquiryWithListing = Inquiry & {
   listing_title: string | null;
   listing_slug: string | null;
 };
 
+function rowToInquiryWithListing(row: any): InquiryWithListing {
+  return {
+    ...rowToInquiry(row),
+    listing_title: row.listing_title ?? null,
+    listing_slug: row.listing_slug ?? null
+  };
+}
+
 export async function getRecentInquiries(
   opts: { archived?: boolean; limit?: number } = {}
 ): Promise<InquiryWithListing[]> {
   const limit = opts.limit ?? 50;
-  // LEFT JOIN so an inquiry whose listing was deleted still shows up in admin
-  // (with listing_title/slug = null → the UI renders a 'no longer available'
-  // note instead of a broken link).
   const { rows } = opts.archived
     ? await sql`
-        SELECT i.*, l.title AS listing_title, l.slug AS listing_slug
+        SELECT i.*, l.title AS listing_title, l.slug AS listing_slug,
+               u.name AS status_updated_by_name
         FROM inquiries i
         LEFT JOIN listings l ON l.id = i.listing_id
+        LEFT JOIN users u ON u.id = i.status_updated_by
         WHERE i.archived_at IS NOT NULL
         ORDER BY i.archived_at DESC
         LIMIT ${limit};
       `
     : await sql`
-        SELECT i.*, l.title AS listing_title, l.slug AS listing_slug
+        SELECT i.*, l.title AS listing_title, l.slug AS listing_slug,
+               u.name AS status_updated_by_name
         FROM inquiries i
         LEFT JOIN listings l ON l.id = i.listing_id
+        LEFT JOIN users u ON u.id = i.status_updated_by
         WHERE i.archived_at IS NULL
         ORDER BY i.created_at DESC
         LIMIT ${limit};
       `;
-  return rows as InquiryWithListing[];
+  return rows.map(rowToInquiryWithListing);
 }
 
 export async function countInquiriesByArchiveStatus(): Promise<{ active: number; archived: number }> {
@@ -610,6 +648,70 @@ export async function unarchiveInquiry(id: number): Promise<boolean> {
 export async function deleteInquiry(id: number): Promise<boolean> {
   const { rowCount } = await sql`DELETE FROM inquiries WHERE id = ${id};`;
   return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Update pipeline status. When moving to 'working' for the first time we also
+ * stamp last_contacted_at — rule of thumb: you only move something to working
+ * once you've reached out, and this saves the admin from having to click both
+ * buttons. We only set it when currently NULL so explicit values aren't
+ * clobbered. Returns the fresh row (with joined title/slug/updater) so the
+ * client can render without a second fetch.
+ */
+export async function updateInquiryStatus(
+  id: number,
+  status: InquiryStatus,
+  userId: number
+): Promise<InquiryWithListing | null> {
+  const { rows } = await sql`
+    UPDATE inquiries
+    SET status = ${status},
+        status_updated_at = NOW(),
+        status_updated_by = ${userId},
+        last_contacted_at = CASE
+          WHEN ${status} = 'working' AND last_contacted_at IS NULL THEN NOW()
+          ELSE last_contacted_at
+        END
+    WHERE id = ${id}
+    RETURNING id;
+  `;
+  if (!rows[0]) return null;
+  return getInquiryById(id);
+}
+
+export async function updateInquiryNotes(
+  id: number,
+  notes: string | null
+): Promise<InquiryWithListing | null> {
+  const trimmed = notes === null ? null : notes.trim() || null;
+  const { rowCount } = await sql`UPDATE inquiries SET notes = ${trimmed} WHERE id = ${id};`;
+  if ((rowCount ?? 0) === 0) return null;
+  return getInquiryById(id);
+}
+
+export async function updateInquiryLastContacted(
+  id: number,
+  when?: Date
+): Promise<InquiryWithListing | null> {
+  const ts = when ? when.toISOString() : null;
+  const { rowCount } = ts
+    ? await sql`UPDATE inquiries SET last_contacted_at = ${ts} WHERE id = ${id};`
+    : await sql`UPDATE inquiries SET last_contacted_at = NOW() WHERE id = ${id};`;
+  if ((rowCount ?? 0) === 0) return null;
+  return getInquiryById(id);
+}
+
+async function getInquiryById(id: number): Promise<InquiryWithListing | null> {
+  const { rows } = await sql`
+    SELECT i.*, l.title AS listing_title, l.slug AS listing_slug,
+           u.name AS status_updated_by_name
+    FROM inquiries i
+    LEFT JOIN listings l ON l.id = i.listing_id
+    LEFT JOIN users u ON u.id = i.status_updated_by
+    WHERE i.id = ${id}
+    LIMIT 1;
+  `;
+  return rows[0] ? rowToInquiryWithListing(rows[0]) : null;
 }
 
 // ─── Users ──────────────────────────────────────────────────────────────────
@@ -779,7 +881,17 @@ function rowToAgentInquiry(row: any): AgentInquiry {
     inquiry_type: row.inquiry_type as AgentInquiryType,
     message: row.message ?? null,
     created_at: row.created_at,
-    archived_at: row.archived_at ?? null
+    archived_at: row.archived_at ?? null,
+    status: (row.status ?? "new") as InquiryStatus,
+    notes: row.notes ?? null,
+    last_contacted_at: row.last_contacted_at ?? null,
+    status_updated_at: row.status_updated_at,
+    status_updated_by:
+      row.status_updated_by !== null && row.status_updated_by !== undefined
+        ? Number(row.status_updated_by)
+        : null,
+    status_updated_by_name: row.status_updated_by_name ?? null,
+    tier: row.tier ?? null
   };
 }
 
@@ -809,15 +921,19 @@ export async function getRecentAgentInquiries(
   const limit = opts.limit ?? 50;
   const { rows } = opts.archived
     ? await sql`
-        SELECT * FROM agent_inquiries
-        WHERE archived_at IS NOT NULL
-        ORDER BY archived_at DESC
+        SELECT a.*, u.name AS status_updated_by_name
+        FROM agent_inquiries a
+        LEFT JOIN users u ON u.id = a.status_updated_by
+        WHERE a.archived_at IS NOT NULL
+        ORDER BY a.archived_at DESC
         LIMIT ${limit};
       `
     : await sql`
-        SELECT * FROM agent_inquiries
-        WHERE archived_at IS NULL
-        ORDER BY created_at DESC
+        SELECT a.*, u.name AS status_updated_by_name
+        FROM agent_inquiries a
+        LEFT JOIN users u ON u.id = a.status_updated_by
+        WHERE a.archived_at IS NULL
+        ORDER BY a.created_at DESC
         LIMIT ${limit};
       `;
   return rows.map(rowToAgentInquiry);
@@ -850,4 +966,62 @@ export async function unarchiveAgentInquiry(id: number): Promise<boolean> {
 export async function deleteAgentInquiry(id: number): Promise<boolean> {
   const { rowCount } = await sql`DELETE FROM agent_inquiries WHERE id = ${id};`;
   return (rowCount ?? 0) > 0;
+}
+
+// Parallel status/notes/contacted helpers for agent inquiries. Same auto-stamp
+// rule as the buyer side — first move to 'working' sets last_contacted_at
+// when null. See updateInquiryStatus for the rationale.
+
+export async function updateAgentInquiryStatus(
+  id: number,
+  status: InquiryStatus,
+  userId: number
+): Promise<AgentInquiry | null> {
+  const { rows } = await sql`
+    UPDATE agent_inquiries
+    SET status = ${status},
+        status_updated_at = NOW(),
+        status_updated_by = ${userId},
+        last_contacted_at = CASE
+          WHEN ${status} = 'working' AND last_contacted_at IS NULL THEN NOW()
+          ELSE last_contacted_at
+        END
+    WHERE id = ${id}
+    RETURNING id;
+  `;
+  if (!rows[0]) return null;
+  return getAgentInquiryById(id);
+}
+
+export async function updateAgentInquiryNotes(
+  id: number,
+  notes: string | null
+): Promise<AgentInquiry | null> {
+  const trimmed = notes === null ? null : notes.trim() || null;
+  const { rowCount } = await sql`UPDATE agent_inquiries SET notes = ${trimmed} WHERE id = ${id};`;
+  if ((rowCount ?? 0) === 0) return null;
+  return getAgentInquiryById(id);
+}
+
+export async function updateAgentInquiryLastContacted(
+  id: number,
+  when?: Date
+): Promise<AgentInquiry | null> {
+  const ts = when ? when.toISOString() : null;
+  const { rowCount } = ts
+    ? await sql`UPDATE agent_inquiries SET last_contacted_at = ${ts} WHERE id = ${id};`
+    : await sql`UPDATE agent_inquiries SET last_contacted_at = NOW() WHERE id = ${id};`;
+  if ((rowCount ?? 0) === 0) return null;
+  return getAgentInquiryById(id);
+}
+
+async function getAgentInquiryById(id: number): Promise<AgentInquiry | null> {
+  const { rows } = await sql`
+    SELECT a.*, u.name AS status_updated_by_name
+    FROM agent_inquiries a
+    LEFT JOIN users u ON u.id = a.status_updated_by
+    WHERE a.id = ${id}
+    LIMIT 1;
+  `;
+  return rows[0] ? rowToAgentInquiry(rows[0]) : null;
 }
