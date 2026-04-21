@@ -7,6 +7,7 @@ import { ImageUpload } from "./ImageUpload";
 import { GalleryEditor } from "./GalleryEditor";
 import { ListingDescription } from "./ListingDescription";
 import { generateSlug, validateSlug } from "@/lib/format";
+import { CURRENCIES, CURRENCY_CODES, DEFAULT_CURRENCY, formatPrice } from "@/lib/currency";
 import type { GalleryItem, Listing, ListingStatus, User } from "@/lib/types";
 
 type Props = {
@@ -75,6 +76,7 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "");
   const [priceUsd, setPriceUsd] = useState<string>(existing ? String(existing.price_usd) : "");
+  const [currency, setCurrency] = useState<string>(existing?.currency ?? DEFAULT_CURRENCY);
   const [bedrooms, setBedrooms] = useState<string>(
     existing?.bedrooms !== null && existing?.bedrooms !== undefined ? String(existing.bedrooms) : ""
   );
@@ -110,6 +112,7 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       slug: slug.trim() || null,
       location: location.trim(),
       price_usd: Number(priceUsd),
+      currency,
       bedrooms: bedrooms === "" ? null : Number(bedrooms),
       bathrooms: bathrooms === "" ? null : Number(bathrooms),
       square_feet: squareFeet === "" ? null : Number(squareFeet),
@@ -363,17 +366,40 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
           />
         </div>
         <div>
-          <label className={labelClass}>Price (USD) *</label>
-          <input
-            type="number"
-            value={priceUsd}
-            onChange={(e) => setPriceUsd(e.target.value)}
-            required
-            min="0"
-            disabled={disabled}
-            className={inputClass}
-            placeholder="25000000"
-          />
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div>
+              <label className={labelClass}>Price *</label>
+              <input
+                type="number"
+                value={priceUsd}
+                onChange={(e) => setPriceUsd(e.target.value)}
+                required
+                min="0"
+                disabled={disabled}
+                className={inputClass}
+                placeholder="25000000"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Currency</label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                disabled={disabled}
+                className={inputClass + " pr-8 min-w-[7rem]"}
+              >
+                {CURRENCY_CODES.map((code) => (
+                  <option key={code} value={code}>
+                    {code} — {CURRENCIES[code].name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-black/50">
+            Enter the price in the selected currency's base units (e.g. 6950000 for{" "}
+            {formatPrice(6950000, currency)}).
+          </p>
         </div>
         <div>
           <label className={labelClass}>Bedrooms</label>

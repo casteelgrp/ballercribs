@@ -11,7 +11,7 @@ import { ListingActions } from "@/components/ListingActions";
 import { SoldActions, StillActiveButton } from "@/components/SoldActions";
 import { Toast } from "@/components/Toast";
 import { isOwner } from "@/lib/permissions";
-import { formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/currency";
 import type { ListingStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -156,7 +156,7 @@ export default async function AdminListingsPage({
                       {l.title}
                     </Link>
                     <p className="text-xs text-black/60 mt-0.5">
-                      {l.location} · {formatPrice(l.price_usd)}
+                      {l.location} · {formatPrice(l.price_usd, l.currency)}
                     </p>
                     <p className="text-xs text-black/50 mt-0.5">
                       {days !== null ? `Published ${days} days ago` : "Published"}
@@ -253,7 +253,7 @@ export default async function AdminListingsPage({
                   )}
                 </div>
                 <p className="text-xs text-black/60 mt-0.5">
-                  {l.location} · {formatPrice(l.price_usd)}
+                  {l.location} · {formatPrice(l.price_usd, l.currency)}
                 </p>
                 <p className="text-xs text-black/40 mt-0.5">
                   Created by {l.creator_name ?? "—"}
@@ -267,7 +267,9 @@ export default async function AdminListingsPage({
                     <>
                       {" · sold "}
                       {new Date(l.sold_at).toLocaleDateString()}
-                      {l.sold_price_usd !== null && <> for {formatPrice(l.sold_price_usd)}</>}
+                      {l.sold_price_usd !== null && (
+                        <> for {formatPrice(l.sold_price_usd, l.currency)}</>
+                      )}
                     </>
                   )}
                 </p>

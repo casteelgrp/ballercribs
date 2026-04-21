@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Listing, User } from "@/lib/types";
 import { isOwner } from "@/lib/permissions";
-import { formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/currency";
 
 /**
  * Mark Sold / Unmark Sold buttons for a published listing. Mounted alongside
@@ -177,7 +177,7 @@ function MarkSoldModal({
             Mark "{listing.title}" as sold?
           </h2>
           <p className="text-xs text-black/50 mt-1">
-            Originally listed at {formatPrice(listing.price_usd)}
+            Originally listed at {formatPrice(listing.price_usd, listing.currency)}
           </p>
         </div>
 

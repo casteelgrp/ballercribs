@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Listing } from "@/lib/types";
-import { formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/currency";
 
 export function ListingCard({ listing }: { listing: Listing }) {
   const isSold = !!listing.sold_at;
@@ -36,9 +36,9 @@ export function ListingCard({ listing }: { listing: Listing }) {
           <span className="font-medium text-accent shrink-0">
             {isSold
               ? listing.sold_price_usd !== null
-                ? `Sold · ${formatPrice(listing.sold_price_usd)}`
+                ? `Sold · ${formatPrice(listing.sold_price_usd, listing.currency)}`
                 : "Sold"
-              : formatPrice(listing.price_usd)}
+              : formatPrice(listing.price_usd, listing.currency)}
           </span>
         </div>
         <p className="text-sm text-black/60 mt-1">{listing.location}</p>

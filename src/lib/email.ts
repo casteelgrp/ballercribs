@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { formatPrice } from "./currency";
 import type { AgentInquiry, Inquiry, Listing } from "./types";
 
 // Unwrap Resend SDK's { data, error } response shape.
@@ -33,7 +34,7 @@ export async function sendInquiryNotification(
 
   const listingLine = listing
     ? `<p><strong>Property:</strong> ${escapeHtml(listing.title)} — ${escapeHtml(listing.location)}<br/>
-       <strong>Price:</strong> $${Number(listing.price_usd).toLocaleString()}</p>`
+       <strong>Price:</strong> ${escapeHtml(formatPrice(listing.price_usd, listing.currency, { compact: false }))}</p>`
     : "";
 
   const html = `

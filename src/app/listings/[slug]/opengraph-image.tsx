@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getListingBySlug } from "@/lib/db";
-import { formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/currency";
 
 // Node runtime, not edge: satori doesn't support WebP, and every listing
 // hero photo goes through our sharp pipeline that outputs .webp. We pre-
@@ -109,7 +109,7 @@ export default async function OpengraphImage({
                 display: "flex"
               }}
             >
-              {formatPrice(listing.price_usd)}
+              {formatPrice(listing.price_usd, listing.currency)}
             </div>
             <div
               style={{

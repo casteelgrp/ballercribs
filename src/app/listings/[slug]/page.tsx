@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListingBySlug } from "@/lib/db";
-import { formatPrice, formatSqft } from "@/lib/format";
+import { formatSqft } from "@/lib/format";
+import { formatPrice } from "@/lib/currency";
 import { stripMarkdown } from "@/lib/markdown";
 import { InquireForm } from "@/components/InquireForm";
 import { ListingDescription } from "@/components/ListingDescription";
@@ -117,7 +118,7 @@ export default async function ListingPage({
       // use the sale price when disclosed, otherwise fall back to the original
       // ask. Availability flips so SERPs show the correct state.
       price: isSold && listing.sold_price_usd !== null ? listing.sold_price_usd : listing.price_usd,
-      priceCurrency: "USD",
+      priceCurrency: listing.currency,
       availability: isSold ? "https://schema.org/SoldOut" : "https://schema.org/InStock"
     }
   };
@@ -178,18 +179,18 @@ export default async function ListingPage({
                     <p className="text-xs uppercase tracking-widest text-black/50">Sold</p>
                     <p className="font-display text-2xl text-accent mt-1">
                       {listing.sold_price_usd !== null
-                        ? `Sold for ${formatPrice(listing.sold_price_usd)}`
+                        ? `Sold for ${formatPrice(listing.sold_price_usd, listing.currency)}`
                         : "Sold · Price undisclosed"}
                     </p>
                     <p className="text-xs text-black/50 mt-1">
-                      Originally listed at {formatPrice(listing.price_usd)}
+                      Originally listed at {formatPrice(listing.price_usd, listing.currency)}
                     </p>
                   </>
                 ) : (
                   <>
                     <p className="text-xs uppercase tracking-widest text-black/50">Price</p>
                     <p className="font-display text-2xl text-accent mt-1">
-                      {formatPrice(listing.price_usd)}
+                      {formatPrice(listing.price_usd, listing.currency)}
                     </p>
                   </>
                 )}

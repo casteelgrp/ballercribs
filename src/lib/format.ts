@@ -1,16 +1,6 @@
-export function formatPrice(cents: number): string {
-  if (cents >= 1_000_000_000) {
-    return `$${(cents / 1_000_000_000).toFixed(2)}B`;
-  }
-  if (cents >= 1_000_000) {
-    const val = cents / 1_000_000;
-    return `$${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)}M`;
-  }
-  if (cents >= 1_000) {
-    return `$${(cents / 1_000).toFixed(0)}K`;
-  }
-  return `$${cents.toLocaleString()}`;
-}
+// formatPrice moved to src/lib/currency.ts so it can carry a currency code.
+// All listing prices are multi-currency now; format.ts stays focused on
+// non-currency helpers (sqft, slug generation, validation).
 
 export function formatSqft(sqft: number | null): string {
   if (!sqft) return "—";
