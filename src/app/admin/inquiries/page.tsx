@@ -8,7 +8,7 @@ import {
   getRecentAgentInquiries,
   getRecentInquiries
 } from "@/lib/db";
-import { InquiryActions } from "@/components/InquiryActions";
+import { InquiryList } from "@/components/InquiryList";
 import { isOwner } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
@@ -55,69 +55,7 @@ export default async function AdminInquiriesPage({
             {inquiriesArchived ? "No archived inquiries." : "No inquiries yet."}
           </p>
         ) : (
-          <div className="border border-black/10 bg-white divide-y divide-black/10">
-            {inquiries.map((i) => (
-              <div key={i.id} className="p-4">
-                <div className="flex items-baseline justify-between gap-4 flex-wrap">
-                  <div>
-                    <p className="font-medium">{i.name}</p>
-                    <a href={`mailto:${i.email}`} className="text-sm text-accent hover:underline">
-                      {i.email}
-                    </a>
-                    {i.phone && <span className="text-sm text-black/60 ml-2">· {i.phone}</span>}
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <p className="text-xs text-black/50">
-                      {new Date(i.created_at).toLocaleString()}
-                    </p>
-                    <InquiryActions id={i.id} kind="buyer" archived={inquiriesArchived} />
-                  </div>
-                </div>
-                {i.listing_id && (
-                  <p className="text-sm text-black/70 mt-2">
-                    Re:{" "}
-                    {i.listing_slug && i.listing_title ? (
-                      <Link
-                        href={`/listings/${i.listing_slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-accent underline underline-offset-2 hover:text-ink"
-                      >
-                        {i.listing_title}
-                      </Link>
-                    ) : (
-                      <>
-                        <span className="font-medium">
-                          {i.listing_title ?? "Unknown listing"}
-                        </span>
-                        <span className="text-black/40 italic ml-2">
-                          (listing no longer available)
-                        </span>
-                      </>
-                    )}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2 mt-2 text-xs">
-                  {i.timeline && (
-                    <span className="bg-black/5 px-2 py-1">
-                      Timeline: {i.timeline.replace(/_/g, " ")}
-                    </span>
-                  )}
-                  {i.pre_approved && (
-                    <span className="bg-accent/20 text-accent px-2 py-1">Pre-approved</span>
-                  )}
-                  {i.archived_at && (
-                    <span className="bg-black/5 text-black/50 px-2 py-1">
-                      Archived {new Date(i.archived_at).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-                {i.message && (
-                  <p className="text-sm text-black/80 mt-3 whitespace-pre-wrap">{i.message}</p>
-                )}
-              </div>
-            ))}
-          </div>
+          <InquiryList inquiries={inquiries} kind="buyer" />
         )}
       </section>
 
@@ -139,59 +77,7 @@ export default async function AdminInquiriesPage({
             {agentsArchived ? "No archived agent inquiries." : "No agent inquiries yet."}
           </p>
         ) : (
-          <div className="border border-black/10 bg-white divide-y divide-black/10">
-            {agentInquiries.map((a) => {
-              const typeBadge =
-                a.inquiry_type === "featured"
-                  ? "bg-accent/20 text-accent"
-                  : a.inquiry_type === "referral"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-black/10 text-black/70";
-              return (
-                <div key={a.id} className="p-4">
-                  <div className="flex items-baseline justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium">{a.name}</p>
-                      <span
-                        className={
-                          "text-[10px] uppercase tracking-widest px-1.5 py-0.5 " + typeBadge
-                        }
-                      >
-                        {a.inquiry_type}
-                      </span>
-                      {a.archived_at && (
-                        <span className="text-[10px] uppercase tracking-widest bg-black/5 text-black/50 px-1.5 py-0.5">
-                          Archived {new Date(a.archived_at).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <p className="text-xs text-black/50">
-                        {new Date(a.created_at).toLocaleString()}
-                      </p>
-                      <InquiryActions id={a.id} kind="agent" archived={agentsArchived} />
-                    </div>
-                  </div>
-                  <p className="text-sm mt-1">
-                    <a href={`mailto:${a.email}`} className="text-accent hover:underline">
-                      {a.email}
-                    </a>
-                    {a.phone && <span className="text-black/60 ml-2">· {a.phone}</span>}
-                  </p>
-                  {(a.brokerage || a.city_state) && (
-                    <p className="text-xs text-black/60 mt-1">
-                      {a.brokerage}
-                      {a.brokerage && a.city_state ? " · " : ""}
-                      {a.city_state}
-                    </p>
-                  )}
-                  {a.message && (
-                    <p className="text-sm text-black/80 mt-3 whitespace-pre-wrap">{a.message}</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <InquiryList inquiries={agentInquiries} kind="agent" />
         )}
       </section>
     </div>
