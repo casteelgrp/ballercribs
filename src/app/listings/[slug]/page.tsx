@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListingBySlug } from "@/lib/db";
 import { formatPrice, formatSqft } from "@/lib/format";
+import { stripMarkdown } from "@/lib/markdown";
 import { InquireForm } from "@/components/InquireForm";
+import { ListingDescription } from "@/components/ListingDescription";
 import {
   ListingGalleryGrid,
   ListingHeroImage,
@@ -25,7 +27,11 @@ export async function generateMetadata({
   // using the listing's natural title + description — social shares are
   // about emotional hook, search titles are about discoverability, they're
   // different optimizations and we don't want one to clobber the other.
-  const autoDesc = truncateAtWord(listing.description, 155);
+  //
+  // The description column stores markdown; Google / OG / Twitter all want
+  // plain text, so we strip syntax before truncating.
+  const plainDesc = stripMarkdown(listing.description);
+  const autoDesc = truncateAtWord(plainDesc, 155);
   const searchTitle = listing.seo_title?.trim() || listing.title;
   const searchDesc = listing.seo_description?.trim() || autoDesc;
 
@@ -79,11 +85,14 @@ export default async function ListingPage({
   // listings are US-based; can be made dynamic if international volume grows.
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
   const locationParts = listing.location.split(",").map((s) => s.trim());
+  // Strip markdown before handing the description to Google — structured
+  // data wants plain text, never `## Heading` or `**bold**`.
+  const plainDescription = stripMarkdown(listing.description);
   const structuredData: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "RealEstateListing",
     name: listing.title,
-    description: listing.description.slice(0, 500),
+    description: plainDescription.slice(0, 500),
     url: `${siteUrl}/listings/${listing.slug}`,
     image: [listing.hero_image_url, ...galleryItems.map((g) => g.url)].slice(0, 10),
     address: {
@@ -205,15 +214,13 @@ export default async function ListingPage({
               )}
             </div>
 
-            <div className="prose prose-lg mt-8 max-w-none">
-              {listing.description.split("\n\n").map((para, i) => (
-                // whitespace-pre-line: preserves single \n as line breaks within a
-                // paragraph (e.g. typed lists), while \n\n still becomes a paragraph
-                // break thanks to the split above.
-                <p key={i} className="text-black/80 leading-relaxed mb-4 whitespace-pre-line">
-                  {para}
-                </p>
-              ))}
+            <div className="mt-8 max-w-none text-lg">
+              {/* Markdown-aware: existing plain-text descriptions still render
+                  as paragraphs (with remark-breaks preserving single-newline
+                  breaks for the emoji-bullet style), and new descriptions can
+                  use ## H2 / ### H3 / **bold** / [text](url) / - list
+                  syntax. Raw HTML and images are blocked at the renderer. */}
+              <ListingDescription markdown={listing.description} />
             </div>
 
             {/* Gallery — clickable thumbnails open the lightbox at the matching slide */}
