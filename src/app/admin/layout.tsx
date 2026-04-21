@@ -18,7 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       <header className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-display text-3xl">Admin</h1>
+          <h1 className="font-display text-3xl">The Desk</h1>
           <p className="text-sm text-black/60 mt-1">
             Signed in as {user.name} ({user.email})
           </p>
