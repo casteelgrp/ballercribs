@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SocialLinks, SOCIALS } from "./SocialLinks";
 
 const NAV_LINKS = [
@@ -12,6 +13,7 @@ const NAV_LINKS = [
 ] as const;
 
 export function SiteHeader() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
@@ -31,6 +33,12 @@ export function SiteHeader() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Login is a focused entry point — no public nav or branding chrome on top.
+  // Every other route (including /admin/*) keeps the header so signed-in users
+  // can jump back to the public site. Gate lives after hooks to keep hook order
+  // stable across route transitions.
+  if (pathname === "/admin/login") return null;
 
   function close() {
     setIsOpen(false);
