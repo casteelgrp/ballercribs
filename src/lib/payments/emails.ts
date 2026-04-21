@@ -7,6 +7,19 @@ type ResendResult = {
   error?: { message?: string; name?: string } | null;
 };
 
+/**
+ * Structured return from every email function. Callers propagate this up to
+ * the API response + admin toast so a failed send is visible instead of
+ * swallowed. `error` is the Resend-reported message or the thrown message;
+ * keep it short enough to show in a UI banner (Resend errors are typically
+ * one sentence already).
+ */
+export interface EmailSendResult {
+  sent: boolean;
+  id?: string;
+  error?: string;
+}
+
 function fromAddress(): string {
   return process.env.INQUIRY_FROM_EMAIL || "onboarding@resend.dev";
 }
@@ -17,7 +30,6 @@ function ownerAddress(): string | undefined {
 
 function formatAmount(amountCents: number, currency: string): string {
   const dollars = amountCents / 100;
-  // Keep the currency explicit in emails — agents might not be US-based.
   return `$${dollars.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
@@ -37,23 +49,51 @@ function textToHtml(s: string): string {
   return escapeHtml(s).replace(/\n/g, "<br/>");
 }
 
-/** Square hosted checkout link — sent to the agent. */
+function extractErrorMessage(raw: unknown): string {
+  if (!raw) return "Unknown email error.";
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "object") {
+    const obj = raw as { message?: string; name?: string };
+    if (obj.message) return obj.message;
+    if (obj.name) return obj.name;
+  }
+  return String(raw);
+}
+
+/**
+ * Square hosted checkout link — sent to the agent. Logs every decision so a
+ * failed send is traceable in Vercel logs, and returns a structured result so
+ * the API can surface the status in its response / the admin UI toast.
+ */
 export async function sendPaymentLinkEmail(params: {
   toEmail: string;
   toName: string;
   payment: Payment;
-}): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[payments-email] Resend not configured — skipping payment-link email.");
-    return;
-  }
+}): Promise<EmailSendResult> {
   const { payment, toEmail, toName } = params;
+  console.log("[payments-email] sendPaymentLinkEmail entered", {
+    paymentId: payment.id,
+    toEmail,
+    hasCheckoutUrl: Boolean(payment.checkout_url)
+  });
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = fromAddress();
+  console.log("[payments-email] env check", {
+    hasApiKey: Boolean(apiKey),
+    from,
+    replyTo: ownerAddress() ?? null
+  });
+
+  if (!apiKey) {
+    const msg = "RESEND_API_KEY not configured.";
+    console.warn("[payments-email]", msg);
+    return { sent: false, error: msg };
+  }
   if (!payment.checkout_url) {
-    console.warn("[payments-email] payment has no checkout_url; skipping link email.", {
-      paymentId: payment.id
-    });
-    return;
+    const msg = "Payment has no checkout_url; cannot send payment-link email.";
+    console.warn("[payments-email]", msg, { paymentId: payment.id });
+    return { sent: false, error: msg };
   }
 
   const resend = new Resend(apiKey);
@@ -82,41 +122,74 @@ export async function sendPaymentLinkEmail(params: {
       </p>
       <hr style="margin:24px 0;border:none;border-top:1px solid #eee"/>
       <p style="color:#888;font-size:12px">
-        Secure checkout hosted by Square. Reply to this email if anything looks off.
+        Secure checkout hosted by Square. After payment, we kick off your feature campaign
+        within 24 hours. Reply to this email if anything looks off.
       </p>
     </div>
   `;
 
   try {
+    console.log("[payments-email] calling resend.emails.send", {
+      to: toEmail,
+      from,
+      subject
+    });
     const result = (await resend.emails.send({
-      from: fromAddress(),
+      from,
       to: toEmail,
       replyTo: ownerAddress(),
       subject,
       html
     })) as ResendResult;
+    console.log("[payments-email] resend returned", {
+      id: result?.data?.id ?? null,
+      error: result?.error ?? null
+    });
+
     if (result?.error) {
-      console.error("[payments-email] send failed", result.error);
+      const msg = extractErrorMessage(result.error);
+      console.error("[payments-email] Resend API returned error", result.error);
+      return { sent: false, error: msg };
     }
+    return { sent: true, id: result?.data?.id };
   } catch (err) {
-    console.error("[payments-email] threw", err);
+    const msg = extractErrorMessage(err);
+    console.error("[payments-email] send threw", err);
+    return { sent: false, error: msg };
   }
 }
 
-/** Alternate-payment instructions (Zelle / wire) — sent to the agent. */
+/**
+ * Alternate-payment instructions (Zelle / wire) — sent to the agent. Same
+ * shape and logging pattern as sendPaymentLinkEmail so both paths report
+ * back uniformly to the route handler.
+ */
 export async function sendAlternatePaymentEmail(params: {
   toEmail: string;
   toName: string;
   payment: Payment;
-}): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[payments-email] Resend not configured — skipping alternate-payment email.");
-    return;
-  }
+}): Promise<EmailSendResult> {
   const { payment, toEmail, toName } = params;
-  const resend = new Resend(apiKey);
+  console.log("[payments-email] sendAlternatePaymentEmail entered", {
+    paymentId: payment.id,
+    toEmail
+  });
 
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = fromAddress();
+  console.log("[payments-email] env check (alternate)", {
+    hasApiKey: Boolean(apiKey),
+    from,
+    replyTo: ownerAddress() ?? null
+  });
+
+  if (!apiKey) {
+    const msg = "RESEND_API_KEY not configured.";
+    console.warn("[payments-email]", msg);
+    return { sent: false, error: msg };
+  }
+
+  const resend = new Resend(apiKey);
   const amountStr = formatAmount(payment.amount_cents, payment.currency);
   const amountShort = (payment.amount_cents / 100).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -147,18 +220,33 @@ export async function sendAlternatePaymentEmail(params: {
   `;
 
   try {
+    console.log("[payments-email] calling resend.emails.send (alternate)", {
+      to: toEmail,
+      from,
+      subject
+    });
     const result = (await resend.emails.send({
-      from: fromAddress(),
+      from,
       to: toEmail,
       replyTo: ownerAddress(),
       subject,
       html
     })) as ResendResult;
+    console.log("[payments-email] resend returned (alternate)", {
+      id: result?.data?.id ?? null,
+      error: result?.error ?? null
+    });
+
     if (result?.error) {
-      console.error("[payments-email] send failed", result.error);
+      const msg = extractErrorMessage(result.error);
+      console.error("[payments-email] Resend API returned error (alternate)", result.error);
+      return { sent: false, error: msg };
     }
+    return { sent: true, id: result?.data?.id };
   } catch (err) {
-    console.error("[payments-email] threw", err);
+    const msg = extractErrorMessage(err);
+    console.error("[payments-email] send threw (alternate)", err);
+    return { sent: false, error: msg };
   }
 }
 

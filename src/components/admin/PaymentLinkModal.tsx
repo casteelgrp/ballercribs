@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { TIERS, TIER_KEYS, type TierKey } from "@/lib/payments/tiers";
+import type { Payment } from "@/lib/payments/types";
 
 type Method = "square" | "alternate";
+
+export interface GenerateLinkResult {
+  payment: Payment;
+  emailSent: boolean;
+  emailError?: string;
+  emailTo: string;
+  method: Method;
+}
 
 export function PaymentLinkModal({
   inquiryId,
@@ -16,7 +25,7 @@ export function PaymentLinkModal({
   inquiryName: string;
   defaultDescription?: string;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (result: GenerateLinkResult) => void;
 }) {
   const [tier, setTier] = useState<TierKey>("featured");
   const [customDollars, setCustomDollars] = useState<string>("");
@@ -79,7 +88,13 @@ export function PaymentLinkModal({
         setSubmitting(false);
         return;
       }
-      onCreated();
+      onCreated({
+        payment: data.payment,
+        emailSent: Boolean(data.emailSent),
+        emailError: data.emailError,
+        emailTo: data.emailTo,
+        method
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setSubmitting(false);

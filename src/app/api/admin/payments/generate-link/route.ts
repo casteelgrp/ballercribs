@@ -148,13 +148,22 @@ export async function POST(req: Request) {
 
       await setAgentInquiryTier(inquiry_id, tier);
 
-      await sendPaymentLinkEmail({
+      // Email is best-effort — we've already created the payment row and
+      // have the Square URL stored on it. If the send fails, the admin gets
+      // the error in the response and can copy the link manually.
+      const emailResult = await sendPaymentLinkEmail({
         toEmail: inquiry.email,
         toName: inquiry.name,
         payment: finalPayment
       });
 
-      return NextResponse.json({ ok: true, payment: finalPayment });
+      return NextResponse.json({
+        ok: true,
+        payment: finalPayment,
+        emailSent: emailResult.sent,
+        emailError: emailResult.error,
+        emailTo: inquiry.email
+      });
     } catch (err) {
       console.error("[generate-link] Square path failed:", err);
       return NextResponse.json(
@@ -180,11 +189,17 @@ export async function POST(req: Request) {
 
   await setAgentInquiryTier(inquiry_id, tier);
 
-  await sendAlternatePaymentEmail({
+  const emailResult = await sendAlternatePaymentEmail({
     toEmail: inquiry.email,
     toName: inquiry.name,
     payment
   });
 
-  return NextResponse.json({ ok: true, payment });
+  return NextResponse.json({
+    ok: true,
+    payment,
+    emailSent: emailResult.sent,
+    emailError: emailResult.error,
+    emailTo: inquiry.email
+  });
 }
