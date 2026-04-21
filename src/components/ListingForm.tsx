@@ -168,19 +168,17 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
         setCurrentSlug(data.slug);
         setLastSavedAt(Date.now());
 
-        if (transitionTo) {
-          // Created directly in target status → go to admin with the matching toast.
-          const toastKey = transitionTo === "review" ? "submitted" : "published";
-          router.push(`/admin?toast=${toastKey}`);
-          router.refresh();
-          return;
-        }
-        // Save Draft (no transition): stay on /admin so router.refresh updates
-        // the listings list below. Skipping the history.replaceState dance —
-        // it was confusing the router refresh and the listings list wasn't
-        // updating. Tradeoff: a browser reload now goes back to the empty
-        // creation form, but the draft is safely in the Draft tab to find.
-        flashSaved("first");
+        // Every create path (Save Draft / Submit for Review / Publish Now) now
+        // routes to /admin/listings with a matching toast, since the creation
+        // form lives on its own page and there's no listings table to refresh
+        // in place.
+        const toastKey =
+          transitionTo === "review"
+            ? "submitted"
+            : transitionTo === "published"
+              ? "published"
+              : "draft_saved";
+        router.push(`/admin/listings?toast=${toastKey}`);
         router.refresh();
         return;
       }
@@ -208,7 +206,7 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
 
       if (transitionTo) {
         const toastKey = transitionTo === "review" ? "submitted" : "published";
-        router.push(`/admin?toast=${toastKey}`);
+        router.push(`/admin/listings?toast=${toastKey}`);
         router.refresh();
       } else {
         // Subsequent save without transition — show the in-page banner and
