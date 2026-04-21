@@ -27,11 +27,14 @@ const TAB_LABEL: Record<AdminListingFilter, string> = {
   archived: "Archived"
 };
 
+// Per-status pill colors. REVIEW uses the site accent token (not generic amber)
+// so the "something to look at" signal matches the REVIEW tab highlight.
+// ARCHIVED is darker than DRAFT so the two faint-gray states don't blur together.
 const STATUS_BADGE: Record<ListingStatus, string> = {
   draft: "bg-black/10 text-black/70",
-  review: "bg-amber-100 text-amber-800",
+  review: "bg-accent/20 text-accent",
   published: "bg-green-100 text-green-800",
-  archived: "bg-black/5 text-black/40"
+  archived: "bg-black/20 text-black/40"
 };
 
 function toastFromParams(sp: {
@@ -63,6 +66,11 @@ function toastFromParams(sp: {
       };
     case "saved":
       return { message: "Changes saved.", variant: "success" };
+    case "unpublished":
+      return {
+        message: `${title} unpublished — now in drafts.`,
+        variant: "info"
+      };
     default:
       return null;
   }
@@ -184,10 +192,14 @@ export default async function AdminListingsPage({
               ? "border-transparent text-accent hover:text-ink"
               : "border-transparent text-black/50 hover:text-ink";
           const countCls = highlight ? "" : "text-black/40";
+          // ALL has no query param — cleaner default URL, and clicking "ALL"
+          // from another tab returns you to /admin/listings with nothing in the
+          // querystring, which matches "no param = ALL" on fresh navigation.
+          const href = tab === "all" ? "/admin/listings" : `/admin/listings?status=${tab}`;
           return (
             <Link
               key={tab}
-              href={`/admin/listings?status=${tab}`}
+              href={href}
               className={
                 "px-3 py-2 text-sm uppercase tracking-widest border-b-2 -mb-px transition-colors whitespace-nowrap " +
                 textCls
