@@ -381,7 +381,7 @@ export function InquiryCard({
                 }}
                 className="text-xs uppercase tracking-widest border border-black/20 px-3 py-1.5 hover:border-accent hover:text-accent disabled:opacity-40 transition-colors"
               >
-                Mark contacted now
+                Log contact
               </button>
             </div>
 
