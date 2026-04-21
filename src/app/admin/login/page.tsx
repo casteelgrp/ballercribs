@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { PasswordField } from "@/components/PasswordField";
@@ -14,7 +15,7 @@ export default async function AdminLoginPage({
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
-        <div className="flex justify-center mb-14">
+        <div className="flex justify-center mb-10">
           <Image
             src="/logo-black.png"
             alt="BallerCribs"
@@ -25,7 +26,6 @@ export default async function AdminLoginPage({
           />
         </div>
 
-        <h1 className="font-display text-3xl mb-2 text-center">Admin</h1>
         <p className="text-black/60 text-sm mb-10 text-center">Sign in to manage listings.</p>
 
         <form action="/api/admin/login" method="POST" className="space-y-4">
@@ -51,6 +51,15 @@ export default async function AdminLoginPage({
             Sign in
           </button>
         </form>
+
+        <div className="mt-10 text-center">
+          <Link
+            href="/"
+            className="text-xs text-black/50 hover:text-accent transition-colors"
+          >
+            ← Go to BallerCribs
+          </Link>
+        </div>
       </div>
     </div>
   );
