@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/currency";
 import { stripMarkdown } from "@/lib/markdown";
 import { InquireForm } from "@/components/InquireForm";
 import { ListingDescription } from "@/components/ListingDescription";
+import { NewsletterCTA } from "@/components/NewsletterCTA";
 import {
   ListingGalleryGrid,
   ListingHeroImage,
@@ -241,6 +242,11 @@ export default async function ListingPage({
                 )}
               </div>
             )}
+
+            {/* Quiet newsletter prompt at the end of the main content column.
+                Doesn't appear in the sticky inquire sidebar — that's reserved
+                for the primary action (contact an agent). */}
+            <NewsletterCTA variant="compact" />
           </div>
 
           {/* Sidebar - inquire form (hidden once sold; replaced with a browse-active link) */}

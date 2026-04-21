@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getActiveHeroPhotos, getFeaturedListings } from "@/lib/db";
 import { ListingCard } from "@/components/ListingCard";
 import { HeroCarousel } from "@/components/HeroCarousel";
+import { NewsletterCTA } from "@/components/NewsletterCTA";
 
 export const revalidate = 60;
 
@@ -85,6 +86,11 @@ export default async function HomePage() {
           </div>
         )}
       </section>
+
+      {/* Newsletter — mid-funnel invite between the editorial grid and the
+          agent CTA. Full-width band keeps it feeling like a magazine
+          section break rather than a marketing pop-up. */}
+      <NewsletterCTA variant="full" />
 
       {/* For agents CTA */}
       <section className="bg-ink text-paper">
