@@ -242,11 +242,6 @@ export default async function ListingPage({
                 )}
               </div>
             )}
-
-            {/* Quiet newsletter prompt at the end of the main content column.
-                Doesn't appear in the sticky inquire sidebar — that's reserved
-                for the primary action (contact an agent). */}
-            <NewsletterCTA variant="compact" />
           </div>
 
           {/* Sidebar - inquire form (hidden once sold; replaced with a browse-active link) */}
@@ -281,6 +276,14 @@ export default async function ListingPage({
               )}
             </div>
           </aside>
+        </div>
+
+        {/* Newsletter CTA lives below the entire two-col grid so it spans the
+            reading width of the page instead of competing with the sticky
+            inquire form in the sidebar. Full-width band on the article, not a
+            narrow column. */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
+          <NewsletterCTA variant="compact" />
         </div>
       </article>
     </ListingMediaProvider>

@@ -176,7 +176,12 @@ function FullShell({ children }: { children: React.ReactNode }) {
 }
 
 function CompactShell({ children }: { children: React.ReactNode }) {
+  // Spans the article width at every breakpoint; the form itself caps at
+  // max-w-md so the input+button row doesn't stretch to absurd widths on
+  // wide desktops while the surrounding copy still reads as full-width.
   return (
-    <div className="mt-10 pt-6 border-t border-black/10 max-w-md">{children}</div>
+    <div className="pt-8 border-t border-black/10">
+      <div className="max-w-xl">{children}</div>
+    </div>
   );
 }
