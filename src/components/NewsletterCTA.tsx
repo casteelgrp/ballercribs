@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { NewsletterSuccess } from "./NewsletterSuccess";
 
 type Variant = "full" | "compact";
 type Status = "idle" | "submitting" | "success" | "error";
@@ -63,15 +64,14 @@ export function NewsletterCTA({ variant }: { variant: Variant }) {
   }
 
   // ─── Success state — shared by both variants ─────────────────────────────
+  //
+  // Both variants render the same <NewsletterSuccess>; the `full`/`compact`
+  // size controls typography scale and whether the thin accent divider
+  // renders. Keeping it inside the shell so the cream-tint band stays
+  // behind the success message on the homepage instead of stripping back
+  // to the page background.
   if (status === "success") {
-    const successBody = (
-      <div className="text-center">
-        <p className="font-display text-2xl">You&apos;re in.</p>
-        <p className="text-sm text-black/60 mt-2">
-          Check your inbox for confirmation.
-        </p>
-      </div>
-    );
+    const successBody = <NewsletterSuccess size={variant} />;
     return variant === "full" ? (
       <FullShell>{successBody}</FullShell>
     ) : (

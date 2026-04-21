@@ -44,6 +44,22 @@ html, body {
   }
 }
 
+/* Light fade-in for state swaps (e.g. newsletter form → success). Single
+   utility class instead of pulling in tailwindcss-animate; 300ms is short
+   enough to feel instant but long enough to avoid the hard DOM cut. */
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadein {
+  animation: fadein 300ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadein {
+    animation: none;
+  }
+}
+
 /* ─── Legal page typography ──────────────────────────────────────────────────
    Scoped to .legal-prose so /privacy, /terms, /referral-disclosure share
    consistent readable formatting without pulling in @tailwindcss/typography.

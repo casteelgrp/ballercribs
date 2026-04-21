@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NewsletterSuccess } from "./NewsletterSuccess";
 
 /**
  * Full-page newsletter form on /newsletter. Email-only — matches the inline
@@ -44,14 +45,7 @@ export function NewsletterForm() {
   }
 
   if (status === "success") {
-    return (
-      <div className="text-center py-4">
-        <h3 className="font-display text-2xl text-ink">You&apos;re in.</h3>
-        <p className="text-sm text-black/70 mt-2">
-          First issue drops this Sunday. Check your inbox for a welcome note.
-        </p>
-      </div>
-    );
+    return <NewsletterSuccess size="full" />;
   }
 
   return (
