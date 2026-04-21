@@ -1,4 +1,4 @@
-import type { Listing, ListingStatus, User } from "./types";
+import type { Listing, User } from "./types";
 
 // Permission helpers gate the workflow state machine. Rules live here so
 // adding a new role (e.g. "agent") later means changing this file only —
@@ -53,11 +53,6 @@ export function canRestoreFromArchive(user: User, listing: Listing): boolean {
 
 export function canDelete(user: User): boolean {
   return isOwner(user);
-}
-
-/** Default admin tab for a user — owner sees the actionable review queue, users see their drafts. */
-export function defaultAdminTab(user: User): ListingStatus | "all" {
-  return isOwner(user) ? "review" : "draft";
 }
 
 /** Status transitions a user can perform on a listing. Used to render action buttons. */

@@ -10,7 +10,7 @@ import {
 import { ListingActions } from "@/components/ListingActions";
 import { SoldActions, StillActiveButton } from "@/components/SoldActions";
 import { Toast } from "@/components/Toast";
-import { defaultAdminTab, isOwner } from "@/lib/permissions";
+import { isOwner } from "@/lib/permissions";
 import { formatPrice } from "@/lib/format";
 import type { ListingStatus } from "@/lib/types";
 
@@ -81,7 +81,9 @@ export default async function AdminListingsPage({
   const user = await requirePageUser();
   const sp = await searchParams;
 
-  const requested = (sp.status as AdminListingFilter | undefined) ?? defaultAdminTab(user);
+  // Default to "all" so the page never looks empty on first load. The REVIEW
+  // tab draws attention via color when it has pending items (see tab loop below).
+  const requested = (sp.status as AdminListingFilter | undefined) ?? "all";
   const currentTab: AdminListingFilter = TAB_ORDER.includes(requested as AdminListingFilter)
     ? (requested as AdminListingFilter)
     : "all";
@@ -173,18 +175,25 @@ export default async function AdminListingsPage({
         {TAB_ORDER.map((tab) => {
           const count = tab === "all" ? allCount : counts[tab as ListingStatus];
           const active = tab === currentTab;
+          // REVIEW is the only tab that's a call to action — colored accent
+          // when there's something pending so it reads as "REVIEW (3)" in gold.
+          const highlight = !active && tab === "review" && counts.review > 0;
+          const textCls = active
+            ? "border-accent text-ink"
+            : highlight
+              ? "border-transparent text-accent hover:text-ink"
+              : "border-transparent text-black/50 hover:text-ink";
+          const countCls = highlight ? "" : "text-black/40";
           return (
             <Link
               key={tab}
               href={`/admin/listings?status=${tab}`}
               className={
                 "px-3 py-2 text-sm uppercase tracking-widest border-b-2 -mb-px transition-colors whitespace-nowrap " +
-                (active
-                  ? "border-accent text-ink"
-                  : "border-transparent text-black/50 hover:text-ink")
+                textCls
               }
             >
-              {TAB_LABEL[tab]} <span className="text-black/40">({count})</span>
+              {TAB_LABEL[tab]} <span className={countCls}>({count})</span>
             </Link>
           );
         })}
