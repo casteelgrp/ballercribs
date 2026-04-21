@@ -20,8 +20,7 @@ export default function NewsletterPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
       <section className="text-center max-w-3xl mx-auto">
         <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
-          The wildest homes on the internet,
-          <br />
+          The wildest homes on the internet,{" "}
           <span className="text-accent">in your inbox every Sunday.</span>
         </h1>
         <p className="mt-6 text-lg text-black/70 max-w-2xl mx-auto">
