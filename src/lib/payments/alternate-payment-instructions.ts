@@ -7,7 +7,7 @@
 //   [REFERENCE_CODE]  → "BC-2026-001234"
 
 export const ALTERNATE_PAYMENT_INSTRUCTIONS = `To pay via Zelle:
-  Send to: [YOUR ZELLE EMAIL OR PHONE]
+  Send to: 805-404-5821
   Amount: $[AMOUNT]
   Reference: [REFERENCE_CODE]  ← include this in the memo
 
