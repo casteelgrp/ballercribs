@@ -74,13 +74,15 @@ export default async function ListingPage({
 
   // JSON-LD schema for search engines. Helps Google produce rich results
   // (photo, price, beds/baths inline) and disambiguates the page for LLMs.
-  // Hardcoded addressCountry='US' per spec; most listings are US — can be
-  // made dynamic later if international listings become common.
+  // RealEstateListing is the type Google's Real Estate structured data docs
+  // reference; it's broader than SingleFamilyResidence (covers condos, PHs,
+  // etc) which matches our listing mix. Hardcoded addressCountry='US' — most
+  // listings are US-based; can be made dynamic if international volume grows.
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
   const locationParts = listing.location.split(",").map((s) => s.trim());
-  const structuredData = {
+  const structuredData: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": "SingleFamilyResidence",
+    "@type": "RealEstateListing",
     name: listing.title,
     description: listing.description.slice(0, 500),
     url: `${siteUrl}/listings/${listing.slug}`,
@@ -100,6 +102,7 @@ export default async function ListingPage({
         unitCode: "FTK"
       }
     }),
+    ...(listing.published_at && { datePosted: listing.published_at }),
     offers: {
       "@type": "Offer",
       // Sold listings still surface an offer price for search rich-results —
@@ -110,6 +113,21 @@ export default async function ListingPage({
       availability: isSold ? "https://schema.org/SoldOut" : "https://schema.org/InStock"
     }
   };
+
+  // Broker is populated when the listing carries agent credit; omitted
+  // otherwise so we don't emit a half-empty RealEstateAgent stub.
+  if (listing.agent_name) {
+    structuredData.broker = {
+      "@type": "RealEstateAgent",
+      name: listing.agent_name,
+      ...(listing.agent_brokerage && {
+        worksFor: {
+          "@type": "Organization",
+          name: listing.agent_brokerage
+        }
+      })
+    };
+  }
 
   return (
     <ListingMediaProvider
