@@ -67,6 +67,28 @@ export function ListingActions({ user, listing }: { user: User; listing: Listing
     router.refresh();
   }
 
+  async function unpublish() {
+    if (
+      !window.confirm(
+        `Unpublish "${listing.title}"? It will be removed from the public site and moved back to drafts.`
+      )
+    )
+      return;
+    setBusy(true);
+    const res = await fetch(`/api/admin/listings/${listing.id}/unpublish`, { method: "POST" });
+    setBusy(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      window.alert(data?.error || "Unpublish failed.");
+      return;
+    }
+    // Land on /admin/listings with a toast so the user sees the confirmation
+    // even if the row jumps between tabs (published → draft).
+    const qs = new URLSearchParams({ toast: "unpublished", title: listing.title });
+    router.push(`/admin/listings?${qs.toString()}`);
+    router.refresh();
+  }
+
   const btn =
     "text-xs uppercase tracking-widest border border-black/20 px-3 py-1.5 disabled:opacity-30 transition-colors";
 
@@ -141,6 +163,16 @@ export function ListingActions({ user, listing }: { user: User; listing: Listing
           className={btn + " hover:border-black/50"}
         >
           Archive
+        </button>
+      )}
+      {t.unpublish && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={unpublish}
+          className={btn + " hover:border-black/50"}
+        >
+          Unpublish
         </button>
       )}
       {t.restore && (

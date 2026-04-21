@@ -47,6 +47,11 @@ export function canArchive(user: User, listing: Listing): boolean {
   return isOwner(user) && listing.status === "published";
 }
 
+/** Pull a live listing back to draft without archiving. Owner-only. */
+export function canUnpublish(user: User, listing: Listing): boolean {
+  return isOwner(user) && listing.status === "published";
+}
+
 export function canRestoreFromArchive(user: User, listing: Listing): boolean {
   return isOwner(user) && listing.status === "archived";
 }
@@ -63,6 +68,7 @@ export interface AvailableTransitions {
   approve: boolean;
   sendBack: boolean;
   archive: boolean;
+  unpublish: boolean;
   restore: boolean;
   delete: boolean;
 }
@@ -75,6 +81,7 @@ export function availableTransitions(user: User, listing: Listing): AvailableTra
     approve: canApprove(user, listing),
     sendBack: canSendBackToDraft(user, listing),
     archive: canArchive(user, listing),
+    unpublish: canUnpublish(user, listing),
     restore: canRestoreFromArchive(user, listing),
     delete: canDelete(user)
   };

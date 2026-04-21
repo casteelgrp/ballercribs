@@ -418,6 +418,25 @@ export async function deleteListing(id: number): Promise<void> {
   await sql`DELETE FROM listings WHERE id = ${id};`;
 }
 
+/**
+ * Pull a listing back to draft. Clears published_at (no longer live) and
+ * submitted_at (so a later re-submission gets a fresh timestamp). Separate
+ * helper because transitionListingStatus' draft branch is tailored for the
+ * review → draft send-back and doesn't touch published_at.
+ */
+export async function unpublishListing(id: number): Promise<Listing | null> {
+  const { rows } = await sql`
+    UPDATE listings
+    SET status = 'draft',
+        published_at = NULL,
+        submitted_at = NULL,
+        updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *;
+  `;
+  return rows[0] ? rowToListing(rows[0]) : null;
+}
+
 // ─── Sold workflow ──────────────────────────────────────────────────────────
 
 export interface MarkSoldInput {
