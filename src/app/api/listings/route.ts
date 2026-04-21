@@ -109,7 +109,15 @@ export async function POST(req: Request) {
       agent_brokerage: body?.agent_brokerage ? String(body.agent_brokerage).trim() : null,
       featured: Boolean(body?.featured),
       status,
-      created_by_user_id: user.id
+      created_by_user_id: user.id,
+      seo_title:
+        typeof body?.seo_title === "string" && body.seo_title.trim()
+          ? body.seo_title.trim()
+          : null,
+      seo_description:
+        typeof body?.seo_description === "string" && body.seo_description.trim()
+          ? body.seo_description.trim()
+          : null
     });
     return NextResponse.json({ ok: true, id: listing.id, slug: listing.slug, status: listing.status });
   } catch (err: any) {

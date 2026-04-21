@@ -145,6 +145,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           : null;
     }
     if ("featured" in fields) updates.featured = Boolean(fields.featured);
+    if ("seo_title" in fields) {
+      updates.seo_title =
+        typeof fields.seo_title === "string" && fields.seo_title.trim()
+          ? fields.seo_title.trim()
+          : null;
+    }
+    if ("seo_description" in fields) {
+      updates.seo_description =
+        typeof fields.seo_description === "string" && fields.seo_description.trim()
+          ? fields.seo_description.trim()
+          : null;
+    }
 
     let updated;
     try {

@@ -21,27 +21,26 @@ export async function generateMetadata({
   const listing = await getListingBySlug(slug).catch(() => null);
   if (!listing) return { title: "Listing not found" };
 
-  // Truncate at a word boundary so descriptions don't end mid-word when the
-  // listing copy crosses the 160-char search snippet cap.
-  const desc = truncateAtWord(listing.description, 155);
+  // SEO overrides tailor the Google SERP snippet only. OG / Twitter keep
+  // using the listing's natural title + description — social shares are
+  // about emotional hook, search titles are about discoverability, they're
+  // different optimizations and we don't want one to clobber the other.
+  const autoDesc = truncateAtWord(listing.description, 155);
+  const searchTitle = listing.seo_title?.trim() || listing.title;
+  const searchDesc = listing.seo_description?.trim() || autoDesc;
 
-  // OG + Twitter images are auto-wired from the sibling opengraph-image.tsx
-  // (which renders a branded card with the hero, price, title, location).
-  // If social_cover_url is set, the Next.js auto-generator still takes
-  // precedence — can swap back to manual images here if we ever want a
-  // specific cover instead of the dynamic card.
   return {
-    title: listing.title,
-    description: desc,
+    title: searchTitle,
+    description: searchDesc,
     openGraph: {
       title: listing.title,
-      description: desc,
+      description: autoDesc,
       type: "article"
     },
     twitter: {
       card: "summary_large_image",
       title: listing.title,
-      description: desc
+      description: autoDesc
     },
     alternates: {
       canonical: `/listings/${listing.slug}`

@@ -50,7 +50,9 @@ function rowToListing(row: any): Listing {
         ? Number(row.sold_price_usd)
         : null,
     sale_notes: row.sale_notes ?? null,
-    last_reviewed_at: row.last_reviewed_at ?? null
+    last_reviewed_at: row.last_reviewed_at ?? null,
+    seo_title: row.seo_title ?? null,
+    seo_description: row.seo_description ?? null
   };
 }
 
@@ -290,6 +292,8 @@ export interface CreateListingInput {
   featured: boolean;
   status: ListingStatus;
   created_by_user_id: number | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
 }
 
 export async function createListing(data: CreateListingInput): Promise<Listing> {
@@ -300,7 +304,8 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
       slug, title, location, price_usd, bedrooms, bathrooms, square_feet,
       description, hero_image_url, gallery_image_urls, social_cover_url,
       agent_name, agent_brokerage, featured, status,
-      submitted_at, published_at, created_by_user_id
+      submitted_at, published_at, created_by_user_id,
+      seo_title, seo_description
     ) VALUES (
       ${data.slug}, ${data.title}, ${data.location}, ${data.price_usd},
       ${data.bedrooms}, ${data.bathrooms}, ${data.square_feet},
@@ -308,7 +313,8 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
       ${JSON.stringify(data.gallery_image_urls)}::jsonb,
       ${data.social_cover_url},
       ${data.agent_name}, ${data.agent_brokerage}, ${data.featured}, ${data.status},
-      ${submittedAt}, ${publishedAt}, ${data.created_by_user_id}
+      ${submittedAt}, ${publishedAt}, ${data.created_by_user_id},
+      ${data.seo_title ?? null}, ${data.seo_description ?? null}
     )
     RETURNING *;
   `;
@@ -330,6 +336,8 @@ export interface UpdateListingInput {
   agent_name?: string | null;
   agent_brokerage?: string | null;
   featured?: boolean;
+  seo_title?: string | null;
+  seo_description?: string | null;
 }
 
 export async function updateListing(id: number, data: UpdateListingInput): Promise<Listing | null> {
@@ -353,6 +361,8 @@ export async function updateListing(id: number, data: UpdateListingInput): Promi
       agent_name        = ${data.agent_name === undefined ? null : data.agent_name},
       agent_brokerage   = ${data.agent_brokerage === undefined ? null : data.agent_brokerage},
       featured          = COALESCE(${data.featured ?? null}, featured),
+      seo_title         = ${data.seo_title === undefined ? null : data.seo_title},
+      seo_description   = ${data.seo_description === undefined ? null : data.seo_description},
       updated_at        = NOW()
     WHERE id = ${id}
     RETURNING *;

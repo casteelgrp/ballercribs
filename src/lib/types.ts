@@ -54,6 +54,11 @@ export interface Listing {
   // Bumped by the "Still active" button in the admin stale-listing queue;
   // a listing only reappears in the queue 90 days after the last review.
   last_reviewed_at: string | null;
+  // Per-listing SEO overrides — null means fall back to auto-generated
+  // metadata. Only affect the <title> + <meta name="description"> tags;
+  // OG / Twitter / JSON-LD keep using the listing's natural fields.
+  seo_title: string | null;
+  seo_description: string | null;
 }
 
 export type AgentInquiryType = "featured" | "referral" | "other";
