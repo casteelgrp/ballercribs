@@ -661,7 +661,9 @@ export async function deleteInquiry(id: number): Promise<boolean> {
 export async function updateInquiryStatus(
   id: number,
   status: InquiryStatus,
-  userId: number
+  // null = system-driven change (webhook auto-marks won etc). Column is
+  // nullable on the schema, so we pass through unchanged.
+  userId: number | null
 ): Promise<InquiryWithListing | null> {
   const { rows } = await sql`
     UPDATE inquiries
@@ -975,7 +977,7 @@ export async function deleteAgentInquiry(id: number): Promise<boolean> {
 export async function updateAgentInquiryStatus(
   id: number,
   status: InquiryStatus,
-  userId: number
+  userId: number | null
 ): Promise<AgentInquiry | null> {
   const { rows } = await sql`
     UPDATE agent_inquiries
@@ -1015,7 +1017,7 @@ export async function updateAgentInquiryLastContacted(
   return getAgentInquiryById(id);
 }
 
-async function getAgentInquiryById(id: number): Promise<AgentInquiry | null> {
+export async function getAgentInquiryById(id: number): Promise<AgentInquiry | null> {
   const { rows } = await sql`
     SELECT a.*, u.name AS status_updated_by_name
     FROM agent_inquiries a
