@@ -20,6 +20,7 @@ function rowToListing(row: any): Listing {
     title: row.title,
     location: row.location,
     price_usd: Number(row.price_usd),
+    currency: (row.currency as string | null | undefined) ?? "USD",
     bedrooms: row.bedrooms !== null && row.bedrooms !== undefined ? Number(row.bedrooms) : null,
     bathrooms: row.bathrooms !== null && row.bathrooms !== undefined ? Number(row.bathrooms) : null,
     square_feet:
@@ -280,6 +281,7 @@ export interface CreateListingInput {
   title: string;
   location: string;
   price_usd: number;
+  currency?: string;
   bedrooms: number | null;
   bathrooms: number | null;
   square_feet: number | null;
@@ -301,13 +303,15 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
   const publishedAt = data.status === "published" ? new Date().toISOString() : null;
   const { rows } = await sql`
     INSERT INTO listings (
-      slug, title, location, price_usd, bedrooms, bathrooms, square_feet,
+      slug, title, location, price_usd, currency,
+      bedrooms, bathrooms, square_feet,
       description, hero_image_url, gallery_image_urls, social_cover_url,
       agent_name, agent_brokerage, featured, status,
       submitted_at, published_at, created_by_user_id,
       seo_title, seo_description
     ) VALUES (
       ${data.slug}, ${data.title}, ${data.location}, ${data.price_usd},
+      ${data.currency ?? "USD"},
       ${data.bedrooms}, ${data.bathrooms}, ${data.square_feet},
       ${data.description}, ${data.hero_image_url},
       ${JSON.stringify(data.gallery_image_urls)}::jsonb,
@@ -326,6 +330,7 @@ export interface UpdateListingInput {
   title?: string;
   location?: string;
   price_usd?: number;
+  currency?: string;
   bedrooms?: number | null;
   bathrooms?: number | null;
   square_feet?: number | null;
@@ -349,6 +354,7 @@ export async function updateListing(id: number, data: UpdateListingInput): Promi
       title             = COALESCE(${data.title ?? null}, title),
       location          = COALESCE(${data.location ?? null}, location),
       price_usd         = COALESCE(${data.price_usd ?? null}, price_usd),
+      currency          = COALESCE(${data.currency ?? null}, currency),
       bedrooms          = ${data.bedrooms === undefined ? null : data.bedrooms},
       bathrooms         = ${data.bathrooms === undefined ? null : data.bathrooms},
       square_feet       = ${data.square_feet === undefined ? null : data.square_feet},

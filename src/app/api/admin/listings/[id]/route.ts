@@ -17,6 +17,7 @@ import {
   canSubmitForReview
 } from "@/lib/permissions";
 import { validateSlug } from "@/lib/format";
+import { isCurrencyCode } from "@/lib/currency";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -110,6 +111,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         return NextResponse.json({ error: "Invalid price." }, { status: 400 });
       }
       updates.price_usd = Math.round(p);
+    }
+    if ("currency" in fields) {
+      // Defensive: silently clamp to USD if the caller sends something we
+      // don't support. The dropdown is the source of truth server-side.
+      updates.currency = isCurrencyCode(fields.currency) ? fields.currency : "USD";
     }
     if ("bedrooms" in fields) {
       updates.bedrooms =

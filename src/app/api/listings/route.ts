@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createListingWithUniqueSlug } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { generateSlug, validateSlug } from "@/lib/format";
+import { DEFAULT_CURRENCY, isCurrencyCode } from "@/lib/currency";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 import { isOwner } from "@/lib/permissions";
 
@@ -89,6 +90,11 @@ export async function POST(req: Request) {
       title,
       location,
       price_usd: Math.round(price_usd),
+      // Fall back to USD silently for unknown / missing codes — the form's
+      // dropdown is the source of truth; any stray value on the wire means
+      // the caller is out of sync with the supported set, not that we
+      // should reject the listing.
+      currency: isCurrencyCode(body?.currency) ? body.currency : DEFAULT_CURRENCY,
       bedrooms:
         body?.bedrooms !== null && body?.bedrooms !== undefined && body.bedrooms !== ""
           ? Number(body.bedrooms)

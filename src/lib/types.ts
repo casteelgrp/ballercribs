@@ -27,7 +27,12 @@ export interface Listing {
   slug: string;
   title: string;
   location: string;
+  // price is stored as an integer in the listing's native currency units
+  // (whole dollars / euros / dirhams — not cents). The column name is kept
+  // as `price_usd` for historical reasons; the actual currency lives in
+  // the `currency` column below and the display layer reads both.
   price_usd: number;
+  currency: string;
   bedrooms: number | null;
   bathrooms: number | null;
   square_feet: number | null;
