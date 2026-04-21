@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 import { NewsletterForm } from "@/components/NewsletterForm";
 
 export const metadata: Metadata = {
-  title: "Subscribe — BallerCribs",
-  description: "The wildest luxury homes on the internet, delivered every Sunday. Free.",
+  // Absolute title — bypasses the `%s | BallerCribs` template since the
+  // headline already contains the brand ("Newsletter — BallerCribs Weekly").
+  title: { absolute: "Newsletter — BallerCribs Weekly" },
+  description: "The wildest luxury homes on the internet, delivered weekly. Free.",
   openGraph: {
-    title: "BallerCribs Weekly",
-    description: "The wildest luxury homes on the internet, delivered every Sunday. Free."
+    title: "Newsletter — BallerCribs Weekly",
+    description: "The wildest luxury homes on the internet, delivered weekly. Free."
+  },
+  alternates: {
+    canonical: "/newsletter"
   }
 };
 

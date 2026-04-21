@@ -9,14 +9,16 @@ import { ListingCard } from "@/components/ListingCard";
 
 const VALID_STATUSES: PublicListingStatusFilter[] = ["active", "sold", "all"];
 
+// Titles rely on the root-layout template `%s | BallerCribs` so none of
+// these include the brand suffix directly.
 const TITLES: Record<PublicListingStatusFilter, string> = {
-  active: "Luxury listings for sale — BallerCribs",
-  sold: "Recently sold luxury homes — BallerCribs",
-  all: "All luxury listings — BallerCribs"
+  active: "Listings — Luxury homes, estates & architecture",
+  sold: "Sold — Recently closed luxury homes",
+  all: "All listings — Active and sold"
 };
 
 const DESCRIPTIONS: Record<PublicListingStatusFilter, string> = {
-  active: "Curated luxury mega-mansions and architectural estates currently for sale.",
+  active: "Browse the wildest luxury homes on the internet. New listings every week.",
   sold: "Recently sold luxury homes featured on BallerCribs.",
   all: "All luxury listings featured on BallerCribs — active and sold."
 };
@@ -41,9 +43,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { status: rawStatus } = await searchParams;
   const status = resolveStatus(rawStatus);
+  // Canonical drops the query-string on the default (active) view so crawlers
+  // don't treat /listings and /listings?status=active as separate pages.
+  const canonical = status === "active" ? "/listings" : `/listings?status=${status}`;
   return {
     title: TITLES[status],
-    description: DESCRIPTIONS[status]
+    description: DESCRIPTIONS[status],
+    alternates: { canonical }
   };
 }
 

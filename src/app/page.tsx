@@ -1,10 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getActiveHeroPhotos, getFeaturedListings } from "@/lib/db";
 import { ListingCard } from "@/components/ListingCard";
 import { HeroCarousel } from "@/components/HeroCarousel";
 
 export const revalidate = 60;
+
+// Homepage uses the root-layout default title + description (no override) —
+// this metadata block exists only to pin the canonical URL, which must be
+// per-page rather than inherited from the root layout.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" }
+};
 
 export default async function HomePage() {
   // Fetch listings + hero photos in parallel. Both are best-effort — DB hiccups

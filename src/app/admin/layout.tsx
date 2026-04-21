@@ -1,8 +1,20 @@
+import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import { isOwner } from "@/lib/permissions";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 
 export const dynamic = "force-dynamic";
+
+// Every /admin/* route inherits this — crawlers must never index the CRM or
+// the login page. Overrides the root layout's robots:{ index:true, follow:true }.
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: { index: false, follow: false }
+  }
+};
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();

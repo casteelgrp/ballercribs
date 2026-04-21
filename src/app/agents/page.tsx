@@ -7,13 +7,16 @@ import { HeroMosaic } from "@/components/HeroMosaic";
 import { getActiveHeroPhotos } from "@/lib/db";
 
 export const metadata: Metadata = {
-  title: "Get featured on BallerCribs — For agents and brokerages",
+  title: "For Agents — Feature your luxury listings",
   description:
-    "Put your luxury listing in front of 307K+ followers and millions of monthly viewers. Featured posts, Reels, and buyer referrals for agents and brokerages.",
+    "Reach 234K+ luxury real estate followers. Feature your listings to an engaged audience of high-net-worth buyers and sellers. Agent referral network available nationwide.",
   openGraph: {
-    title: "Get featured on BallerCribs",
+    title: "For Agents — Feature your luxury listings on BallerCribs",
     description:
       "234K Instagram · 72K Facebook · Millions of monthly views. The audience your listing deserves."
+  },
+  alternates: {
+    canonical: "/agents"
   }
 };
 

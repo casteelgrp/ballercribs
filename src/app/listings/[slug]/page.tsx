@@ -19,25 +19,45 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const listing = await getListingBySlug(slug).catch(() => null);
-  if (!listing) return { title: "Listing not found — BallerCribs" };
+  if (!listing) return { title: "Listing not found" };
+
+  // Truncate at a word boundary so descriptions don't end mid-word when the
+  // listing copy crosses the 160-char search snippet cap.
+  const desc = truncateAtWord(listing.description, 155);
+
   // OG + Twitter images are auto-wired from the sibling opengraph-image.tsx
   // (which renders a branded card with the hero, price, title, location).
   // If social_cover_url is set, the Next.js auto-generator still takes
   // precedence — can swap back to manual images here if we ever want a
   // specific cover instead of the dynamic card.
   return {
-    title: `${listing.title} — BallerCribs`,
-    description: listing.description.slice(0, 160),
+    title: listing.title,
+    description: desc,
     openGraph: {
       title: listing.title,
-      description: listing.description.slice(0, 160)
+      description: desc,
+      type: "article"
     },
     twitter: {
       card: "summary_large_image",
       title: listing.title,
-      description: listing.description.slice(0, 160)
+      description: desc
+    },
+    alternates: {
+      canonical: `/listings/${listing.slug}`
     }
   };
+}
+
+function truncateAtWord(raw: string, maxLen: number): string {
+  const oneLine = raw.replace(/\s+/g, " ").trim();
+  if (oneLine.length <= maxLen) return oneLine;
+  const slice = oneLine.slice(0, maxLen);
+  const lastSpace = slice.lastIndexOf(" ");
+  // Only use the word boundary if it's not absurdly far back — otherwise
+  // the hard cut is fine.
+  const cut = lastSpace > maxLen * 0.6 ? lastSpace : maxLen;
+  return oneLine.slice(0, cut).trimEnd() + "…";
 }
 
 export default async function ListingPage({
