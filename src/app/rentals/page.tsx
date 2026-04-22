@@ -147,6 +147,10 @@ export default async function RentalsPage({
             destinationInitial={prefill?.title ?? prefill?.location ?? ""}
             listingId={prefill?.id ?? null}
             listingSlug={prefill?.slug ?? null}
+            // Listing's rental_term is a perfect default for the radio —
+            // user can override, but nine times out of ten they want the
+            // same term as the property they clicked through.
+            termPreferenceInitial={prefill?.rental_term ?? null}
           />
         </div>
       </section>

@@ -166,7 +166,20 @@ export interface RentalInquiry {
   listing_id: number | null;
   listing_slug: string | null;
   listing_title: string | null;
+  /**
+   * Stated term intent on the public /rentals form. Null on rows that
+   * predate the field (migration 014) or any future organic path that
+   * doesn't surface the picker.
+   */
+  rental_term_preference: RentalTermPreference | null;
 }
+
+/**
+ * Tri-state term preference captured from /rentals. 'not_sure' is a
+ * real answer — the form surfaces it explicitly so admins get signal
+ * on inquiries where the renter hasn't decided yet.
+ */
+export type RentalTermPreference = "short_term" | "long_term" | "not_sure";
 
 export interface Inquiry {
   id: number;

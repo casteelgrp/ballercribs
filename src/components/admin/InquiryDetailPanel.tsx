@@ -31,6 +31,12 @@ const BUDGET_LABEL: Record<string, string> = {
   flexible: "Flexible"
 };
 
+const TERM_PREF_LABEL: Record<string, string> = {
+  short_term: "Short-term",
+  long_term: "Long-term",
+  not_sure: "Not sure"
+};
+
 const STATUS_OPTIONS: InquiryStatus[] = ["new", "working", "won", "dead"];
 const STATUS_LABEL: Record<InquiryStatus, string> = {
   new: "New",
@@ -233,6 +239,13 @@ export function InquiryDetailPanel({
             <span className="bg-black/5 px-2 py-1">
               <strong className="font-medium">Where:</strong> {rental.destination}
             </span>
+            {rental.rental_term_preference && (
+              <span className="bg-black/5 px-2 py-1">
+                <strong className="font-medium">Term:</strong>{" "}
+                {TERM_PREF_LABEL[rental.rental_term_preference] ??
+                  rental.rental_term_preference}
+              </span>
+            )}
             {rentalDates && (
               <span className="bg-black/5 px-2 py-1">
                 <strong className="font-medium">Dates:</strong> {rentalDates}

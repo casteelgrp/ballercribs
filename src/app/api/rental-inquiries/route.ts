@@ -12,6 +12,12 @@ const VALID_BUDGETS = new Set([
   "flexible"
 ]);
 
+const VALID_TERM_PREFERENCES = new Set<string>([
+  "short_term",
+  "long_term",
+  "not_sure"
+]);
+
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -65,6 +71,10 @@ export async function POST(req: Request) {
       ? null
       : Number(listingIdRaw);
 
+  const termPrefRaw = body?.rental_term_preference
+    ? String(body.rental_term_preference)
+    : "";
+
   // ── Required fields ──────────────────────────────────────────────────────
   if (!name || name.length > 200) {
     return NextResponse.json({ error: "Name is required." }, { status: 400 });
@@ -87,6 +97,13 @@ export async function POST(req: Request) {
 
   if (!budgetRangeRaw || !VALID_BUDGETS.has(budgetRangeRaw)) {
     return NextResponse.json({ error: "Budget range is required." }, { status: 400 });
+  }
+
+  if (!termPrefRaw || !VALID_TERM_PREFERENCES.has(termPrefRaw)) {
+    return NextResponse.json(
+      { error: "Rental term preference is required." },
+      { status: 400 }
+    );
   }
 
   // ── Optional fields — validate only when present ────────────────────────
@@ -131,7 +148,11 @@ export async function POST(req: Request) {
       occasion,
       message,
       listing_id: listingId !== null && Number.isFinite(listingId) ? listingId : null,
-      listing_slug: listingSlug
+      listing_slug: listingSlug,
+      rental_term_preference: termPrefRaw as
+        | "short_term"
+        | "long_term"
+        | "not_sure"
     });
 
     // Awaited, not fire-and-forget — serverless functions can be torn down

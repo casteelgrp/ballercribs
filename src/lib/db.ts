@@ -12,6 +12,7 @@ import type {
   RentalInquiry,
   RentalPriceUnit,
   RentalTerm,
+  RentalTermPreference,
   User,
   UserRole,
   UserWithHash
@@ -1207,7 +1208,9 @@ function rowToRentalInquiry(row: any): RentalInquiry {
         ? Number(row.listing_id)
         : null,
     listing_slug: row.listing_slug ?? null,
-    listing_title: row.listing_title ?? null
+    listing_title: row.listing_title ?? null,
+    rental_term_preference:
+      (row.rental_term_preference as RentalTermPreference | null) ?? null
   };
 }
 
@@ -1228,6 +1231,7 @@ export interface CreateRentalInquiryInput {
   // /rentals form.
   listing_id?: number | null;
   listing_slug?: string | null;
+  rental_term_preference?: RentalTermPreference | null;
 }
 
 export async function createRentalInquiry(
@@ -1238,13 +1242,14 @@ export async function createRentalInquiry(
       name, email, phone, destination,
       start_date, end_date, flexible_dates,
       group_size, budget_range, occasion, message,
-      listing_id, listing_slug
+      listing_id, listing_slug, rental_term_preference
     )
     VALUES (
       ${data.name}, ${data.email}, ${data.phone}, ${data.destination},
       ${data.start_date}, ${data.end_date}, ${data.flexible_dates},
       ${data.group_size}, ${data.budget_range}, ${data.occasion}, ${data.message},
-      ${data.listing_id ?? null}, ${data.listing_slug ?? null}
+      ${data.listing_id ?? null}, ${data.listing_slug ?? null},
+      ${data.rental_term_preference ?? null}
     )
     RETURNING *;
   `;

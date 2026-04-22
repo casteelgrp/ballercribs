@@ -20,7 +20,8 @@
     "migrate:010": "tsx --env-file=.env.local scripts/migrate-010-listing-currency.ts",
     "migrate:011": "tsx --env-file=.env.local scripts/migrate-011-rental-inquiries.ts",
     "migrate:012": "tsx --env-file=.env.local scripts/migrate-012-rental-listings.ts",
-    "migrate:013": "tsx --env-file=.env.local scripts/migrate-013-rental-inquiry-listing-link.ts"
+    "migrate:013": "tsx --env-file=.env.local scripts/migrate-013-rental-inquiry-listing-link.ts",
+    "migrate:014": "tsx --env-file=.env.local scripts/migrate-014-rental-inquiry-term-preference.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
