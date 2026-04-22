@@ -518,29 +518,10 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
               {formatPrice(6950000, currency)}).
             </p>
           </div>
-        ) : (
-          /* Rental pricing shares the currency picker with sale listings —
-             sits in the sale slot so the grid layout stays identical; the
-             amount input below is the rental-specific part. */
-          <div>
-            <label className={labelClass}>Currency</label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              disabled={disabled}
-              className={inputClass + " pr-8"}
-            >
-              {CURRENCY_CODES.map((code) => (
-                <option key={code} value={code}>
-                  {code} — {CURRENCIES[code].name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-black/50">
-              Rental price is entered below in {currency}.
-            </p>
-          </div>
-        )}
+        ) : null /* Rental currency is rendered inline with the Rental
+                     price below, not in the sale-price slot. Keeps the
+                     currency visually paired with the number it applies
+                     to instead of floating at the top of the form. */}
         <div>
           <label className={labelClass}>Bedrooms</label>
           <input
@@ -616,11 +597,9 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
             </div>
           </div>
 
-          <div className="grid grid-cols-[1fr_auto] gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
             <div>
-              <label className={labelClass}>
-                Rental price * ({currency})
-              </label>
+              <label className={labelClass}>Rental price *</label>
               <input
                 type="number"
                 min="0"
@@ -632,6 +611,24 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
                 className={inputClass}
                 placeholder={rentalTerm === "long_term" ? "25000" : "2500"}
               />
+            </div>
+            {/* Currency lives alongside the rental price so it's obvious
+                which number it applies to. Sale listings render currency
+                next to Price at the top of the form instead. */}
+            <div>
+              <label className={labelClass}>Currency</label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                disabled={disabled}
+                className={inputClass + " pr-8"}
+              >
+                {CURRENCY_CODES.map((code) => (
+                  <option key={code} value={code}>
+                    {code} — {CURRENCIES[code].name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelClass}>Per</label>
