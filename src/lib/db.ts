@@ -8,7 +8,10 @@ import type {
   InquiryStatus,
   Listing,
   ListingStatus,
+  ListingType,
   RentalInquiry,
+  RentalPriceUnit,
+  RentalTerm,
   User,
   UserRole,
   UserWithHash
@@ -54,7 +57,14 @@ function rowToListing(row: any): Listing {
     sale_notes: row.sale_notes ?? null,
     last_reviewed_at: row.last_reviewed_at ?? null,
     seo_title: row.seo_title ?? null,
-    seo_description: row.seo_description ?? null
+    seo_description: row.seo_description ?? null,
+    listing_type: (row.listing_type ?? "sale") as ListingType,
+    rental_term: (row.rental_term ?? null) as RentalTerm | null,
+    rental_price_cents:
+      row.rental_price_cents !== null && row.rental_price_cents !== undefined
+        ? Number(row.rental_price_cents)
+        : null,
+    rental_price_unit: (row.rental_price_unit ?? null) as RentalPriceUnit | null
   };
 }
 
@@ -106,10 +116,13 @@ export type PublicListingStatusFilter = "active" | "sold" | "all";
 export async function getListings(
   status: PublicListingStatusFilter = "active"
 ): Promise<Listing[]> {
+  // /listings is sale-only — rental inventory lives at /rentals. Every
+  // public sale query needs `listing_type = 'sale'` so a rental never
+  // leaks into the sale grid or the homepage Featured section.
   if (status === "active") {
     const { rows } = await sql`
       SELECT * FROM listings
-      WHERE status = 'published' AND sold_at IS NULL
+      WHERE status = 'published' AND sold_at IS NULL AND listing_type = 'sale'
       ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
     `;
     return rows.map(rowToListing);
@@ -117,7 +130,7 @@ export async function getListings(
   if (status === "sold") {
     const { rows } = await sql`
       SELECT * FROM listings
-      WHERE status = 'published' AND sold_at IS NOT NULL
+      WHERE status = 'published' AND sold_at IS NOT NULL AND listing_type = 'sale'
       ORDER BY sold_at DESC;
     `;
     return rows.map(rowToListing);
@@ -125,7 +138,7 @@ export async function getListings(
   // 'all' — active bucket first (sold_at IS NULL → 0), then sold bucket.
   const { rows } = await sql`
     SELECT * FROM listings
-    WHERE status = 'published'
+    WHERE status = 'published' AND listing_type = 'sale'
     ORDER BY
       CASE WHEN sold_at IS NULL THEN 0 ELSE 1 END,
       featured DESC,
@@ -134,7 +147,7 @@ export async function getListings(
   return rows.map(rowToListing);
 }
 
-/** Counts for the /listings filter tabs — single round-trip via conditional aggregation. */
+/** Counts for the /listings filter tabs — sale-only. */
 export async function countPublishedListingsBySoldState(): Promise<{
   active: number;
   sold: number;
@@ -146,7 +159,7 @@ export async function countPublishedListingsBySoldState(): Promise<{
       SUM(CASE WHEN sold_at IS NOT NULL THEN 1 ELSE 0 END)::int AS sold,
       COUNT(*)::int AS all
     FROM listings
-    WHERE status = 'published';
+    WHERE status = 'published' AND listing_type = 'sale';
   `;
   const row = rows[0] ?? { active: 0, sold: 0, all: 0 };
   return {
@@ -157,9 +170,12 @@ export async function countPublishedListingsBySoldState(): Promise<{
 }
 
 export async function getFeaturedListings(limit = 6): Promise<Listing[]> {
+  // Homepage Featured section — sale-only. Rental listings would skew
+  // the "featured properties for sale" framing on / and the
+  // `getListings('active')` contract above.
   const { rows } = await sql`
     SELECT * FROM listings
-    WHERE status = 'published'
+    WHERE status = 'published' AND listing_type = 'sale'
     ORDER BY
       CASE WHEN sold_at IS NULL THEN 0 ELSE 1 END,
       featured DESC,
@@ -169,9 +185,20 @@ export async function getFeaturedListings(limit = 6): Promise<Listing[]> {
   return rows.map(rowToListing);
 }
 
-export async function getListingBySlug(slug: string): Promise<Listing | null> {
+/**
+ * Public-facing slug resolver. Scoped by listing_type so `/listings/x`
+ * can never resolve a rental and vice versa — the sale and rental slug
+ * namespaces are separate as far as routing goes. Callers pass the
+ * appropriate type.
+ */
+export async function getListingBySlug(
+  slug: string,
+  listingType: ListingType = "sale"
+): Promise<Listing | null> {
   const { rows } = await sql`
-    SELECT * FROM listings WHERE slug = ${slug} AND status = 'published' LIMIT 1;
+    SELECT * FROM listings
+    WHERE slug = ${slug} AND status = 'published' AND listing_type = ${listingType}
+    LIMIT 1;
   `;
   return rows[0] ? rowToListing(rows[0]) : null;
 }
@@ -191,7 +218,14 @@ export type AdminListingFilter = ListingStatus | "all";
  */
 export async function getAdminListingsWithCreators(
   filter: AdminListingFilter = "all",
-  creatorUserId?: number
+  creatorUserId?: number,
+  /**
+   * Optional listing_type filter for the admin table's Sale/Rental pills.
+   * Applied post-query in JS — the cross-product of filter × creatorUserId
+   * is already four query variants; doubling to eight for listing_type
+   * isn't worth it for an admin-scoped surface that never has to paginate.
+   */
+  listingType?: ListingType
 ): Promise<(Listing & { creator_name: string | null })[]> {
   // 'all' tab hides archived (per product spec — archived is the out-of-sight state).
   // Four query variants because @vercel/postgres tagged template can't compose dynamic predicates.
@@ -243,7 +277,13 @@ export async function getAdminListingsWithCreators(
                 ELSE l.updated_at
               END DESC;
           `;
-  return rows.map((r: any) => ({ ...rowToListing(r), creator_name: r.creator_name ?? null }));
+  const mapped = rows.map((r: any) => ({
+    ...rowToListing(r),
+    creator_name: r.creator_name ?? null
+  }));
+  return listingType
+    ? mapped.filter((row) => row.listing_type === listingType)
+    : mapped;
 }
 
 /** Counts by status, optionally scoped to one creator. */
@@ -281,6 +321,8 @@ export interface CreateListingInput {
   slug: string;
   title: string;
   location: string;
+  // price_usd is the sale price. For rental listings it's stored as 0 —
+  // rental pricing lives on rental_price_cents + rental_price_unit.
   price_usd: number;
   currency?: string;
   bedrooms: number | null;
@@ -297,11 +339,16 @@ export interface CreateListingInput {
   created_by_user_id: number | null;
   seo_title?: string | null;
   seo_description?: string | null;
+  listing_type?: ListingType;
+  rental_term?: RentalTerm | null;
+  rental_price_cents?: number | null;
+  rental_price_unit?: RentalPriceUnit | null;
 }
 
 export async function createListing(data: CreateListingInput): Promise<Listing> {
   const submittedAt = data.status === "review" ? new Date().toISOString() : null;
   const publishedAt = data.status === "published" ? new Date().toISOString() : null;
+  const listingType: ListingType = data.listing_type ?? "sale";
   const { rows } = await sql`
     INSERT INTO listings (
       slug, title, location, price_usd, currency,
@@ -309,7 +356,8 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
       description, hero_image_url, gallery_image_urls, social_cover_url,
       agent_name, agent_brokerage, featured, status,
       submitted_at, published_at, created_by_user_id,
-      seo_title, seo_description
+      seo_title, seo_description,
+      listing_type, rental_term, rental_price_cents, rental_price_unit
     ) VALUES (
       ${data.slug}, ${data.title}, ${data.location}, ${data.price_usd},
       ${data.currency ?? "USD"},
@@ -319,7 +367,11 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
       ${data.social_cover_url},
       ${data.agent_name}, ${data.agent_brokerage}, ${data.featured}, ${data.status},
       ${submittedAt}, ${publishedAt}, ${data.created_by_user_id},
-      ${data.seo_title ?? null}, ${data.seo_description ?? null}
+      ${data.seo_title ?? null}, ${data.seo_description ?? null},
+      ${listingType},
+      ${data.rental_term ?? null},
+      ${data.rental_price_cents ?? null},
+      ${data.rental_price_unit ?? null}
     )
     RETURNING *;
   `;
@@ -344,6 +396,10 @@ export interface UpdateListingInput {
   featured?: boolean;
   seo_title?: string | null;
   seo_description?: string | null;
+  listing_type?: ListingType;
+  rental_term?: RentalTerm | null;
+  rental_price_cents?: number | null;
+  rental_price_unit?: RentalPriceUnit | null;
 }
 
 export async function updateListing(id: number, data: UpdateListingInput): Promise<Listing | null> {
@@ -370,6 +426,13 @@ export async function updateListing(id: number, data: UpdateListingInput): Promi
       featured          = COALESCE(${data.featured ?? null}, featured),
       seo_title         = ${data.seo_title === undefined ? null : data.seo_title},
       seo_description   = ${data.seo_description === undefined ? null : data.seo_description},
+      listing_type      = COALESCE(${data.listing_type ?? null}, listing_type),
+      -- Rental fields follow the clobber-on-undefined pattern so a PATCH
+      -- that sends them as null (e.g. flipping rental → sale) actually
+      -- clears the stale rental values instead of COALESCE'ing them back.
+      rental_term       = ${data.rental_term === undefined ? null : data.rental_term},
+      rental_price_cents = ${data.rental_price_cents === undefined ? null : data.rental_price_cents},
+      rental_price_unit = ${data.rental_price_unit === undefined ? null : data.rental_price_unit},
       updated_at        = NOW()
     WHERE id = ${id}
     RETURNING *;
@@ -505,9 +568,13 @@ export async function markListingReviewed(id: number): Promise<boolean> {
  * so the admin chews through the backlog in age order.
  */
 export async function getStaleListings(): Promise<Listing[]> {
+  // Stale-queue is a sale-only concept — the trigger is "a long-lived
+  // published listing that may have actually gone under contract without
+  // being marked sold". Rental listings don't have that lifecycle.
   const { rows } = await sql`
     SELECT * FROM listings
     WHERE status = 'published'
+      AND listing_type = 'sale'
       AND sold_at IS NULL
       AND published_at < NOW() - INTERVAL '90 days'
       AND (last_reviewed_at IS NULL OR last_reviewed_at < NOW() - INTERVAL '90 days')

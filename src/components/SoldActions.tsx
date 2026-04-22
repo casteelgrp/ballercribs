@@ -22,6 +22,8 @@ export function SoldActions({ user, listing }: { user: User; listing: Listing })
   // Hooks must run before any conditional return.
   if (!isOwner(user)) return null;
   if (listing.status !== "published") return null;
+  // Rentals never "sell" — the sold workflow only applies to sale listings.
+  if (listing.listing_type === "rental") return null;
 
   const isSold = !!listing.sold_at;
 

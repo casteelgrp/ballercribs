@@ -8,7 +8,15 @@ import { GalleryEditor } from "./GalleryEditor";
 import { ListingDescription } from "./ListingDescription";
 import { generateSlug, validateSlug } from "@/lib/format";
 import { CURRENCIES, CURRENCY_CODES, DEFAULT_CURRENCY, formatPrice } from "@/lib/currency";
-import type { GalleryItem, Listing, ListingStatus, User } from "@/lib/types";
+import type {
+  GalleryItem,
+  Listing,
+  ListingStatus,
+  ListingType,
+  RentalPriceUnit,
+  RentalTerm,
+  User
+} from "@/lib/types";
 
 type Props = {
   /** Current logged-in user — drives which status actions are available. */
@@ -106,12 +114,64 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
   const [seoTitle, setSeoTitle] = useState(existing?.seo_title ?? "");
   const [seoDescription, setSeoDescription] = useState(existing?.seo_description ?? "");
 
+  // ─── Listing type + rental fields ──────────────────────────────────────
+  //
+  // Toggle at the top of the form; switching to rental hides sale-specific
+  // inputs and surfaces a rental details section. Rental price is stored
+  // in cents of the listing's currency — the UI collects whole-currency
+  // units and we convert before submit.
+  const [listingType, setListingType] = useState<ListingType>(
+    existing?.listing_type ?? "sale"
+  );
+  const [rentalTerm, setRentalTerm] = useState<RentalTerm>(
+    existing?.rental_term ?? "short_term"
+  );
+  const [rentalPriceDollars, setRentalPriceDollars] = useState<string>(() => {
+    if (existing?.rental_price_cents === null || existing?.rental_price_cents === undefined) {
+      return "";
+    }
+    return String(existing.rental_price_cents / 100);
+  });
+  // For short_term, the user picks night vs week; for long_term it's locked
+  // to 'month'. Re-derive a safe default when the term changes.
+  const [rentalPriceUnit, setRentalPriceUnit] = useState<RentalPriceUnit>(
+    existing?.rental_price_unit ??
+      (existing?.rental_term === "long_term" ? "month" : "night")
+  );
+
+  // Keep the unit in lockstep with the term selection — if the admin picks
+  // long-term the only valid unit is 'month'; flipping to short-term we
+  // clear to 'night' unless they previously had 'week'.
+  useEffect(() => {
+    if (listingType !== "rental") return;
+    if (rentalTerm === "long_term" && rentalPriceUnit !== "month") {
+      setRentalPriceUnit("month");
+    }
+    if (
+      rentalTerm === "short_term" &&
+      rentalPriceUnit !== "night" &&
+      rentalPriceUnit !== "week"
+    ) {
+      setRentalPriceUnit("night");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listingType, rentalTerm]);
+
   function commonFields() {
+    const isRental = listingType === "rental";
+    const rentalPriceCents = isRental
+      ? (() => {
+          const n = Number(rentalPriceDollars);
+          return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
+        })()
+      : null;
     return {
       title: title.trim(),
       slug: slug.trim() || null,
       location: location.trim(),
-      price_usd: Number(priceUsd),
+      // Rentals store 0 on the sale-side price; the server enforces this
+      // too, but sending 0 keeps the wire shape predictable.
+      price_usd: isRental ? 0 : Number(priceUsd),
       currency,
       bedrooms: bedrooms === "" ? null : Number(bedrooms),
       bathrooms: bathrooms === "" ? null : Number(bathrooms),
@@ -122,6 +182,10 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       social_cover_url: socialCoverUrl,
       agent_name: agentName.trim() || null,
       agent_brokerage: agentBrokerage.trim() || null,
+      listing_type: listingType,
+      rental_term: isRental ? rentalTerm : null,
+      rental_price_cents: rentalPriceCents,
+      rental_price_unit: isRental ? rentalPriceUnit : null,
       featured,
       // Empty → null so the DB stores a clean NULL and generateMetadata
       // knows to fall back to the auto-derived title/description.
@@ -135,8 +199,23 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
     if (!location.trim()) return "Location is required.";
     if (!description.trim()) return "Description is required.";
     if (!heroUrl.trim()) return "Hero image is required.";
-    const p = Number(priceUsd);
-    if (!Number.isFinite(p) || p < 0) return "Valid price is required.";
+
+    if (listingType === "sale") {
+      const p = Number(priceUsd);
+      if (!Number.isFinite(p) || p < 0) return "Valid price is required.";
+    } else {
+      const rp = Number(rentalPriceDollars);
+      if (!Number.isFinite(rp) || rp <= 0) {
+        return "Rental price is required.";
+      }
+      if (rentalTerm === "short_term" && rentalPriceUnit !== "night" && rentalPriceUnit !== "week") {
+        return "Short-term rentals price per night or per week.";
+      }
+      if (rentalTerm === "long_term" && rentalPriceUnit !== "month") {
+        return "Long-term rentals price per month.";
+      }
+    }
+
     // Server will auto-generate from title+location if slug is empty, so we
     // only need to block when an explicit value is invalid.
     if (slug.trim() && validateSlug(slug.trim())) {
@@ -318,6 +397,43 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
         </div>
       )}
       {savedBanner}
+
+      {/* Listing type — sale vs rental. Pinned at the top so the sale-
+          specific vs rental-specific inputs below render predictably from
+          the very first paint. */}
+      <fieldset>
+        <legend className={labelClass}>Listing type</legend>
+        <div className="flex gap-0 isolate mt-1" role="radiogroup">
+          {(
+            [
+              { value: "sale" as const, label: "Sale" },
+              { value: "rental" as const, label: "Rental" }
+            ]
+          ).map((opt, i) => {
+            const active = listingType === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={disabled}
+                onClick={() => setListingType(opt.value)}
+                className={
+                  "px-4 py-2 text-xs uppercase tracking-widest border transition-colors " +
+                  (i > 0 ? "-ml-px " : "") +
+                  (active
+                    ? "bg-ink text-paper border-ink"
+                    : "bg-white text-black/60 border-black/20 hover:border-black/40")
+                }
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
           <label className={labelClass}>Title *</label>
@@ -365,42 +481,66 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
             placeholder="Bel Air, CA"
           />
         </div>
-        <div>
-          <div className="grid grid-cols-[1fr_auto] gap-3">
-            <div>
-              <label className={labelClass}>Price *</label>
-              <input
-                type="number"
-                value={priceUsd}
-                onChange={(e) => setPriceUsd(e.target.value)}
-                required
-                min="0"
-                disabled={disabled}
-                className={inputClass}
-                placeholder="25000000"
-              />
+        {listingType === "sale" ? (
+          <div>
+            <div className="grid grid-cols-[1fr_auto] gap-3">
+              <div>
+                <label className={labelClass}>Price *</label>
+                <input
+                  type="number"
+                  value={priceUsd}
+                  onChange={(e) => setPriceUsd(e.target.value)}
+                  required
+                  min="0"
+                  disabled={disabled}
+                  className={inputClass}
+                  placeholder="25000000"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Currency</label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  disabled={disabled}
+                  className={inputClass + " pr-8 min-w-[7rem]"}
+                >
+                  {CURRENCY_CODES.map((code) => (
+                    <option key={code} value={code}>
+                      {code} — {CURRENCIES[code].name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className={labelClass}>Currency</label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                disabled={disabled}
-                className={inputClass + " pr-8 min-w-[7rem]"}
-              >
-                {CURRENCY_CODES.map((code) => (
-                  <option key={code} value={code}>
-                    {code} — {CURRENCIES[code].name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <p className="mt-1 text-xs text-black/50">
+              Enter the price in the selected currency's base units (e.g. 6950000 for{" "}
+              {formatPrice(6950000, currency)}).
+            </p>
           </div>
-          <p className="mt-1 text-xs text-black/50">
-            Enter the price in the selected currency's base units (e.g. 6950000 for{" "}
-            {formatPrice(6950000, currency)}).
-          </p>
-        </div>
+        ) : (
+          /* Rental pricing shares the currency picker with sale listings —
+             sits in the sale slot so the grid layout stays identical; the
+             amount input below is the rental-specific part. */
+          <div>
+            <label className={labelClass}>Currency</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              disabled={disabled}
+              className={inputClass + " pr-8"}
+            >
+              {CURRENCY_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {code} — {CURRENCIES[code].name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-black/50">
+              Rental price is entered below in {currency}.
+            </p>
+          </div>
+        )}
         <div>
           <label className={labelClass}>Bedrooms</label>
           <input
@@ -436,6 +576,86 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
           />
         </div>
       </div>
+
+      {listingType === "rental" && (
+        <fieldset className="border border-black/10 bg-black/[0.02] p-4 space-y-4">
+          <legend className="px-2 text-xs uppercase tracking-widest text-black/60">
+            Rental details
+          </legend>
+
+          <div>
+            <span className={labelClass}>Rental term *</span>
+            <div className="flex gap-0 isolate mt-1" role="radiogroup">
+              {(
+                [
+                  { value: "short_term" as const, label: "Short-term" },
+                  { value: "long_term" as const, label: "Long-term" }
+                ]
+              ).map((opt, i) => {
+                const active = rentalTerm === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    disabled={disabled}
+                    onClick={() => setRentalTerm(opt.value)}
+                    className={
+                      "px-4 py-2 text-xs uppercase tracking-widest border transition-colors " +
+                      (i > 0 ? "-ml-px " : "") +
+                      (active
+                        ? "bg-ink text-paper border-ink"
+                        : "bg-white text-black/60 border-black/20 hover:border-black/40")
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div>
+              <label className={labelClass}>
+                Rental price * ({currency})
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={rentalPriceDollars}
+                onChange={(e) => setRentalPriceDollars(e.target.value)}
+                required={listingType === "rental"}
+                disabled={disabled}
+                className={inputClass}
+                placeholder={rentalTerm === "long_term" ? "25000" : "2500"}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Per</label>
+              <select
+                value={rentalPriceUnit}
+                onChange={(e) => setRentalPriceUnit(e.target.value as RentalPriceUnit)}
+                // Long-term: unit is locked to 'month' per the validation
+                // contract; select renders disabled with just that option.
+                disabled={disabled || rentalTerm === "long_term"}
+                className={inputClass + " pr-8 min-w-[6rem]"}
+              >
+                {rentalTerm === "short_term" ? (
+                  <>
+                    <option value="night">per night</option>
+                    <option value="week">per week</option>
+                  </>
+                ) : (
+                  <option value="month">per month</option>
+                )}
+              </select>
+            </div>
+          </div>
+        </fieldset>
+      )}
 
       <div>
         <label className={labelClass}>Description *</label>

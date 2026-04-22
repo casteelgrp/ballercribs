@@ -6,6 +6,7 @@ import { DEFAULT_CURRENCY, isCurrencyCode } from "@/lib/currency";
 import { revalidateListingSurfaces } from "@/lib/revalidate-listings";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 import { isOwner } from "@/lib/permissions";
+import { resolveRentalFields } from "@/lib/listing-validation";
 
 export const runtime = "nodejs";
 
@@ -50,7 +51,6 @@ export async function POST(req: Request) {
   const location = String(body?.location || "").trim();
   const description = String(body?.description || "").trim();
   const hero_image_url = String(body?.hero_image_url || "").trim();
-  const price_usd = Number(body?.price_usd);
   const social_cover_url =
     typeof body?.social_cover_url === "string" && body.social_cover_url.trim()
       ? String(body.social_cover_url).trim()
@@ -62,9 +62,27 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  if (!Number.isFinite(price_usd) || price_usd < 0) {
-    return NextResponse.json({ error: "Valid price is required." }, { status: 400 });
+
+  // Resolve listing_type + rental fields first so we know how to treat the
+  // sale-side price below.
+  const rentalResolution = resolveRentalFields(body);
+  if (!rentalResolution.ok) {
+    return NextResponse.json({ error: rentalResolution.error }, { status: 400 });
   }
+  const rental = rentalResolution.data;
+
+  // Sale price is only required when listing_type === 'sale'. Rentals
+  // store 0 on price_usd so Math.round behaves on a known value — the
+  // real rental price lives on rental_price_cents.
+  const priceInput = Number(body?.price_usd);
+  if (rental.listing_type === "sale") {
+    if (!Number.isFinite(priceInput) || priceInput < 0) {
+      return NextResponse.json({ error: "Valid price is required." }, { status: 400 });
+    }
+  }
+  const price_usd = rental.sale_price_override !== null
+    ? rental.sale_price_override
+    : Math.round(priceInput);
 
   // Slug: use the client-provided value if any (already shaped by the form),
   // otherwise derive from title + location with the same algorithm the form uses.
@@ -90,7 +108,7 @@ export async function POST(req: Request) {
       slug,
       title,
       location,
-      price_usd: Math.round(price_usd),
+      price_usd,
       // Fall back to USD silently for unknown / missing codes — the form's
       // dropdown is the source of truth; any stray value on the wire means
       // the caller is out of sync with the supported set, not that we
@@ -124,7 +142,11 @@ export async function POST(req: Request) {
       seo_description:
         typeof body?.seo_description === "string" && body.seo_description.trim()
           ? body.seo_description.trim()
-          : null
+          : null,
+      listing_type: rental.listing_type,
+      rental_term: rental.rental_term,
+      rental_price_cents: rental.rental_price_cents,
+      rental_price_unit: rental.rental_price_unit
     });
     // Only published creations affect public surfaces; drafts and
     // review-queue rows aren't visible yet, so skip the invalidation.

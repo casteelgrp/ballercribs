@@ -12,7 +12,7 @@ import { SoldActions, StillActiveButton } from "@/components/SoldActions";
 import { Toast } from "@/components/Toast";
 import { isOwner } from "@/lib/permissions";
 import { formatPrice } from "@/lib/currency";
-import type { ListingStatus } from "@/lib/types";
+import type { ListingStatus, ListingType } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +36,48 @@ const STATUS_BADGE: Record<ListingStatus, string> = {
   published: "bg-green-100 text-green-800",
   archived: "bg-black/20 text-black/40"
 };
+
+const TYPE_BADGE: Record<ListingType, string> = {
+  sale: "bg-slate-100 text-slate-700",
+  rental: "bg-emerald-100 text-emerald-700"
+};
+
+const TYPE_FILTER_OPTIONS: { value: "all" | ListingType; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "sale", label: "Sale" },
+  { value: "rental", label: "Rental" }
+];
+
+const RENTAL_UNIT_LABEL: Record<"night" | "week" | "month", string> = {
+  night: "night",
+  week: "week",
+  month: "month"
+};
+
+/**
+ * Renders the admin-table price column for either a sale or rental row.
+ * Sale: `$4.25M` (existing behavior). Rental: `$2,500/night` compact
+ * formatting built from rental_price_cents + unit. Falls back to a "—"
+ * when a rental row is incomplete (shouldn't happen post-validation but
+ * keeps the table resilient).
+ */
+function renderRowPrice(l: {
+  listing_type: ListingType;
+  price_usd: number;
+  currency: string;
+  rental_price_cents: number | null;
+  rental_price_unit: "night" | "week" | "month" | null;
+}): string {
+  if (l.listing_type !== "rental") {
+    return formatPrice(l.price_usd, l.currency);
+  }
+  if (l.rental_price_cents === null || l.rental_price_unit === null) {
+    return "—";
+  }
+  const whole = Math.round(l.rental_price_cents / 100);
+  const base = formatPrice(whole, l.currency);
+  return `${base}/${RENTAL_UNIT_LABEL[l.rental_price_unit]}`;
+}
 
 function toastFromParams(sp: {
   toast?: string;
@@ -81,6 +123,7 @@ export default async function AdminListingsPage({
 }: {
   searchParams: Promise<{
     status?: string;
+    type?: string;
     toast?: string;
     title?: string;
     who?: string;
@@ -96,10 +139,15 @@ export default async function AdminListingsPage({
     ? (requested as AdminListingFilter)
     : "all";
 
+  const typeFilter: "all" | ListingType =
+    sp.type === "sale" || sp.type === "rental" ? sp.type : "all";
+  const typeFilterArg: ListingType | undefined =
+    typeFilter === "all" ? undefined : typeFilter;
+
   const scopeUserId = isOwner(user) ? undefined : user.id;
 
   const [listings, counts, staleListings] = await Promise.all([
-    getAdminListingsWithCreators(currentTab, scopeUserId).catch(() => []),
+    getAdminListingsWithCreators(currentTab, scopeUserId, typeFilterArg).catch(() => []),
     countListingsByStatus(scopeUserId).catch(
       (): Record<ListingStatus, number> => ({
         draft: 0,
@@ -179,6 +227,40 @@ export default async function AdminListingsPage({
         </section>
       )}
 
+      {/* Type filter pills — stack with the status tabs below. URL-driven
+          so bookmark + back-button preserve the state. Status tab hrefs
+          below carry the current type param through so flipping status
+          doesn't reset the type selection. */}
+      <div className="flex items-center gap-3 flex-wrap mb-4">
+        <span className="text-xs uppercase tracking-widest text-black/50 w-16 shrink-0">
+          Type
+        </span>
+        <div className="flex gap-1 flex-wrap">
+          {TYPE_FILTER_OPTIONS.map((opt) => {
+            const on = opt.value === typeFilter;
+            const params = new URLSearchParams();
+            if (currentTab !== "all") params.set("status", currentTab);
+            if (opt.value !== "all") params.set("type", opt.value);
+            const qs = params.toString();
+            return (
+              <Link
+                key={opt.value}
+                href={qs ? `/admin/listings?${qs}` : "/admin/listings"}
+                scroll={false}
+                className={
+                  "text-xs uppercase tracking-widest px-3 py-1.5 border transition-colors " +
+                  (on
+                    ? "bg-ink text-paper border-ink"
+                    : "bg-white text-black/60 border-black/20 hover:border-black/40")
+                }
+              >
+                {opt.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex gap-1 border-b border-black/10 mb-6 overflow-x-auto">
         {TAB_ORDER.map((tab) => {
           const count = tab === "all" ? allCount : counts[tab as ListingStatus];
@@ -192,10 +274,14 @@ export default async function AdminListingsPage({
               ? "border-transparent text-accent hover:text-ink"
               : "border-transparent text-black/50 hover:text-ink";
           const countCls = highlight ? "" : "text-black/40";
-          // ALL has no query param — cleaner default URL, and clicking "ALL"
-          // from another tab returns you to /admin/listings with nothing in the
-          // querystring, which matches "no param = ALL" on fresh navigation.
-          const href = tab === "all" ? "/admin/listings" : `/admin/listings?status=${tab}`;
+          // ALL has no status param — cleaner default URL. Carry the
+          // current type filter through so switching status doesn't drop
+          // it. The tab's own "all" case also drops ?status=.
+          const params = new URLSearchParams();
+          if (tab !== "all") params.set("status", tab);
+          if (typeFilter !== "all") params.set("type", typeFilter);
+          const qs = params.toString();
+          const href = qs ? `/admin/listings?${qs}` : "/admin/listings";
           return (
             <Link
               key={tab}
@@ -228,6 +314,14 @@ export default async function AdminListingsPage({
                   <span
                     className={
                       "text-[10px] uppercase tracking-widest px-1.5 py-0.5 " +
+                      TYPE_BADGE[l.listing_type]
+                    }
+                  >
+                    {l.listing_type}
+                  </span>
+                  <span
+                    className={
+                      "text-[10px] uppercase tracking-widest px-1.5 py-0.5 " +
                       STATUS_BADGE[l.status]
                     }
                   >
@@ -245,7 +339,11 @@ export default async function AdminListingsPage({
                   )}
                   {l.status === "published" && (
                     <Link
-                      href={`/listings/${l.slug}`}
+                      href={
+                        l.listing_type === "rental"
+                          ? `/rentals/${l.slug}`
+                          : `/listings/${l.slug}`
+                      }
                       className="text-xs text-black/50 hover:text-accent underline underline-offset-2"
                     >
                       view live →
@@ -253,7 +351,7 @@ export default async function AdminListingsPage({
                   )}
                 </div>
                 <p className="text-xs text-black/60 mt-0.5">
-                  {l.location} · {formatPrice(l.price_usd, l.currency)}
+                  {l.location} · {renderRowPrice(l)}
                 </p>
                 <p className="text-xs text-black/40 mt-0.5">
                   Created by {l.creator_name ?? "—"}

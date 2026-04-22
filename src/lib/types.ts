@@ -17,6 +17,19 @@ export interface UserWithHash extends User {
 
 export type ListingStatus = "draft" | "review" | "published" | "archived";
 
+/**
+ * Sale vs short/long-term rental. Sale listings use the existing
+ * price_usd / sold_* fields; rentals use the rental_* fields instead.
+ * Migration 012 adds listing_type + rental_* columns and backfills every
+ * existing row to 'sale'.
+ */
+export type ListingType = "sale" | "rental";
+
+export type RentalTerm = "short_term" | "long_term";
+
+/** 'night' and 'week' are short-term only; 'month' is long-term only. */
+export type RentalPriceUnit = "night" | "week" | "month";
+
 export interface GalleryItem {
   url: string;
   caption: string | null;
@@ -64,6 +77,12 @@ export interface Listing {
   // OG / Twitter / JSON-LD keep using the listing's natural fields.
   seo_title: string | null;
   seo_description: string | null;
+  // Rental fields — populated only when listing_type === 'rental'.
+  listing_type: ListingType;
+  rental_term: RentalTerm | null;
+  /** Cents of the listing's native currency (matches the currency column). */
+  rental_price_cents: number | null;
+  rental_price_unit: RentalPriceUnit | null;
 }
 
 export type AgentInquiryType = "featured" | "referral" | "other";

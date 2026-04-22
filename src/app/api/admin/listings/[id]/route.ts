@@ -19,6 +19,7 @@ import {
 import { validateSlug } from "@/lib/format";
 import { isCurrencyCode } from "@/lib/currency";
 import { revalidateListingSurfaces } from "@/lib/revalidate-listings";
+import { resolveRentalFields } from "@/lib/listing-validation";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -163,6 +164,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         typeof fields.seo_description === "string" && fields.seo_description.trim()
           ? fields.seo_description.trim()
           : null;
+    }
+
+    // Listing type + rental fields. The form always sends the full rental
+    // surface when `listing_type` is present, so we validate the whole
+    // combo together via the same helper the POST uses. When the payload
+    // doesn't mention listing_type at all, we leave those columns alone.
+    if ("listing_type" in fields) {
+      const rentalResolution = resolveRentalFields(fields);
+      if (!rentalResolution.ok) {
+        return NextResponse.json({ error: rentalResolution.error }, { status: 400 });
+      }
+      const rental = rentalResolution.data;
+      updates.listing_type = rental.listing_type;
+      updates.rental_term = rental.rental_term;
+      updates.rental_price_cents = rental.rental_price_cents;
+      updates.rental_price_unit = rental.rental_price_unit;
+      // Flipping rental ↔ sale clears the opposite side. When switching to
+      // rental, force price_usd to 0 so the sale-side value doesn't linger
+      // alongside the rental pricing.
+      if (rental.listing_type === "rental") {
+        updates.price_usd = 0;
+      }
     }
 
     let updated;
