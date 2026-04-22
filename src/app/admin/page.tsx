@@ -9,9 +9,26 @@ import {
   getRecentInquiries
 } from "@/lib/db";
 import { isOwner } from "@/lib/permissions";
-import type { ListingStatus, User } from "@/lib/types";
+import { formatRelativeShort } from "@/lib/format";
+import type { AgentInquiry, Inquiry, ListingStatus, User } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+// Type + status tokens mirror the unified inquiry inbox so the dashboard
+// feels like a preview of the same table, not a separate widget.
+const TYPE_BADGE: Record<"buyer" | "agent", string> = {
+  buyer: "bg-slate-100 text-slate-700",
+  agent: "bg-indigo-100 text-indigo-700"
+};
+const TYPE_LABEL: Record<"buyer" | "agent", string> = {
+  buyer: "Buyer",
+  agent: "Agent"
+};
+
+type BuyerRecent = Inquiry & { listing_title: string | null; listing_slug: string | null };
+type RecentRow =
+  | (BuyerRecent & { kind: "buyer" })
+  | (AgentInquiry & { kind: "agent" });
 
 function pageTitleFor(user: User): string {
   return isOwner(user) ? "Dashboard" : "Listing Dashboard";
@@ -30,7 +47,7 @@ export default async function AdminDashboardPage() {
   const user = await requirePageUser();
   const scopeUserId = isOwner(user) ? undefined : user.id;
 
-  const [counts, inquiryCounts, agentInquiryCounts, recentInquiries, recentAgentInquiries] =
+  const [counts, inquiryCounts, agentInquiryCounts, recentBuyer, recentAgent] =
     await Promise.all([
       countListingsByStatus(scopeUserId).catch(
         (): Record<ListingStatus, number> => ({
@@ -46,13 +63,17 @@ export default async function AdminDashboardPage() {
       isOwner(user)
         ? countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
         : Promise.resolve({ active: 0, archived: 0 }),
+      // Over-fetch each kind (6) so the merged + sorted top-6 has enough
+      // candidates. Anything beyond that lives in the full inbox anyway.
       isOwner(user)
-        ? getRecentInquiries({ archived: false, limit: 3 }).catch(() => [])
+        ? getRecentInquiries({ archived: false, limit: 6 }).catch(() => [])
         : Promise.resolve([]),
       isOwner(user)
-        ? getRecentAgentInquiries({ archived: false, limit: 3 }).catch(() => [])
+        ? getRecentAgentInquiries({ archived: false, limit: 6 }).catch(() => [])
         : Promise.resolve([])
     ]);
+
+  const recentMixed: RecentRow[] = mergeRecent(recentBuyer, recentAgent).slice(0, 6);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
@@ -60,14 +81,14 @@ export default async function AdminDashboardPage() {
         {isOwner(user) && (
           <>
             <StatCard
-              label="New inquiries"
+              label="Buyer inquiries"
               value={inquiryCounts.active}
-              href="/admin/inquiries"
+              href="/admin/inquiries?type=buyer"
             />
             <StatCard
               label="Agent inquiries"
               value={agentInquiryCounts.active}
-              href="/admin/inquiries#agents"
+              href="/admin/inquiries?type=agent"
             />
           </>
         )}
@@ -101,82 +122,71 @@ export default async function AdminDashboardPage() {
       </section>
 
       {isOwner(user) && (
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div>
-            <div className="flex items-baseline justify-between mb-4">
-              <h3 className="font-display text-xl">Recent buyer inquiries</h3>
-              <Link
-                href="/admin/inquiries"
-                className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
-              >
-                See all →
-              </Link>
-            </div>
-            {recentInquiries.length === 0 ? (
-              <p className="text-sm text-black/50">No inquiries yet.</p>
-            ) : (
-              <div className="border border-black/10 bg-white divide-y divide-black/10">
-                {recentInquiries.map((i) => (
-                  <Link
-                    key={i.id}
-                    href="/admin/inquiries"
-                    className="block p-4 hover:bg-black/5 transition-colors"
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="font-medium truncate">{i.name}</p>
-                      <p className="text-xs text-black/50 shrink-0">
-                        {new Date(i.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {i.listing_title && (
-                      <p className="text-sm text-black/60 truncate mt-0.5">
-                        Re: {i.listing_title}
-                      </p>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
+        <section>
+          <div className="flex items-baseline justify-between mb-4">
+            <h3 className="font-display text-xl">Recent inquiries</h3>
+            <Link
+              href="/admin/inquiries"
+              className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
+            >
+              See all →
+            </Link>
           </div>
-
-          <div>
-            <div className="flex items-baseline justify-between mb-4">
-              <h3 className="font-display text-xl">Recent agent inquiries</h3>
-              <Link
-                href="/admin/inquiries#agents"
-                className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
-              >
-                See all →
-              </Link>
-            </div>
-            {recentAgentInquiries.length === 0 ? (
-              <p className="text-sm text-black/50">No agent inquiries yet.</p>
-            ) : (
-              <div className="border border-black/10 bg-white divide-y divide-black/10">
-                {recentAgentInquiries.map((a) => (
-                  <Link
-                    key={a.id}
-                    href="/admin/inquiries#agents"
-                    className="block p-4 hover:bg-black/5 transition-colors"
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="font-medium truncate">{a.name}</p>
-                      <p className="text-xs text-black/50 shrink-0">
-                        {new Date(a.created_at).toLocaleDateString()}
-                      </p>
+          {recentMixed.length === 0 ? (
+            <p className="text-sm text-black/50">No inquiries yet.</p>
+          ) : (
+            <div className="border border-black/10 bg-white divide-y divide-black/10">
+              {recentMixed.map((row) => (
+                <Link
+                  key={`${row.kind}-${row.id}`}
+                  href={`/admin/inquiries?type=${row.kind}`}
+                  className="flex items-baseline justify-between gap-3 p-4 hover:bg-black/[0.02] transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={
+                          "text-[10px] uppercase tracking-widest px-1.5 py-0.5 " +
+                          TYPE_BADGE[row.kind]
+                        }
+                      >
+                        {TYPE_LABEL[row.kind]}
+                      </span>
+                      <p className="font-medium truncate">{row.name}</p>
                     </div>
-                    <p className="text-sm text-black/60 mt-0.5 capitalize">
-                      {a.inquiry_type}
+                    <p className="text-xs text-black/55 mt-0.5 truncate">
+                      {subtitleFor(row)}
                     </p>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+                  </div>
+                  <p className="text-xs text-black/50 shrink-0 whitespace-nowrap">
+                    {formatRelativeShort(row.created_at)}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>
   );
+}
+
+function mergeRecent(buyer: BuyerRecent[], agent: AgentInquiry[]): RecentRow[] {
+  const tagged: RecentRow[] = [
+    ...buyer.map((b) => ({ ...b, kind: "buyer" as const })),
+    ...agent.map((a) => ({ ...a, kind: "agent" as const }))
+  ];
+  tagged.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  return tagged;
+}
+
+function subtitleFor(row: RecentRow): string {
+  if (row.kind === "buyer") {
+    return row.listing_title ? `Re: ${row.listing_title}` : row.email;
+  }
+  return row.brokerage || row.city_state || row.email;
 }
 
 function StatCard({

@@ -7,6 +7,28 @@ export function formatSqft(sqft: number | null): string {
   return `${sqft.toLocaleString()} sq ft`;
 }
 
+/**
+ * Short relative time — "3m ago", "2h ago", "4d ago", or a short date when
+ * the gap is longer than a week. Used in the admin inbox so scanning a
+ * list feels like a real CRM instead of dense ISO stamps. Null renders as
+ * "—" so the same helper doubles for "last contacted" columns where no
+ * contact has happened yet.
+ */
+export function formatRelativeShort(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return "—";
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "—";
+  const diffSec = Math.max(0, Math.floor((now - then) / 1000));
+  if (diffSec < 60) return "just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86_400) return `${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 604_800) return `${Math.floor(diffSec / 86_400)}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric"
+  });
+}
+
 // ─── Slug generation ───────────────────────────────────────────────────────
 
 const STOP_WORDS = new Set<string>([
