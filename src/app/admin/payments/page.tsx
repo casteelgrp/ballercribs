@@ -72,7 +72,9 @@ export default async function AdminPaymentsPage({
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
       <h2 className="font-display text-2xl mb-6">Payments</h2>
 
-      <div className="flex gap-1 border-b border-black/10 mb-6 overflow-x-auto">
+      {/* Match the listings page — overflow-x-auto only on narrow widths
+          so desktop doesn't render scroll chrome on a row that fits. */}
+      <div className="flex gap-1 border-b border-black/10 mb-6 overflow-x-auto md:overflow-x-visible">
         {TAB_ORDER.map((tab) => {
           const count = counts[tab] ?? 0;
           const active = tab === currentTab;

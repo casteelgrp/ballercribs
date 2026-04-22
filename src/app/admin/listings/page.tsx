@@ -261,7 +261,10 @@ export default async function AdminListingsPage({
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-black/10 mb-6 overflow-x-auto">
+      {/* overflow-x-auto only on narrow viewports — the 5 status tabs fit
+          comfortably on desktop and macOS with "always show scrollbars"
+          was rendering stray arrow chrome on the row. */}
+      <div className="flex gap-1 border-b border-black/10 mb-6 overflow-x-auto md:overflow-x-visible">
         {TAB_ORDER.map((tab) => {
           const count = tab === "all" ? allCount : counts[tab as ListingStatus];
           const active = tab === currentTab;
