@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { requirePageUser } from "@/lib/auth";
 import {
   getRecentAgentInquiries,
-  getRecentInquiries
+  getRecentInquiries,
+  getRecentRentalInquiries
 } from "@/lib/db";
 import { listPayments } from "@/lib/payments";
 import type { Payment } from "@/lib/payments/types";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Inquiries — BallerCribs" };
 
-const VALID_TYPES: TypeFilter[] = ["all", "buyer", "agent"];
+const VALID_TYPES: TypeFilter[] = ["all", "buyer", "agent", "rental"];
 const VALID_STATUSES: StatusFilter[] = ["all", "new", "working", "won", "dead"];
 
 function normalizeTypeFilter(raw: string | undefined): TypeFilter {
@@ -45,18 +46,23 @@ export default async function AdminInquiriesPage({
   const typeFilter = normalizeTypeFilter(sp.type);
   const statusFilter = normalizeStatusFilter(sp.status);
 
-  // Fetch both tables regardless of the type filter so a filter flip
-  // doesn't require a round-trip. Archived rows are excluded at the DB
-  // layer — the unified inbox doesn't surface archived today; it's
+  // Fetch all three tables regardless of the type filter so flipping
+  // filters doesn't require a round-trip. Archived rows are excluded at
+  // the DB layer — unified inbox doesn't surface archived today; it's
   // still reachable per-row via the Archive/Unarchive action.
-  const [inquiries, agentInquiries, allPayments] = await Promise.all([
-    getRecentInquiries({ archived: false, limit: 100 }).catch(() => []),
-    getRecentAgentInquiries({ archived: false, limit: 100 }).catch(() => []),
-    listPayments({ limit: 500 }).catch(() => [])
-  ]);
+  const [inquiries, agentInquiries, rentalInquiries, allPayments] =
+    await Promise.all([
+      getRecentInquiries({ archived: false, limit: 100 }).catch(() => []),
+      getRecentAgentInquiries({ archived: false, limit: 100 }).catch(() => []),
+      getRecentRentalInquiries({ archived: false, limit: 100 }).catch(() => []),
+      listPayments({ limit: 500 }).catch(() => [])
+    ]);
 
-  const rows = mergeAndSort(inquiries, agentInquiries);
-  const paymentsByAgentInquiry = groupPaymentsByInquiry(allPayments, "agent_feature");
+  const rows = mergeAndSort(inquiries, agentInquiries, rentalInquiries);
+  const paymentsByInquiry = {
+    agent: groupPayments(allPayments, "agent_feature"),
+    rental: groupPayments(allPayments, "rental")
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
@@ -71,7 +77,7 @@ export default async function AdminInquiriesPage({
         typeFilter={typeFilter}
         statusFilter={statusFilter}
         isOwner={true}
-        paymentsByAgentInquiry={paymentsByAgentInquiry}
+        paymentsByInquiry={paymentsByInquiry}
       />
     </div>
   );
@@ -79,20 +85,21 @@ export default async function AdminInquiriesPage({
 
 function mergeAndSort(
   buyer: Awaited<ReturnType<typeof getRecentInquiries>>,
-  agent: Awaited<ReturnType<typeof getRecentAgentInquiries>>
+  agent: Awaited<ReturnType<typeof getRecentAgentInquiries>>,
+  rental: Awaited<ReturnType<typeof getRecentRentalInquiries>>
 ): UnifiedInquiryRow[] {
   const tagged: UnifiedInquiryRow[] = [
     ...buyer.map((b) => ({ ...b, kind: "buyer" as const })),
-    ...agent.map((a) => ({ ...a, kind: "agent" as const }))
+    ...agent.map((a) => ({ ...a, kind: "agent" as const })),
+    ...rental.map((r) => ({ ...r, kind: "rental" as const }))
   ];
-  tagged.sort((a, b) => {
-    // Cast is safe — both rows always carry created_at as an ISO string.
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  tagged.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
   return tagged;
 }
 
-function groupPaymentsByInquiry(
+function groupPayments(
   payments: Payment[],
   type: Payment["inquiry_type"]
 ): Record<number, Payment[]> {
@@ -104,4 +111,3 @@ function groupPaymentsByInquiry(
   }
   return out;
 }
-

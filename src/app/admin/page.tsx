@@ -5,30 +5,41 @@ import {
   countAgentInquiriesByArchiveStatus,
   countInquiriesByArchiveStatus,
   countListingsByStatus,
+  countRentalInquiriesByArchiveStatus,
   getRecentAgentInquiries,
-  getRecentInquiries
+  getRecentInquiries,
+  getRecentRentalInquiries
 } from "@/lib/db";
 import { isOwner } from "@/lib/permissions";
 import { formatRelativeShort } from "@/lib/format";
-import type { AgentInquiry, Inquiry, ListingStatus, User } from "@/lib/types";
+import type {
+  AgentInquiry,
+  Inquiry,
+  ListingStatus,
+  RentalInquiry,
+  User
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 // Type + status tokens mirror the unified inquiry inbox so the dashboard
 // feels like a preview of the same table, not a separate widget.
-const TYPE_BADGE: Record<"buyer" | "agent", string> = {
+const TYPE_BADGE: Record<"buyer" | "agent" | "rental", string> = {
   buyer: "bg-slate-100 text-slate-700",
-  agent: "bg-indigo-100 text-indigo-700"
+  agent: "bg-indigo-100 text-indigo-700",
+  rental: "bg-emerald-100 text-emerald-700"
 };
-const TYPE_LABEL: Record<"buyer" | "agent", string> = {
+const TYPE_LABEL: Record<"buyer" | "agent" | "rental", string> = {
   buyer: "Buyer",
-  agent: "Agent"
+  agent: "Agent",
+  rental: "Rental"
 };
 
 type BuyerRecent = Inquiry & { listing_title: string | null; listing_slug: string | null };
 type RecentRow =
   | (BuyerRecent & { kind: "buyer" })
-  | (AgentInquiry & { kind: "agent" });
+  | (AgentInquiry & { kind: "agent" })
+  | (RentalInquiry & { kind: "rental" });
 
 function pageTitleFor(user: User): string {
   return isOwner(user) ? "Dashboard" : "Listing Dashboard";
@@ -47,37 +58,60 @@ export default async function AdminDashboardPage() {
   const user = await requirePageUser();
   const scopeUserId = isOwner(user) ? undefined : user.id;
 
-  const [counts, inquiryCounts, agentInquiryCounts, recentBuyer, recentAgent] =
-    await Promise.all([
-      countListingsByStatus(scopeUserId).catch(
-        (): Record<ListingStatus, number> => ({
-          draft: 0,
-          review: 0,
-          published: 0,
-          archived: 0
-        })
-      ),
-      isOwner(user)
-        ? countInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
-        : Promise.resolve({ active: 0, archived: 0 }),
-      isOwner(user)
-        ? countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
-        : Promise.resolve({ active: 0, archived: 0 }),
-      // Over-fetch each kind (6) so the merged + sorted top-6 has enough
-      // candidates. Anything beyond that lives in the full inbox anyway.
-      isOwner(user)
-        ? getRecentInquiries({ archived: false, limit: 6 }).catch(() => [])
-        : Promise.resolve([]),
-      isOwner(user)
-        ? getRecentAgentInquiries({ archived: false, limit: 6 }).catch(() => [])
-        : Promise.resolve([])
-    ]);
+  const [
+    counts,
+    inquiryCounts,
+    agentInquiryCounts,
+    rentalInquiryCounts,
+    recentBuyer,
+    recentAgent,
+    recentRental
+  ] = await Promise.all([
+    countListingsByStatus(scopeUserId).catch(
+      (): Record<ListingStatus, number> => ({
+        draft: 0,
+        review: 0,
+        published: 0,
+        archived: 0
+      })
+    ),
+    isOwner(user)
+      ? countInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
+      : Promise.resolve({ active: 0, archived: 0 }),
+    isOwner(user)
+      ? countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
+      : Promise.resolve({ active: 0, archived: 0 }),
+    isOwner(user)
+      ? countRentalInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
+      : Promise.resolve({ active: 0, archived: 0 }),
+    // Over-fetch each kind (6) so the merged + sorted top-6 has enough
+    // candidates. Anything beyond that lives in the full inbox anyway.
+    isOwner(user)
+      ? getRecentInquiries({ archived: false, limit: 6 }).catch(() => [])
+      : Promise.resolve([]),
+    isOwner(user)
+      ? getRecentAgentInquiries({ archived: false, limit: 6 }).catch(() => [])
+      : Promise.resolve([]),
+    isOwner(user)
+      ? getRecentRentalInquiries({ archived: false, limit: 6 }).catch(() => [])
+      : Promise.resolve([])
+  ]);
 
-  const recentMixed: RecentRow[] = mergeRecent(recentBuyer, recentAgent).slice(0, 6);
+  const recentMixed: RecentRow[] = mergeRecent(
+    recentBuyer,
+    recentAgent,
+    recentRental
+  ).slice(0, 6);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <section
+        className={
+          isOwner(user)
+            ? "grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10"
+            : "grid grid-cols-2 gap-4 mb-10"
+        }
+      >
         {isOwner(user) && (
           <>
             <StatCard
@@ -89,6 +123,11 @@ export default async function AdminDashboardPage() {
               label="Agent inquiries"
               value={agentInquiryCounts.active}
               href="/admin/inquiries?type=agent"
+            />
+            <StatCard
+              label="Rental inquiries"
+              value={rentalInquiryCounts.active}
+              href="/admin/inquiries?type=rental"
             />
           </>
         )}
@@ -171,10 +210,15 @@ export default async function AdminDashboardPage() {
   );
 }
 
-function mergeRecent(buyer: BuyerRecent[], agent: AgentInquiry[]): RecentRow[] {
+function mergeRecent(
+  buyer: BuyerRecent[],
+  agent: AgentInquiry[],
+  rental: RentalInquiry[]
+): RecentRow[] {
   const tagged: RecentRow[] = [
     ...buyer.map((b) => ({ ...b, kind: "buyer" as const })),
-    ...agent.map((a) => ({ ...a, kind: "agent" as const }))
+    ...agent.map((a) => ({ ...a, kind: "agent" as const })),
+    ...rental.map((r) => ({ ...r, kind: "rental" as const }))
   ];
   tagged.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -185,6 +229,9 @@ function mergeRecent(buyer: BuyerRecent[], agent: AgentInquiry[]): RecentRow[] {
 function subtitleFor(row: RecentRow): string {
   if (row.kind === "buyer") {
     return row.listing_title ? `Re: ${row.listing_title}` : row.email;
+  }
+  if (row.kind === "rental") {
+    return `Rental — ${row.destination}`;
   }
   return row.brokerage || row.city_state || row.email;
 }

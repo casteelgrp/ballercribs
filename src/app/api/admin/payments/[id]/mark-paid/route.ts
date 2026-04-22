@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireOwner } from "@/lib/auth";
-import { getAgentInquiryById, updateAgentInquiryStatus } from "@/lib/db";
+import {
+  getAgentInquiryById,
+  getRentalInquiryById,
+  updateAgentInquiryStatus,
+  updateRentalInquiryStatus
+} from "@/lib/db";
 import {
   getPaymentById,
   sendPaymentReceivedNotification,
@@ -114,6 +119,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       payerEmail = inq.email;
       await updateAgentInquiryStatus(inq.id, "won", null).catch((e) => {
         console.error("[mark-paid] failed to flip inquiry to won", e);
+      });
+    }
+  } else if (updated.inquiry_type === "rental") {
+    const inq = await getRentalInquiryById(updated.inquiry_id);
+    if (inq) {
+      inquiryLabel = `${inq.name} — ${inq.destination}`;
+      payerName = inq.name;
+      payerEmail = inq.email;
+      await updateRentalInquiryStatus(inq.id, "won", null).catch((e) => {
+        console.error("[mark-paid] failed to flip rental inquiry to won", e);
       });
     }
   }

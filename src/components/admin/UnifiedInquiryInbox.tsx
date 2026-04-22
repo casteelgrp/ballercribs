@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import type { AgentInquiry, Inquiry, InquiryStatus } from "@/lib/types";
+import type {
+  AgentInquiry,
+  Inquiry,
+  InquiryStatus,
+  RentalInquiry
+} from "@/lib/types";
 import type { Payment } from "@/lib/payments/types";
 import { formatRelativeShort } from "@/lib/format";
 import { InquiryDetailPanel, type InquiryKind } from "./InquiryDetailPanel";
@@ -15,7 +20,11 @@ type BuyerInquiry = Inquiry & {
 };
 type UnifiedBuyerRow = BuyerInquiry & { kind: "buyer" };
 type UnifiedAgentRow = AgentInquiry & { kind: "agent" };
-export type UnifiedInquiryRow = UnifiedBuyerRow | UnifiedAgentRow;
+type UnifiedRentalRow = RentalInquiry & { kind: "rental" };
+export type UnifiedInquiryRow =
+  | UnifiedBuyerRow
+  | UnifiedAgentRow
+  | UnifiedRentalRow;
 
 // ─── Filter types ─────────────────────────────────────────────────────────
 
@@ -25,7 +34,8 @@ export type StatusFilter = "all" | InquiryStatus;
 const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "buyer", label: "Buyer" },
-  { value: "agent", label: "Agent" }
+  { value: "agent", label: "Agent" },
+  { value: "rental", label: "Rental" }
 ];
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -39,15 +49,17 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 // ─── Styling tokens ───────────────────────────────────────────────────────
 
 // Type badges use distinct neutral tones — NOT the status palette, which is
-// reserved for the pipeline. Emerald slot is reserved for rentals (commit 2).
+// reserved for the pipeline.
 const TYPE_BADGE: Record<InquiryKind, string> = {
   buyer: "bg-slate-100 text-slate-700",
-  agent: "bg-indigo-100 text-indigo-700"
+  agent: "bg-indigo-100 text-indigo-700",
+  rental: "bg-emerald-100 text-emerald-700"
 };
 
 const TYPE_LABEL: Record<InquiryKind, string> = {
   buyer: "Buyer",
-  agent: "Agent"
+  agent: "Agent",
+  rental: "Rental"
 };
 
 const STATUS_BADGE: Record<InquiryStatus, string> = {
@@ -86,13 +98,18 @@ export function UnifiedInquiryInbox({
   typeFilter,
   statusFilter,
   isOwner = false,
-  paymentsByAgentInquiry = {}
+  paymentsByInquiry = { agent: {}, rental: {} }
 }: {
   rows: UnifiedInquiryRow[];
   typeFilter: TypeFilter;
   statusFilter: StatusFilter;
   isOwner?: boolean;
-  paymentsByAgentInquiry?: Record<number, Payment[]>;
+  /** Pre-grouped per inquiry-type. Buyer payments aren't surfaced today —
+   *  the buyer-lead payment flow isn't live yet. */
+  paymentsByInquiry?: {
+    agent?: Record<number, Payment[]>;
+    rental?: Record<number, Payment[]>;
+  };
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -169,11 +186,7 @@ export function UnifiedInquiryInbox({
                     isOpen={isOpen}
                     onToggle={() => setExpandedKey(isOpen ? null : key)}
                     isOwner={isOwner}
-                    payments={
-                      row.kind === "agent"
-                        ? paymentsByAgentInquiry[row.id] ?? []
-                        : []
-                    }
+                    payments={lookupPayments(row, paymentsByInquiry)}
                   />
                 );
               })}
@@ -193,11 +206,7 @@ export function UnifiedInquiryInbox({
                   isOpen={isOpen}
                   onToggle={() => setExpandedKey(isOpen ? null : key)}
                   isOwner={isOwner}
-                  payments={
-                    row.kind === "agent"
-                      ? paymentsByAgentInquiry[row.id] ?? []
-                      : []
-                  }
+                  payments={lookupPayments(row, paymentsByInquiry)}
                 />
               );
             })}
@@ -366,6 +375,18 @@ function MobileRow({
 
 function rowKey(row: UnifiedInquiryRow): string {
   return `${row.kind}-${row.id}`;
+}
+
+function lookupPayments(
+  row: UnifiedInquiryRow,
+  byInquiry: {
+    agent?: Record<number, Payment[]>;
+    rental?: Record<number, Payment[]>;
+  }
+): Payment[] {
+  if (row.kind === "agent") return byInquiry.agent?.[row.id] ?? [];
+  if (row.kind === "rental") return byInquiry.rental?.[row.id] ?? [];
+  return [];
 }
 
 function TypeBadge({ kind }: { kind: InquiryKind }) {

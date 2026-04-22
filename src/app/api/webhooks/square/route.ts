@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getAgentInquiryById, updateAgentInquiryStatus } from "@/lib/db";
+import {
+  getAgentInquiryById,
+  getRentalInquiryById,
+  updateAgentInquiryStatus,
+  updateRentalInquiryStatus
+} from "@/lib/db";
 import {
   getPaymentByProviderOrderId,
   getPaymentByProviderPaymentId,
@@ -157,22 +162,46 @@ export async function POST(req: Request) {
 }
 
 async function flipInquiryToWonAndNotify(payment: Payment): Promise<void> {
-  if (payment.inquiry_type !== "agent_feature") return;
-  const inq = await getAgentInquiryById(payment.inquiry_id);
-  if (!inq) {
-    console.warn(
-      "[square-webhook] inquiry missing, cannot flip to won",
-      payment.inquiry_id
+  if (payment.inquiry_type === "agent_feature") {
+    const inq = await getAgentInquiryById(payment.inquiry_id);
+    if (!inq) {
+      console.warn(
+        "[square-webhook] agent inquiry missing, cannot flip to won",
+        payment.inquiry_id
+      );
+      return;
+    }
+    await updateAgentInquiryStatus(inq.id, "won", null).catch((e) =>
+      console.error("[square-webhook] flip-to-won failed", e)
     );
+    await sendPaymentReceivedNotification({
+      payment,
+      payerName: inq.name,
+      payerEmail: inq.email,
+      inquiryLabel: `${inq.name} — ${inq.brokerage ?? inq.city_state ?? "agent inquiry"}`
+    }).catch((e) => console.error("[square-webhook] owner notify failed", e));
     return;
   }
-  await updateAgentInquiryStatus(inq.id, "won", null).catch((e) =>
-    console.error("[square-webhook] flip-to-won failed", e)
-  );
-  await sendPaymentReceivedNotification({
-    payment,
-    payerName: inq.name,
-    payerEmail: inq.email,
-    inquiryLabel: `${inq.name} — ${inq.brokerage ?? inq.city_state ?? "agent inquiry"}`
-  }).catch((e) => console.error("[square-webhook] owner notify failed", e));
+
+  if (payment.inquiry_type === "rental") {
+    const inq = await getRentalInquiryById(payment.inquiry_id);
+    if (!inq) {
+      console.warn(
+        "[square-webhook] rental inquiry missing, cannot flip to won",
+        payment.inquiry_id
+      );
+      return;
+    }
+    await updateRentalInquiryStatus(inq.id, "won", null).catch((e) =>
+      console.error("[square-webhook] flip-to-won (rental) failed", e)
+    );
+    await sendPaymentReceivedNotification({
+      payment,
+      payerName: inq.name,
+      payerEmail: inq.email,
+      inquiryLabel: `${inq.name} — ${inq.destination}`
+    }).catch((e) => console.error("[square-webhook] owner notify (rental) failed", e));
+    return;
+  }
+  // buyer_lead intentionally unhandled — no buyer-lead payment flow yet.
 }

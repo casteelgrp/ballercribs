@@ -8,7 +8,8 @@ import { PaymentsSection } from "./PaymentsSection";
 import type {
   AgentInquiry,
   Inquiry,
-  InquiryStatus
+  InquiryStatus,
+  RentalInquiry
 } from "@/lib/types";
 import type { Payment } from "@/lib/payments/types";
 
@@ -19,8 +20,16 @@ type BuyerInquiry = Inquiry & {
   listing_slug: string | null;
 };
 
-export type InquiryKind = "buyer" | "agent";
-export type AnyInquiry = BuyerInquiry | AgentInquiry;
+export type InquiryKind = "buyer" | "agent" | "rental";
+export type AnyInquiry = BuyerInquiry | AgentInquiry | RentalInquiry;
+
+const BUDGET_LABEL: Record<string, string> = {
+  under_25k: "Under $25K",
+  "25k_50k": "$25K–$50K",
+  "50k_100k": "$50K–$100K",
+  "100k_plus": "$100K+",
+  flexible: "Flexible"
+};
 
 const STATUS_OPTIONS: InquiryStatus[] = ["new", "working", "won", "dead"];
 const STATUS_LABEL: Record<InquiryStatus, string> = {
@@ -70,7 +79,9 @@ export function InquiryDetailPanel({
   const basePath =
     kind === "buyer"
       ? `/api/admin/inquiries/${inquiry.id}`
-      : `/api/admin/agent-inquiries/${inquiry.id}`;
+      : kind === "agent"
+        ? `/api/admin/agent-inquiries/${inquiry.id}`
+        : `/api/admin/rental-inquiries/${inquiry.id}`;
 
   type PatchResult = {
     ok: true;
@@ -133,6 +144,23 @@ export function InquiryDetailPanel({
 
   const buyer = kind === "buyer" ? (inquiry as BuyerInquiry) : null;
   const agent = kind === "agent" ? (inquiry as AgentInquiry) : null;
+  const rental = kind === "rental" ? (inquiry as RentalInquiry) : null;
+
+  const rentalDates = rental
+    ? rental.flexible_dates
+      ? "Flexible"
+      : rental.start_date && rental.end_date
+        ? `${rental.start_date} → ${rental.end_date}`
+        : rental.start_date
+          ? `From ${rental.start_date}`
+          : rental.end_date
+            ? `Until ${rental.end_date}`
+            : "Not specified"
+    : null;
+
+  const rentalBudget = rental?.budget_range
+    ? BUDGET_LABEL[rental.budget_range] ?? rental.budget_range
+    : null;
 
   return (
     <div className="border-l-4 border-transparent px-4 pb-5 pt-3 space-y-5 text-sm bg-black/[0.015]">
@@ -180,6 +208,34 @@ export function InquiryDetailPanel({
             {agent.brokerage && agent.city_state ? " · " : ""}
             {agent.city_state}
           </p>
+        )}
+
+        {rental && (
+          <div className="flex flex-wrap gap-2 pt-1 text-xs">
+            <span className="bg-black/5 px-2 py-1">
+              <strong className="font-medium">Where:</strong> {rental.destination}
+            </span>
+            {rentalDates && (
+              <span className="bg-black/5 px-2 py-1">
+                <strong className="font-medium">Dates:</strong> {rentalDates}
+              </span>
+            )}
+            {rental.group_size !== null && (
+              <span className="bg-black/5 px-2 py-1">
+                <strong className="font-medium">Guests:</strong> {rental.group_size}
+              </span>
+            )}
+            {rentalBudget && (
+              <span className="bg-black/5 px-2 py-1">
+                <strong className="font-medium">Budget:</strong> {rentalBudget}
+              </span>
+            )}
+            {rental.occasion && (
+              <span className="bg-black/5 px-2 py-1">
+                <strong className="font-medium">Occasion:</strong> {rental.occasion}
+              </span>
+            )}
+          </div>
         )}
 
         {buyer && (buyer.timeline || buyer.pre_approved) && (
@@ -268,17 +324,20 @@ export function InquiryDetailPanel({
         </button>
       </div>
 
-      {kind === "agent" && (
+      {(kind === "agent" || kind === "rental") && (
         <PaymentsSection
           inquiryId={inquiry.id}
           inquiryName={inquiry.name}
+          inquiryType={kind === "agent" ? "agent_feature" : "rental"}
           payments={payments}
           canGenerate={isOwner && status === "working"}
           canMarkPaid={isOwner}
           defaultDescription={
             agent?.brokerage
               ? `BallerCribs feature — ${agent.brokerage}`
-              : `BallerCribs feature — ${inquiry.name}`
+              : rental?.destination
+                ? `BallerCribs rental referral — ${rental.destination}`
+                : `BallerCribs — ${inquiry.name}`
           }
         />
       )}

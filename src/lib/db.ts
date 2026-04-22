@@ -8,6 +8,7 @@ import type {
   InquiryStatus,
   Listing,
   ListingStatus,
+  RentalInquiry,
   User,
   UserRole,
   UserWithHash
@@ -1043,3 +1044,183 @@ export async function getAgentInquiryById(id: number): Promise<AgentInquiry | nu
   `;
   return rows[0] ? rowToAgentInquiry(rows[0]) : null;
 }
+
+// ─── Rental inquiries ───────────────────────────────────────────────────────
+//
+// Same pipeline shape as buyer + agent inquiries (status / notes /
+// last_contacted_at / status_updated_{at,by}) so the unified inbox can
+// render all three via the same detail panel. Rental-specific fields
+// (destination / dates / group_size / budget_range / occasion) live on
+// this table only and are surfaced in the admin detail panel.
+
+function rowToRentalInquiry(row: any): RentalInquiry {
+  return {
+    id: Number(row.id),
+    name: row.name,
+    email: row.email,
+    phone: row.phone ?? null,
+    destination: row.destination,
+    start_date: row.start_date ?? null,
+    end_date: row.end_date ?? null,
+    flexible_dates: Boolean(row.flexible_dates),
+    group_size:
+      row.group_size !== null && row.group_size !== undefined
+        ? Number(row.group_size)
+        : null,
+    budget_range: row.budget_range ?? null,
+    occasion: row.occasion ?? null,
+    message: row.message ?? null,
+    status: (row.status ?? "new") as InquiryStatus,
+    notes: row.notes ?? null,
+    last_contacted_at: row.last_contacted_at ?? null,
+    status_updated_at: row.status_updated_at,
+    status_updated_by:
+      row.status_updated_by !== null && row.status_updated_by !== undefined
+        ? Number(row.status_updated_by)
+        : null,
+    status_updated_by_name: row.status_updated_by_name ?? null,
+    archived_at: row.archived_at ?? null,
+    created_at: row.created_at
+  };
+}
+
+export interface CreateRentalInquiryInput {
+  name: string;
+  email: string;
+  phone: string | null;
+  destination: string;
+  start_date: string | null; // ISO date string (YYYY-MM-DD) or null
+  end_date: string | null;
+  flexible_dates: boolean;
+  group_size: number | null;
+  budget_range: string | null;
+  occasion: string | null;
+  message: string | null;
+}
+
+export async function createRentalInquiry(
+  data: CreateRentalInquiryInput
+): Promise<RentalInquiry> {
+  const { rows } = await sql`
+    INSERT INTO rental_inquiries (
+      name, email, phone, destination,
+      start_date, end_date, flexible_dates,
+      group_size, budget_range, occasion, message
+    )
+    VALUES (
+      ${data.name}, ${data.email}, ${data.phone}, ${data.destination},
+      ${data.start_date}, ${data.end_date}, ${data.flexible_dates},
+      ${data.group_size}, ${data.budget_range}, ${data.occasion}, ${data.message}
+    )
+    RETURNING *;
+  `;
+  return rowToRentalInquiry(rows[0]);
+}
+
+export async function getRecentRentalInquiries(
+  opts: { archived?: boolean; limit?: number } = {}
+): Promise<RentalInquiry[]> {
+  const limit = opts.limit ?? 50;
+  const { rows } = opts.archived
+    ? await sql`
+        SELECT r.*, u.name AS status_updated_by_name
+        FROM rental_inquiries r
+        LEFT JOIN users u ON u.id = r.status_updated_by
+        WHERE r.archived_at IS NOT NULL
+        ORDER BY r.archived_at DESC
+        LIMIT ${limit};
+      `
+    : await sql`
+        SELECT r.*, u.name AS status_updated_by_name
+        FROM rental_inquiries r
+        LEFT JOIN users u ON u.id = r.status_updated_by
+        WHERE r.archived_at IS NULL
+        ORDER BY r.created_at DESC
+        LIMIT ${limit};
+      `;
+  return rows.map(rowToRentalInquiry);
+}
+
+export async function countRentalInquiriesByArchiveStatus(): Promise<{
+  active: number;
+  archived: number;
+}> {
+  const { rows } = await sql`
+    SELECT
+      SUM(CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END)::int AS active,
+      SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END)::int AS archived
+    FROM rental_inquiries;
+  `;
+  const row = rows[0] ?? { active: 0, archived: 0 };
+  return { active: Number(row.active ?? 0), archived: Number(row.archived ?? 0) };
+}
+
+export async function archiveRentalInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`UPDATE rental_inquiries SET archived_at = NOW() WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
+}
+
+export async function unarchiveRentalInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`UPDATE rental_inquiries SET archived_at = NULL WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
+}
+
+export async function deleteRentalInquiry(id: number): Promise<boolean> {
+  const { rowCount } = await sql`DELETE FROM rental_inquiries WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
+}
+
+export async function updateRentalInquiryStatus(
+  id: number,
+  status: InquiryStatus,
+  userId: number | null
+): Promise<RentalInquiry | null> {
+  const { rows } = await sql`
+    UPDATE rental_inquiries
+    SET status = ${status},
+        status_updated_at = NOW(),
+        status_updated_by = ${userId},
+        last_contacted_at = CASE
+          WHEN ${status} = 'working' AND last_contacted_at IS NULL THEN NOW()
+          ELSE last_contacted_at
+        END
+    WHERE id = ${id}
+    RETURNING id;
+  `;
+  if (!rows[0]) return null;
+  return getRentalInquiryById(id);
+}
+
+export async function updateRentalInquiryNotes(
+  id: number,
+  notes: string | null
+): Promise<RentalInquiry | null> {
+  const trimmed = notes === null ? null : notes.trim() || null;
+  const { rowCount } = await sql`UPDATE rental_inquiries SET notes = ${trimmed} WHERE id = ${id};`;
+  if ((rowCount ?? 0) === 0) return null;
+  return getRentalInquiryById(id);
+}
+
+export async function updateRentalInquiryLastContacted(
+  id: number,
+  when?: Date
+): Promise<RentalInquiry | null> {
+  const ts = when ? when.toISOString() : null;
+  const { rowCount } = ts
+    ? await sql`UPDATE rental_inquiries SET last_contacted_at = ${ts} WHERE id = ${id};`
+    : await sql`UPDATE rental_inquiries SET last_contacted_at = NOW() WHERE id = ${id};`;
+  if ((rowCount ?? 0) === 0) return null;
+  return getRentalInquiryById(id);
+}
+
+export async function getRentalInquiryById(id: number): Promise<RentalInquiry | null> {
+  const { rows } = await sql`
+    SELECT r.*, u.name AS status_updated_by_name
+    FROM rental_inquiries r
+    LEFT JOIN users u ON u.id = r.status_updated_by
+    WHERE r.id = ${id}
+    LIMIT 1;
+  `;
+  return rows[0] ? rowToRentalInquiry(rows[0]) : null;
+}
+

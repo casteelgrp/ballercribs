@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireOwner } from "@/lib/auth";
-import { getAgentInquiryById } from "@/lib/db";
+import { getAgentInquiryById, getRentalInquiryById } from "@/lib/db";
 import {
   createPayment,
   isTierKey,
@@ -55,13 +55,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "inquiry_id is required." }, { status: 400 });
   }
 
-  if (body.inquiry_type !== "agent_feature") {
+  if (body.inquiry_type !== "agent_feature" && body.inquiry_type !== "rental") {
     return NextResponse.json(
-      { error: "Only inquiry_type='agent_feature' is supported right now." },
+      { error: "inquiry_type must be 'agent_feature' or 'rental'." },
       { status: 400 }
     );
   }
-  const inquiry_type: InquiryPaymentType = "agent_feature";
+  const inquiry_type: InquiryPaymentType = body.inquiry_type;
 
   if (!isTierKey(body.tier)) {
     return NextResponse.json(
@@ -100,8 +100,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: resolved.error }, { status: 400 });
   }
 
-  // Look up the inquiry for email targeting + context in the owner email.
-  const inquiry = await getAgentInquiryById(inquiry_id);
+  // Look up the inquiry for email targeting + owner-email context. Both
+  // kinds expose { name, email } which is all the payment flow needs; the
+  // narrower fields (brokerage, destination, etc) only matter for the
+  // email subject/body copy below.
+  const inquiry =
+    inquiry_type === "agent_feature"
+      ? await getAgentInquiryById(inquiry_id)
+      : await getRentalInquiryById(inquiry_id);
   if (!inquiry) {
     return NextResponse.json({ error: "Inquiry not found." }, { status: 404 });
   }
@@ -146,7 +152,11 @@ export async function POST(req: Request) {
       `;
       const finalPayment = { ...payment, ...checkout, checkout_url: checkout.checkout_url };
 
-      await setAgentInquiryTier(inquiry_id, tier);
+      // Tier badge is an agent-flow concept (featured/premium/elite);
+      // rentals don't carry a tier column, so only write it for agents.
+      if (inquiry_type === "agent_feature") {
+        await setAgentInquiryTier(inquiry_id, tier);
+      }
 
       // Email is best-effort — we've already created the payment row and
       // have the Square URL stored on it. If the send fails, the admin gets
@@ -187,7 +197,9 @@ export async function POST(req: Request) {
     metadata: { payment_method_choice: "alternate" }
   });
 
-  await setAgentInquiryTier(inquiry_id, tier);
+  if (inquiry_type === "agent_feature") {
+    await setAgentInquiryTier(inquiry_id, tier);
+  }
 
   const emailResult = await sendAlternatePaymentEmail({
     toEmail: inquiry.email,

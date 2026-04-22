@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { formatPrice } from "./currency";
-import type { AgentInquiry, Inquiry, Listing } from "./types";
+import type { AgentInquiry, Inquiry, Listing, RentalInquiry } from "./types";
 
 // Unwrap Resend SDK's { data, error } response shape.
 type ResendResult = { data?: { id?: string } | null; error?: { message?: string; name?: string } | null };
@@ -156,6 +156,112 @@ export async function sendAgentInquiryNotification(inquiry: AgentInquiry) {
     console.log("[agent-email] email sent", { id: inquiry.id, to });
   } catch (err) {
     console.error("[agent-email] threw", err);
+  }
+}
+
+/**
+ * Owner notification for a new rental inquiry. Same env-var + log shape as
+ * sendAgentInquiryNotification so the two surfaces are diagnosable via a
+ * single grep of "[rental-email]" in Vercel logs.
+ */
+const BUDGET_LABEL: Record<string, string> = {
+  under_25k: "Under $25K",
+  "25k_50k": "$25K–$50K",
+  "50k_100k": "$50K–$100K",
+  "100k_plus": "$100K+",
+  flexible: "Flexible"
+};
+
+export async function sendRentalInquiryNotification(inquiry: RentalInquiry) {
+  console.log("[rental-email] function entered", { inquiryId: inquiry.id });
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.INQUIRY_NOTIFICATION_EMAIL;
+  const from = process.env.INQUIRY_FROM_EMAIL || "onboarding@resend.dev";
+
+  console.log("[rental-email] env check", {
+    hasApiKey: Boolean(apiKey),
+    from,
+    to
+  });
+
+  if (!apiKey || !to) {
+    console.warn("[rental-email] Resend not configured — skipping rental-inquiry email.");
+    return;
+  }
+
+  const resend = new Resend(apiKey);
+
+  const dateRange = inquiry.flexible_dates
+    ? "Flexible"
+    : inquiry.start_date && inquiry.end_date
+      ? `${inquiry.start_date} → ${inquiry.end_date}`
+      : inquiry.start_date
+        ? `From ${inquiry.start_date}`
+        : inquiry.end_date
+          ? `Until ${inquiry.end_date}`
+          : "Not specified";
+
+  const budgetLabel = inquiry.budget_range
+    ? BUDGET_LABEL[inquiry.budget_range] ?? inquiry.budget_range
+    : null;
+
+  const subject = `New rental inquiry: ${inquiry.destination} — ${inquiry.name}`;
+
+  const rows: Array<[string, string | null]> = [
+    ["Name", inquiry.name],
+    ["Email", inquiry.email],
+    ["Phone", inquiry.phone],
+    ["Destination", inquiry.destination],
+    ["Dates", dateRange],
+    ["Group size", inquiry.group_size !== null ? String(inquiry.group_size) : null],
+    ["Budget", budgetLabel],
+    ["Occasion", inquiry.occasion]
+  ];
+
+  const detailRows = rows
+    .filter(([, v]) => Boolean(v))
+    .map(
+      ([label, value]) =>
+        `<p style="margin:4px 0"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(value))}</p>`
+    )
+    .join("");
+
+  const messageBlock = inquiry.message
+    ? `<p style="margin:16px 0 4px"><strong>Message:</strong></p>
+       <p style="margin:0;white-space:pre-wrap">${escapeHtml(inquiry.message)}</p>`
+    : "";
+
+  const html = `
+    <div style="font-family: -apple-system, sans-serif; max-width: 600px;">
+      <h2 style="margin:0 0 16px">New BallerCribs rental inquiry</h2>
+      ${detailRows}
+      ${messageBlock}
+      <hr style="margin:24px 0;border:none;border-top:1px solid #eee"/>
+      <p style="font-size:12px;color:#888">Rental inquiry #${inquiry.id} · ${new Date(inquiry.created_at).toLocaleString()}</p>
+    </div>
+  `;
+
+  try {
+    console.log("[rental-email] calling resend", { to, from, subject });
+    const result = (await resend.emails.send({
+      from,
+      to,
+      subject,
+      html,
+      replyTo: inquiry.email
+    })) as ResendResult;
+    console.log("[rental-email] resend returned", {
+      error: result?.error ?? null,
+      id: result?.data?.id ?? null
+    });
+    if (result?.error) {
+      console.error("[rental-email] Resend returned error object", result.error);
+      return;
+    }
+    console.log("[rental-email] email sent", { id: inquiry.id, to });
+  } catch (err) {
+    console.error("[rental-email] threw", err);
   }
 }
 

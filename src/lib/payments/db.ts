@@ -218,14 +218,15 @@ export async function listPayments(
 ): Promise<PaymentWithInquiryName[]> {
   const limit = opts.limit ?? 100;
   const offset = opts.offset ?? 0;
-  // We join both inquiries tables via COALESCE so the list can show the
+  // Join all three inquiry tables via COALESCE so the list can show the
   // submitter's name regardless of inquiry_type in a single query.
   const { rows } = await sql`
     SELECT p.*,
-           COALESCE(bi.name, ai.name) AS inquiry_name
+           COALESCE(bi.name, ai.name, ri.name) AS inquiry_name
     FROM payments p
     LEFT JOIN inquiries bi ON p.inquiry_type = 'buyer_lead' AND bi.id = p.inquiry_id
     LEFT JOIN agent_inquiries ai ON p.inquiry_type = 'agent_feature' AND ai.id = p.inquiry_id
+    LEFT JOIN rental_inquiries ri ON p.inquiry_type = 'rental' AND ri.id = p.inquiry_id
     WHERE (${opts.status ?? null}::text IS NULL OR p.status = ${opts.status ?? null})
       AND (${opts.inquiry_type ?? null}::text IS NULL OR p.inquiry_type = ${opts.inquiry_type ?? null})
     ORDER BY p.created_at DESC

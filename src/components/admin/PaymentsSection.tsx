@@ -45,6 +45,7 @@ function formatAmount(amountCents: number, currency: string): string {
 export function PaymentsSection({
   inquiryId,
   inquiryName,
+  inquiryType = "agent_feature",
   payments,
   canGenerate,
   canMarkPaid,
@@ -52,6 +53,10 @@ export function PaymentsSection({
 }: {
   inquiryId: number;
   inquiryName: string;
+  /** Which inquiry table this payment links to. Passed through to the
+   *  PaymentLinkModal + generate-link API. Defaults to agent_feature to
+   *  preserve the original single-kind call shape. */
+  inquiryType?: "agent_feature" | "rental";
   payments: Payment[];
   canGenerate: boolean;
   canMarkPaid: boolean;
@@ -245,6 +250,7 @@ export function PaymentsSection({
         <PaymentLinkModal
           inquiryId={inquiryId}
           inquiryName={inquiryName}
+          inquiryType={inquiryType}
           defaultDescription={defaultDescription}
           onClose={() => setLinkModalOpen(false)}
           onCreated={onLinkGenerated}

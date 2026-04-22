@@ -3,11 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Kind = "buyer" | "agent";
+type Kind = "buyer" | "agent" | "rental";
+
+const ENDPOINT_BY_KIND: Record<Kind, (id: number) => string> = {
+  buyer: (id) => `/api/admin/inquiries/${id}`,
+  agent: (id) => `/api/admin/agent-inquiries/${id}`,
+  rental: (id) => `/api/admin/rental-inquiries/${id}`
+};
 
 /**
- * Archive / Unarchive / Delete buttons for an inquiry row. Shared between
- * buyer inquiries and agent inquiries via the `kind` prop — same action
+ * Archive / Unarchive / Delete buttons for an inquiry row. Shared across
+ * buyer, agent, and rental inquiries via the `kind` prop — same action
  * shape, different endpoint prefix.
  *
  * Archive/Unarchive fire immediately (reversible). Delete uses native
@@ -26,10 +32,7 @@ export function InquiryActions({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  const basePath =
-    kind === "buyer"
-      ? `/api/admin/inquiries/${id}`
-      : `/api/admin/agent-inquiries/${id}`;
+  const basePath = ENDPOINT_BY_KIND[kind](id);
 
   async function call(method: "PATCH" | "DELETE", path = "") {
     setBusy(true);

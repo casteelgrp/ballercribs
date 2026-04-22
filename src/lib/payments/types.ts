@@ -3,7 +3,7 @@
 // providers is a matter of writing a new file that implements PaymentProvider
 // and pointing src/lib/payments/index.ts at it.
 
-export type InquiryPaymentType = "buyer_lead" | "agent_feature";
+export type InquiryPaymentType = "buyer_lead" | "agent_feature" | "rental";
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded" | "cancelled";
 

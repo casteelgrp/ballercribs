@@ -38,6 +38,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.5
     },
+    {
+      url: `${baseUrl}/rentals`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7
+    },
     // Legal pages — indexable for trust + search compliance, but low
     // priority since they're supporting content, not the site's reason to
     // exist. Updated only when we revise the policy text itself.

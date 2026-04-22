@@ -14,15 +14,21 @@ export interface GenerateLinkResult {
   method: Method;
 }
 
+type InquiryType = "agent_feature" | "rental";
+
 export function PaymentLinkModal({
   inquiryId,
   inquiryName,
+  inquiryType = "agent_feature",
   defaultDescription,
   onClose,
   onCreated
 }: {
   inquiryId: number;
   inquiryName: string;
+  /** Which inquiry table the payment links to. Passed through to the
+   *  generate-link API so it validates / writes to the correct row. */
+  inquiryType?: InquiryType;
   defaultDescription?: string;
   onClose: () => void;
   onCreated: (result: GenerateLinkResult) => void;
@@ -75,7 +81,7 @@ export function PaymentLinkModal({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           inquiry_id: inquiryId,
-          inquiry_type: "agent_feature",
+          inquiry_type: inquiryType,
           tier,
           amount_cents: amountCents,
           line_item_description: description.trim(),

@@ -106,6 +106,41 @@ export interface HeroPhoto {
   created_at: string;
 }
 
+/**
+ * Budget bucket the rental form collects on /rentals. Stored as TEXT at the
+ * DB layer so new buckets can land without a schema migration; the public
+ * form + admin UI both reference this union for option rendering.
+ */
+export type RentalBudgetRange =
+  | "under_25k"
+  | "25k_50k"
+  | "50k_100k"
+  | "100k_plus"
+  | "flexible";
+
+export interface RentalInquiry {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  destination: string;
+  start_date: string | null;
+  end_date: string | null;
+  flexible_dates: boolean;
+  group_size: number | null;
+  budget_range: string | null;
+  occasion: string | null;
+  message: string | null;
+  status: InquiryStatus;
+  notes: string | null;
+  last_contacted_at: string | null;
+  status_updated_at: string;
+  status_updated_by: number | null;
+  status_updated_by_name: string | null;
+  archived_at: string | null;
+  created_at: string;
+}
+
 export interface Inquiry {
   id: number;
   listing_id: number | null;
