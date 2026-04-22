@@ -214,7 +214,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       // Only invalidate public caches when the edit could be seen —
       // drafts and review-queue rows aren't on any public surface.
       if (updated.status === "published") {
-        revalidateListingSurfaces(updated.slug);
+        revalidateListingSurfaces(updated.slug, updated.listing_type);
       }
       return NextResponse.json({ ok: true, listing: updated });
     }
@@ -266,7 +266,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // removed it (→ archived / draft from published). Either way the public
     // grid + homepage need to re-render; the slug page also needs it so a
     // newly-unpublished listing doesn't linger on the detail URL.
-    revalidateListingSurfaces(transitioned.slug);
+    revalidateListingSurfaces(transitioned.slug, transitioned.listing_type);
     return NextResponse.json({ ok: true, listing: transitioned });
   }
 
@@ -343,7 +343,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const existing = await getListingByIdAdmin(id);
   await deleteListing(id);
   if (existing?.status === "published") {
-    revalidateListingSurfaces(existing.slug);
+    revalidateListingSurfaces(existing.slug, existing.listing_type);
   }
   return NextResponse.json({ ok: true });
 }

@@ -210,6 +210,24 @@ export function InquiryDetailPanel({
           </p>
         )}
 
+        {rental && (rental.listing_slug || rental.listing_title) && (
+          <p className="text-sm text-black/70 pt-1">
+            Inquired about:{" "}
+            {rental.listing_slug ? (
+              <Link
+                href={`/rentals/${rental.listing_slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-accent underline underline-offset-2 hover:text-ink"
+              >
+                {rental.listing_title ?? rental.listing_slug}
+              </Link>
+            ) : (
+              <span className="font-medium">{rental.listing_title}</span>
+            )}
+          </p>
+        )}
+
         {rental && (
           <div className="flex flex-wrap gap-2 pt-1 text-xs">
             <span className="bg-black/5 px-2 py-1">

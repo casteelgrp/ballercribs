@@ -203,6 +203,60 @@ export async function getListingBySlug(
   return rows[0] ? rowToListing(rows[0]) : null;
 }
 
+// ─── Rental-listing reads ───────────────────────────────────────────────────
+//
+// Kept parallel to the sale-side helpers so route handlers don't have to
+// branch on listing_type. Rentals never have a sold lifecycle, so the
+// ordering is simpler: featured first, then newest-published.
+
+export type PublicRentalTermFilter = "all" | "short_term" | "long_term";
+
+/**
+ * Published rental inventory for the /rentals grid, optionally filtered
+ * by term. Featured rentals bubble to the top, same rhythm as the sale
+ * grid.
+ */
+export async function getRentalListings(
+  term: PublicRentalTermFilter = "all"
+): Promise<Listing[]> {
+  if (term === "short_term" || term === "long_term") {
+    const { rows } = await sql`
+      SELECT * FROM listings
+      WHERE status = 'published' AND listing_type = 'rental' AND rental_term = ${term}
+      ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
+    `;
+    return rows.map(rowToListing);
+  }
+  const { rows } = await sql`
+    SELECT * FROM listings
+    WHERE status = 'published' AND listing_type = 'rental'
+    ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
+  `;
+  return rows.map(rowToListing);
+}
+
+/** Counts per term for the /rentals filter pills. */
+export async function countRentalListingsByTerm(): Promise<{
+  all: number;
+  short_term: number;
+  long_term: number;
+}> {
+  const { rows } = await sql`
+    SELECT
+      COUNT(*)::int AS all,
+      SUM(CASE WHEN rental_term = 'short_term' THEN 1 ELSE 0 END)::int AS short_term,
+      SUM(CASE WHEN rental_term = 'long_term' THEN 1 ELSE 0 END)::int AS long_term
+    FROM listings
+    WHERE status = 'published' AND listing_type = 'rental';
+  `;
+  const row = rows[0] ?? { all: 0, short_term: 0, long_term: 0 };
+  return {
+    all: Number(row.all ?? 0),
+    short_term: Number(row.short_term ?? 0),
+    long_term: Number(row.long_term ?? 0)
+  };
+}
+
 // ─── Admin listing reads ────────────────────────────────────────────────────
 
 export async function getListingByIdAdmin(id: number): Promise<Listing | null> {
@@ -1147,7 +1201,13 @@ function rowToRentalInquiry(row: any): RentalInquiry {
         : null,
     status_updated_by_name: row.status_updated_by_name ?? null,
     archived_at: row.archived_at ?? null,
-    created_at: row.created_at
+    created_at: row.created_at,
+    listing_id:
+      row.listing_id !== null && row.listing_id !== undefined
+        ? Number(row.listing_id)
+        : null,
+    listing_slug: row.listing_slug ?? null,
+    listing_title: row.listing_title ?? null
   };
 }
 
@@ -1163,6 +1223,11 @@ export interface CreateRentalInquiryInput {
   budget_range: string | null;
   occasion: string | null;
   message: string | null;
+  // Optional back-ref to the rental listing the inquiry was triggered
+  // from. Both can be null for organic inquiries from the standalone
+  // /rentals form.
+  listing_id?: number | null;
+  listing_slug?: string | null;
 }
 
 export async function createRentalInquiry(
@@ -1172,35 +1237,48 @@ export async function createRentalInquiry(
     INSERT INTO rental_inquiries (
       name, email, phone, destination,
       start_date, end_date, flexible_dates,
-      group_size, budget_range, occasion, message
+      group_size, budget_range, occasion, message,
+      listing_id, listing_slug
     )
     VALUES (
       ${data.name}, ${data.email}, ${data.phone}, ${data.destination},
       ${data.start_date}, ${data.end_date}, ${data.flexible_dates},
-      ${data.group_size}, ${data.budget_range}, ${data.occasion}, ${data.message}
+      ${data.group_size}, ${data.budget_range}, ${data.occasion}, ${data.message},
+      ${data.listing_id ?? null}, ${data.listing_slug ?? null}
     )
     RETURNING *;
   `;
-  return rowToRentalInquiry(rows[0]);
+  // Newly-inserted row doesn't carry listing_title via JOIN — refetch
+  // through the id-lookup path so the client sees the complete shape.
+  const inserted = rowToRentalInquiry(rows[0]);
+  const full = await getRentalInquiryById(inserted.id);
+  return full ?? inserted;
 }
 
 export async function getRecentRentalInquiries(
   opts: { archived?: boolean; limit?: number } = {}
 ): Promise<RentalInquiry[]> {
   const limit = opts.limit ?? 50;
+  // LEFT JOIN listings so the admin row can render "Inquired about: X"
+  // without an N+1. Listing may have been deleted since — FK is
+  // ON DELETE SET NULL so listing_id + listing_title will be null in
+  // that case and the cached listing_slug string still tells us what
+  // they asked about.
   const { rows } = opts.archived
     ? await sql`
-        SELECT r.*, u.name AS status_updated_by_name
+        SELECT r.*, u.name AS status_updated_by_name, l.title AS listing_title
         FROM rental_inquiries r
         LEFT JOIN users u ON u.id = r.status_updated_by
+        LEFT JOIN listings l ON l.id = r.listing_id
         WHERE r.archived_at IS NOT NULL
         ORDER BY r.archived_at DESC
         LIMIT ${limit};
       `
     : await sql`
-        SELECT r.*, u.name AS status_updated_by_name
+        SELECT r.*, u.name AS status_updated_by_name, l.title AS listing_title
         FROM rental_inquiries r
         LEFT JOIN users u ON u.id = r.status_updated_by
+        LEFT JOIN listings l ON l.id = r.listing_id
         WHERE r.archived_at IS NULL
         ORDER BY r.created_at DESC
         LIMIT ${limit};
@@ -1282,9 +1360,10 @@ export async function updateRentalInquiryLastContacted(
 
 export async function getRentalInquiryById(id: number): Promise<RentalInquiry | null> {
   const { rows } = await sql`
-    SELECT r.*, u.name AS status_updated_by_name
+    SELECT r.*, u.name AS status_updated_by_name, l.title AS listing_title
     FROM rental_inquiries r
     LEFT JOIN users u ON u.id = r.status_updated_by
+    LEFT JOIN listings l ON l.id = r.listing_id
     WHERE r.id = ${id}
     LIMIT 1;
   `;

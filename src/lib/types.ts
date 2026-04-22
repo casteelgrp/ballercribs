@@ -158,6 +158,14 @@ export interface RentalInquiry {
   status_updated_by_name: string | null;
   archived_at: string | null;
   created_at: string;
+  // Optional link back to the rental listing the inquiry was triggered
+  // from. listing_id tracks the FK (nulled on listing delete);
+  // listing_slug is cached alongside so the admin row still renders a
+  // meaningful label when the row referenced has been taken down.
+  // listing_title is joined via the admin SELECTs for display only.
+  listing_id: number | null;
+  listing_slug: string | null;
+  listing_title: string | null;
 }
 
 export interface Inquiry {

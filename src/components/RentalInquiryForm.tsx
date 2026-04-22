@@ -17,11 +17,25 @@ const BUDGET_OPTIONS = [
  * success pattern from AgentInquiryForm (honeypot, single-page success
  * swap, dark-surface styling). Email-only contact required, dates
  * optional with a "flexible" checkbox that collapses the pickers.
+ *
+ * When the form is landed on from a specific rental listing, the server
+ * page passes destinationInitial + listing_id + listing_slug so the
+ * inquiry record knows which property triggered it and the admin inbox
+ * can render a backlink.
  */
-export function RentalInquiryForm() {
+export function RentalInquiryForm({
+  destinationInitial = "",
+  listingId = null,
+  listingSlug = null
+}: {
+  destinationInitial?: string;
+  listingId?: number | null;
+  listingSlug?: string | null;
+} = {}) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [flexibleDates, setFlexibleDates] = useState(false);
+  const [destination, setDestination] = useState(destinationInitial);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,6 +48,8 @@ export function RentalInquiryForm() {
       email: String(fd.get("email") || "").trim(),
       phone: String(fd.get("phone") || "").trim(),
       destination: String(fd.get("destination") || "").trim(),
+      listing_id: listingId,
+      listing_slug: listingSlug,
       start_date: flexibleDates ? "" : String(fd.get("start_date") || ""),
       end_date: flexibleDates ? "" : String(fd.get("end_date") || ""),
       flexible_dates: flexibleDates,
@@ -167,6 +183,8 @@ export function RentalInquiryForm() {
             name="destination"
             type="text"
             required
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
             placeholder="Aspen · Lake Como · anywhere in the Caribbean"
             className={inputClass}
           />

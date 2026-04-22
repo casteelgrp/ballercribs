@@ -3,11 +3,44 @@ import Image from "next/image";
 import type { Listing } from "@/lib/types";
 import { formatPrice } from "@/lib/currency";
 
-export function ListingCard({ listing }: { listing: Listing }) {
+const UNIT_LABEL: Record<"night" | "week" | "month", string> = {
+  night: "night",
+  week: "week",
+  month: "month"
+};
+
+const TERM_LABEL: Record<"short_term" | "long_term", string> = {
+  short_term: "Short-term",
+  long_term: "Long-term"
+};
+
+function renderCardPrice(listing: Listing): string {
+  if (listing.listing_type === "rental") {
+    if (listing.rental_price_cents === null || listing.rental_price_unit === null) {
+      return "Rental — price on request";
+    }
+    const whole = Math.round(listing.rental_price_cents / 100);
+    return `from ${formatPrice(whole, listing.currency)}/${UNIT_LABEL[listing.rental_price_unit]}`;
+  }
   const isSold = !!listing.sold_at;
+  if (isSold) {
+    return listing.sold_price_usd !== null
+      ? `Sold · ${formatPrice(listing.sold_price_usd, listing.currency)}`
+      : "Sold";
+  }
+  return formatPrice(listing.price_usd, listing.currency);
+}
+
+export function ListingCard({ listing }: { listing: Listing }) {
+  const isRental = listing.listing_type === "rental";
+  const isSold = !isRental && !!listing.sold_at;
+  // Rentals land on /rentals/[slug]; sale inventory stays on
+  // /listings/[slug]. Card picks the correct route automatically so
+  // /rentals grid and /listings grid can share the same component.
+  const href = isRental ? `/rentals/${listing.slug}` : `/listings/${listing.slug}`;
 
   return (
-    <Link href={`/listings/${listing.slug}`} className="group block">
+    <Link href={href} className="group block">
       <div className="relative aspect-[4/3] overflow-hidden bg-black/5">
         <Image
           src={listing.hero_image_url}
@@ -38,13 +71,12 @@ export function ListingCard({ listing }: { listing: Listing }) {
         <h3 className="font-display text-lg leading-tight line-clamp-2">
           {listing.title}
         </h3>
-        <p className="font-medium text-accent mt-1">
-          {isSold
-            ? listing.sold_price_usd !== null
-              ? `Sold · ${formatPrice(listing.sold_price_usd, listing.currency)}`
-              : "Sold"
-            : formatPrice(listing.price_usd, listing.currency)}
-        </p>
+        {isRental && listing.rental_term && (
+          <p className="text-[10px] uppercase tracking-widest text-black/45 mt-1">
+            {TERM_LABEL[listing.rental_term]}
+          </p>
+        )}
+        <p className="font-medium text-accent mt-1">{renderCardPrice(listing)}</p>
         <p className="text-sm text-black/60 mt-1">{listing.location}</p>
         {(listing.bedrooms || listing.bathrooms || listing.square_feet) && (
           <p className="text-xs text-black/50 mt-1">

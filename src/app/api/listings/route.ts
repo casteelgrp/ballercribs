@@ -151,7 +151,7 @@ export async function POST(req: Request) {
     // Only published creations affect public surfaces; drafts and
     // review-queue rows aren't visible yet, so skip the invalidation.
     if (listing.status === "published") {
-      revalidateListingSurfaces(listing.slug);
+      revalidateListingSurfaces(listing.slug, listing.listing_type);
     }
     return NextResponse.json({ ok: true, id: listing.id, slug: listing.slug, status: listing.status });
   } catch (err: any) {

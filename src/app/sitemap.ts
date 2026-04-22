@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getListings } from "@/lib/db";
+import { getListings, getRentalListings } from "@/lib/db";
 
 // Next.js auto-exposes this as /sitemap.xml. Rebuilt on every request
 // unless we add a revalidate — leaving dynamic so a newly-published
@@ -7,15 +7,24 @@ import { getListings } from "@/lib/db";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
 
-  // All published rows — including sold ones, intentionally kept indexed for SEO + history.
-  const listings = await getListings("all").catch(() => []);
+  const [saleListings, rentalListings] = await Promise.all([
+    getListings("all").catch(() => []),
+    getRentalListings("all").catch(() => [])
+  ]);
 
-  const listingRoutes: MetadataRoute.Sitemap = listings.map((l) => ({
+  const listingRoutes: MetadataRoute.Sitemap = saleListings.map((l) => ({
     url: `${baseUrl}/listings/${l.slug}`,
     // If sold, the sold date is a more honest "last changed" signal than updated_at.
     lastModified: new Date(l.sold_at || l.updated_at || l.created_at),
     changeFrequency: l.sold_at ? "yearly" : "weekly",
     priority: l.sold_at ? 0.5 : 0.8
+  }));
+
+  const rentalRoutes: MetadataRoute.Sitemap = rentalListings.map((l) => ({
+    url: `${baseUrl}/rentals/${l.slug}`,
+    lastModified: new Date(l.updated_at || l.created_at),
+    changeFrequency: "weekly",
+    priority: 0.75
   }));
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -67,5 +76,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   ];
 
-  return [...staticRoutes, ...listingRoutes];
+  return [...staticRoutes, ...listingRoutes, ...rentalRoutes];
 }

@@ -55,6 +55,15 @@ export async function POST(req: Request) {
   const budgetRangeRaw = body?.budget_range ? String(body.budget_range) : "";
   const occasion = body?.occasion ? String(body.occasion).trim() : null;
   const message = body?.message ? String(body.message).trim() : null;
+  // Optional listing back-link. Both are nullable — an organic inquiry
+  // from the /rentals form without a ?property= param lands with nulls.
+  // We take listing_slug at face value and verify listing_id if present.
+  const listingSlug = body?.listing_slug ? String(body.listing_slug).trim() : null;
+  const listingIdRaw = body?.listing_id;
+  const listingId =
+    listingIdRaw === null || listingIdRaw === undefined || listingIdRaw === ""
+      ? null
+      : Number(listingIdRaw);
 
   // ── Required fields ──────────────────────────────────────────────────────
   if (!name || name.length > 200) {
@@ -120,7 +129,9 @@ export async function POST(req: Request) {
       group_size: Math.round(groupSize),
       budget_range: budgetRangeRaw,
       occasion,
-      message
+      message,
+      listing_id: listingId !== null && Number.isFinite(listingId) ? listingId : null,
+      listing_slug: listingSlug
     });
 
     // Awaited, not fire-and-forget — serverless functions can be torn down
