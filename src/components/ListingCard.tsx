@@ -31,11 +31,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
         )}
       </div>
       <div className="mt-3">
-        {/* Title reserves 2 lines of height regardless of actual length so
-            grid rows stay baseline-aligned at the price / location / specs
-            lines. Long titles clamp to 2 lines with an ellipsis; short
-            titles render on 1 line but still occupy the 2-line block. */}
-        <h3 className="font-display text-lg leading-tight line-clamp-2 min-h-[2lh]">
+        {/* Title takes its natural height — 1 line for short titles, up to
+            2 lines for long ones (line-clamp-2 caps it). Reserving a fixed
+            2-line height made short titles hang over an empty gap; the
+            image row in the CSS grid already keeps cards visually aligned. */}
+        <h3 className="font-display text-lg leading-tight line-clamp-2">
           {listing.title}
         </h3>
         <p className="font-medium text-accent mt-1">
