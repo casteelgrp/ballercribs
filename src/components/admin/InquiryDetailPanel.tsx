@@ -55,6 +55,43 @@ function formatShort(iso: string): string {
 }
 
 /**
+ * Month / day / year, no time component, no timezone drift.
+ *
+ * rental_inquiries.start_date / end_date are stored as SQL DATE columns,
+ * which @vercel/postgres surfaces as Date objects at UTC midnight. If we
+ * interpolated those directly the template literal would call Date.toString
+ * and print the full "Wed Apr 29 2026 19:00:00 GMT-0500" wall-of-text that
+ * the admin view was showing. Parsing out the UTC components avoids the
+ * local-timezone shift (a Central-Time render of 2026-04-29 at UTC midnight
+ * would otherwise drift back to Apr 28).
+ */
+const MONTH_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+] as const;
+
+function formatDayDate(raw: unknown): string {
+  if (!raw) return "—";
+  if (raw instanceof Date) {
+    if (Number.isNaN(raw.getTime())) return "—";
+    return `${MONTH_SHORT[raw.getUTCMonth()]} ${raw.getUTCDate()}, ${raw.getUTCFullYear()}`;
+  }
+  if (typeof raw === "string") {
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      const year = Number(m[1]);
+      const month = Number(m[2]) - 1;
+      const day = Number(m[3]);
+      if (month >= 0 && month < 12) {
+        return `${MONTH_SHORT[month]} ${day}, ${year}`;
+      }
+    }
+    return raw;
+  }
+  return "—";
+}
+
+/**
  * Detail panel rendered inside the expanded row of the unified inquiry
  * inbox. Owns its own optimistic state for status / notes / last-contact
  * so edits feel snappy without waiting on router.refresh. Reused across
@@ -156,11 +193,11 @@ export function InquiryDetailPanel({
     ? rental.flexible_dates
       ? "Flexible"
       : rental.start_date && rental.end_date
-        ? `${rental.start_date} → ${rental.end_date}`
+        ? `${formatDayDate(rental.start_date)} → ${formatDayDate(rental.end_date)}`
         : rental.start_date
-          ? `From ${rental.start_date}`
+          ? `From ${formatDayDate(rental.start_date)}`
           : rental.end_date
-            ? `Until ${rental.end_date}`
+            ? `Until ${formatDayDate(rental.end_date)}`
             : "Not specified"
     : null;
 
