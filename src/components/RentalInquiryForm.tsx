@@ -222,7 +222,11 @@ export function RentalInquiryForm() {
             name="budget_range"
             required
             defaultValue=""
-            className={inputClass}
+            // Browsers ignore most styling on <option>, but `background`
+            // and `color` do land in Chrome, Safari, and Firefox. Without
+            // this, options inherit the dark parent styling and read as
+            // near-invisible light-on-light until hover.
+            className={inputClass + " [&>option]:bg-paper [&>option]:text-ink"}
           >
             <option value="" disabled>
               Select a range

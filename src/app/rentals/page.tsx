@@ -18,9 +18,11 @@ export const metadata: Metadata = {
 export default function RentalsPage() {
   return (
     <article>
-      {/* Hero — dark surface to match /agents visual tone. */}
+      {/* One dark surface for hero + form so there's no page background
+          bleed between them. Internal vertical rhythm uses padding on
+          the single wrapper instead of a gap between two sections. */}
       <section className="bg-ink text-paper">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-24">
           <p className="text-xs uppercase tracking-widest text-accent">
             BallerCribs Rentals
           </p>
@@ -32,12 +34,9 @@ export default function RentalsPage() {
             private estates, architectural icons, and resort-scale homes you
             won&apos;t find on Airbnb. Tell us what you need.
           </p>
-        </div>
-      </section>
-
-      <section className="bg-ink text-paper">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-24">
-          <RentalInquiryForm />
+          <div className="mt-12">
+            <RentalInquiryForm />
+          </div>
         </div>
       </section>
 

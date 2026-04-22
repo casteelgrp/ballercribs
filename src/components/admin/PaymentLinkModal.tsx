@@ -33,10 +33,17 @@ export function PaymentLinkModal({
   onClose: () => void;
   onCreated: (result: GenerateLinkResult) => void;
 }) {
-  const [tier, setTier] = useState<TierKey>("featured");
+  const isRental = inquiryType === "rental";
+
+  // Rentals have no tier menu — every rental referral is a per-deal
+  // custom amount. Force 'custom' so the rest of the form logic (the
+  // resolveTierAmount server-side guard, the customDollars input below)
+  // stays on a single code path.
+  const [tier, setTier] = useState<TierKey>(isRental ? "custom" : "featured");
   const [customDollars, setCustomDollars] = useState<string>("");
   const [description, setDescription] = useState<string>(
-    defaultDescription ?? `Featured placement for ${inquiryName}`
+    defaultDescription ??
+      (isRental ? `BallerCribs rental referral` : `Featured placement for ${inquiryName}`)
   );
   const [method, setMethod] = useState<Method>("square");
   const [submitting, setSubmitting] = useState(false);
@@ -134,42 +141,48 @@ export function PaymentLinkModal({
           <p className="text-xs text-black/50 mt-1">For {inquiryName}</p>
         </div>
 
-        <fieldset className="space-y-2">
-          <legend className="text-xs uppercase tracking-widest text-black/60 mb-1">
-            Tier
-          </legend>
-          {TIER_KEYS.map((key) => {
-            const cfg = TIERS[key];
-            const price =
-              cfg.amountCents !== null
-                ? ` — $${(cfg.amountCents / 100).toLocaleString()}`
-                : " — custom amount";
-            return (
-              <label
-                key={key}
-                className="flex items-start gap-3 border border-black/10 p-3 cursor-pointer hover:border-black/30"
-              >
-                <input
-                  type="radio"
-                  name="tier"
-                  value={key}
-                  checked={tier === key}
-                  onChange={() => setTier(key)}
-                  className="mt-1 accent-accent"
-                />
-                <span className="flex-1">
-                  <span className="font-medium">
-                    {cfg.label}
-                    <span className="text-black/60 font-normal">{price}</span>
+        {/* Agent inquiries get the preset-tier picker; rentals skip it
+            entirely and go straight to a custom amount field — referral
+            fees on rental placements are always per-deal negotiated, not
+            menu-priced. */}
+        {!isRental && (
+          <fieldset className="space-y-2">
+            <legend className="text-xs uppercase tracking-widest text-black/60 mb-1">
+              Tier
+            </legend>
+            {TIER_KEYS.map((key) => {
+              const cfg = TIERS[key];
+              const price =
+                cfg.amountCents !== null
+                  ? ` — $${(cfg.amountCents / 100).toLocaleString()}`
+                  : " — custom amount";
+              return (
+                <label
+                  key={key}
+                  className="flex items-start gap-3 border border-black/10 p-3 cursor-pointer hover:border-black/30"
+                >
+                  <input
+                    type="radio"
+                    name="tier"
+                    value={key}
+                    checked={tier === key}
+                    onChange={() => setTier(key)}
+                    className="mt-1 accent-accent"
+                  />
+                  <span className="flex-1">
+                    <span className="font-medium">
+                      {cfg.label}
+                      <span className="text-black/60 font-normal">{price}</span>
+                    </span>
+                    <span className="block text-xs text-black/55 mt-0.5">
+                      {cfg.description}
+                    </span>
                   </span>
-                  <span className="block text-xs text-black/55 mt-0.5">
-                    {cfg.description}
-                  </span>
-                </span>
-              </label>
-            );
-          })}
-        </fieldset>
+                </label>
+              );
+            })}
+          </fieldset>
+        )}
 
         {tier === "custom" && (
           <div>
@@ -177,7 +190,7 @@ export function PaymentLinkModal({
               className="text-xs uppercase tracking-widest text-black/60 block mb-1"
               htmlFor="plink-custom"
             >
-              Custom amount (USD)
+              {isRental ? "Referral fee amount (USD)" : "Custom amount (USD)"}
             </label>
             <input
               id="plink-custom"
@@ -187,7 +200,8 @@ export function PaymentLinkModal({
               value={customDollars}
               onChange={(e) => setCustomDollars(e.target.value)}
               className="w-full border border-black/20 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
-              placeholder="e.g. 7500"
+              placeholder={isRental ? "e.g. 2500" : "e.g. 7500"}
+              required
             />
           </div>
         )}
