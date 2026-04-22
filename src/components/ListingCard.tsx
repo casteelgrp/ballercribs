@@ -31,16 +31,20 @@ export function ListingCard({ listing }: { listing: Listing }) {
         )}
       </div>
       <div className="mt-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className="font-display text-lg leading-tight truncate">{listing.title}</h3>
-          <span className="font-medium text-accent shrink-0">
-            {isSold
-              ? listing.sold_price_usd !== null
-                ? `Sold · ${formatPrice(listing.sold_price_usd, listing.currency)}`
-                : "Sold"
-              : formatPrice(listing.price_usd, listing.currency)}
-          </span>
-        </div>
+        {/* Title reserves 2 lines of height regardless of actual length so
+            grid rows stay baseline-aligned at the price / location / specs
+            lines. Long titles clamp to 2 lines with an ellipsis; short
+            titles render on 1 line but still occupy the 2-line block. */}
+        <h3 className="font-display text-lg leading-tight line-clamp-2 min-h-[2lh]">
+          {listing.title}
+        </h3>
+        <p className="font-medium text-accent mt-1">
+          {isSold
+            ? listing.sold_price_usd !== null
+              ? `Sold · ${formatPrice(listing.sold_price_usd, listing.currency)}`
+              : "Sold"
+            : formatPrice(listing.price_usd, listing.currency)}
+        </p>
         <p className="text-sm text-black/60 mt-1">{listing.location}</p>
         {(listing.bedrooms || listing.bathrooms || listing.square_feet) && (
           <p className="text-xs text-black/50 mt-1">
