@@ -23,7 +23,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const listing = await getListingBySlug(slug).catch(() => null);
-  if (!listing) return { title: "Listing not found" };
+  if (!listing) return { title: { absolute: "Listing not found" } };
 
   // SEO overrides tailor the Google SERP snippet only. OG / Twitter keep
   // using the listing's natural title + description — social shares are
@@ -38,7 +38,12 @@ export async function generateMetadata({
   const searchDesc = listing.seo_description?.trim() || autoDesc;
 
   return {
-    title: searchTitle,
+    // Absolute title bypasses the root-layout `%s | BallerCribs` template.
+    // Listing pages compete in Google search results on property details,
+    // not brand — the 13-char suffix eats SERP real estate and gets
+    // truncated anyway. Also keeps the admin SEO Title char counter
+    // honest (60-char threshold = 60 chars actually rendered).
+    title: { absolute: searchTitle },
     description: searchDesc,
     openGraph: {
       title: listing.title,
