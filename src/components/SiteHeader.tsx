@@ -6,11 +6,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SocialLinks, SOCIALS } from "./SocialLinks";
 
+// Top nav is consumer-focused — Listings / Rentals / Newsletter. "For
+// Agents" is B2B, lives only in the footer; agents self-select and don't
+// need a top-nav slot to find it.
 const NAV_LINKS = [
   { href: "/listings", label: "Listings" },
   { href: "/rentals", label: "Rentals" },
-  { href: "/newsletter", label: "Newsletter" },
-  { href: "/agents", label: "For Agents" }
+  { href: "/newsletter", label: "Newsletter" }
 ] as const;
 
 export function SiteHeader() {

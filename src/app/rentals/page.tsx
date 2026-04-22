@@ -6,6 +6,8 @@ import {
   getRentalListings,
   type PublicRentalTermFilter
 } from "@/lib/db";
+import { getRentalHeroImages } from "@/lib/rentals";
+import { HeroMosaic } from "@/components/HeroMosaic";
 import { ListingCard } from "@/components/ListingCard";
 import { RentalInquiryForm } from "@/components/RentalInquiryForm";
 
@@ -53,27 +55,55 @@ export default async function RentalsPage({
     ? await getListingBySlug(propertySlug, "rental").catch(() => null)
     : null;
 
-  const [listings, counts] = await Promise.all([
+  const [listings, counts, heroImages] = await Promise.all([
     getRentalListings(term).catch(() => []),
-    countRentalListingsByTerm().catch(() => ({ all: 0, short_term: 0, long_term: 0 }))
+    countRentalListingsByTerm().catch(() => ({ all: 0, short_term: 0, long_term: 0 })),
+    getRentalHeroImages().catch(() => [])
   ]);
+  const hasMosaic = heroImages.length >= 3;
 
   return (
     <article>
-      {/* Dark hero — same surface treatment as /agents. */}
+      {/* Hero — two-column layout on desktop mirroring /agents, collapses
+          to a single stack on mobile. Padding is symmetric (py-20 sm:py-28)
+          so the headline sits centered in the black frame whether or not
+          the mosaic renders. */}
       <section className="bg-ink text-paper">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-12">
-          <p className="text-xs uppercase tracking-widest text-accent">
-            BallerCribs Rentals
-          </p>
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] mt-3">
-            Looking to rent a mega-mansion?
-          </h1>
-          <p className="mt-6 text-lg text-paper/75 max-w-2xl leading-relaxed">
-            Short-term estates, long-term lifestyle leases, and architectural icons
-            you won&apos;t find on Airbnb. Browse the homes we&apos;ve featured below
-            — or tell us what you need and we&apos;ll match you with the right agent.
-          </p>
+        <div
+          className={
+            hasMosaic
+              ? "max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-28"
+              : "max-w-5xl mx-auto px-4 sm:px-6 py-20 sm:py-28"
+          }
+        >
+          <div
+            className={
+              hasMosaic
+                ? "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-12 lg:gap-16 items-center"
+                : ""
+            }
+          >
+            <div>
+              <p className="text-xs uppercase tracking-widest text-accent">
+                BallerCribs Rentals
+              </p>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight mt-3">
+                Rent the crib, not the room.
+              </h1>
+              <p className="mt-6 text-lg text-paper/80 max-w-2xl leading-relaxed">
+                Private estates, architectural icons, and resort-scale homes — by
+                the week, month, or season. Browse what we&apos;ve featured below,
+                or tell us what you need and we&apos;ll match you with the right
+                agent.
+              </p>
+            </div>
+
+            {hasMosaic && (
+              <div>
+                <HeroMosaic photos={heroImages} />
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
