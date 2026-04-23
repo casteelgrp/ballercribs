@@ -67,6 +67,10 @@ function rowToListItem(row: any): BlogPostListItem {
     readingTimeMinutes:
       row.reading_time_minutes !== null && row.reading_time_minutes !== undefined
         ? Number(row.reading_time_minutes)
+        : null,
+    authorUserId:
+      row.author_user_id !== null && row.author_user_id !== undefined
+        ? Number(row.author_user_id)
         : null
   };
 }
@@ -126,7 +130,7 @@ export async function getPublishedPosts(opts?: {
     const { rows } = await sql`
       SELECT id, slug, title, subtitle, excerpt, cover_image_url,
              category_slug, is_featured, status, published_at,
-             reading_time_minutes
+             reading_time_minutes, author_user_id
       FROM blog_posts
       WHERE status = 'published' AND category_slug = ${opts.category}
       ORDER BY COALESCE(published_at, created_at) DESC
@@ -138,7 +142,7 @@ export async function getPublishedPosts(opts?: {
   const { rows } = await sql`
     SELECT id, slug, title, subtitle, excerpt, cover_image_url,
            category_slug, is_featured, status, published_at,
-           reading_time_minutes
+           reading_time_minutes, author_user_id
     FROM blog_posts
     WHERE status = 'published'
     ORDER BY COALESCE(published_at, created_at) DESC
@@ -169,7 +173,7 @@ export async function getFeaturedPost(): Promise<BlogPostListItem | null> {
   const { rows } = await sql`
     SELECT id, slug, title, subtitle, excerpt, cover_image_url,
            category_slug, is_featured, status, published_at,
-           reading_time_minutes
+           reading_time_minutes, author_user_id
     FROM blog_posts
     WHERE is_featured = TRUE AND status = 'published'
     LIMIT 1;
@@ -216,7 +220,7 @@ export async function getAllPostsForAdmin(opts?: {
     const { rows } = await sql`
       SELECT id, slug, title, subtitle, excerpt, cover_image_url,
              category_slug, is_featured, status, published_at,
-             reading_time_minutes
+             reading_time_minutes, author_user_id
       FROM blog_posts
       WHERE status = ${opts.status}
       ORDER BY updated_at DESC;
@@ -226,7 +230,7 @@ export async function getAllPostsForAdmin(opts?: {
   const { rows } = await sql`
     SELECT id, slug, title, subtitle, excerpt, cover_image_url,
            category_slug, is_featured, status, published_at,
-           reading_time_minutes
+           reading_time_minutes, author_user_id
     FROM blog_posts
     ORDER BY updated_at DESC;
   `;

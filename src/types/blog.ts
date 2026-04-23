@@ -56,6 +56,7 @@ export type BlogPostListItem = Pick<
   | "status"
   | "publishedAt"
   | "readingTimeMinutes"
+  | "authorUserId"
 >;
 
 /**

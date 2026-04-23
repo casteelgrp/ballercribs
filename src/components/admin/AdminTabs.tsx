@@ -9,6 +9,9 @@ const TABS: Tab[] = [
   { label: "Dashboard", href: "/admin", ownerOnly: false, matchExact: true },
   { label: "Listings", href: "/admin/listings", ownerOnly: false, matchExact: false },
   { label: "Inquiries", href: "/admin/inquiries", ownerOnly: true, matchExact: false },
+  // Blog is visible to non-owner users too — they can draft/submit posts,
+  // the per-action permissions gate publish/archive/feature/delete.
+  { label: "Blog", href: "/admin/blog", ownerOnly: false, matchExact: false },
   { label: "Payments", href: "/admin/payments", ownerOnly: true, matchExact: false },
   { label: "Hero Photos", href: "/admin/hero-photos", ownerOnly: true, matchExact: false },
   { label: "Users", href: "/admin/users", ownerOnly: true, matchExact: false },
