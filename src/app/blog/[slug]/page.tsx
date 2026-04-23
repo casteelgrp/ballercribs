@@ -98,7 +98,7 @@ export default async function BlogDetailPage({
           href="/blog"
           className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
         >
-          ← Back to journal
+          ← Back to blog
         </Link>
 
         <p className="text-xs uppercase tracking-widest text-accent mt-6">
@@ -147,7 +147,7 @@ export default async function BlogDetailPage({
             href="/blog"
             className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
           >
-            ← Back to journal
+            ← Back to blog
           </Link>
         </div>
 

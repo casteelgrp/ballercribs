@@ -12,7 +12,7 @@ import { SocialLinks, SOCIALS } from "./SocialLinks";
 const NAV_LINKS = [
   { href: "/listings", label: "Listings" },
   { href: "/rentals", label: "Rentals" },
-  { href: "/blog", label: "Journal" },
+  { href: "/blog", label: "Blog" },
   { href: "/newsletter", label: "Newsletter" }
 ] as const;
 

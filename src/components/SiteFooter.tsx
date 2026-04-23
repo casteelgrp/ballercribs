@@ -29,7 +29,7 @@ export function SiteFooter() {
                 Rentals
               </Link>
               <Link href="/blog" className="hover:text-accent">
-                Journal
+                Blog
               </Link>
               <Link href="/agents" className="hover:text-accent">
                 For Agents

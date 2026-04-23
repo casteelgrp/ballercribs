@@ -12,11 +12,11 @@ import type { BlogPostListItem, PostCategory } from "@/types/blog";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Journal",
+  title: "Blog",
   description:
     "Guides, case studies, and destinations from the BallerCribs editorial team — luxury real estate, mansion rentals, and markets worth knowing.",
   openGraph: {
-    title: "The BallerCribs Journal",
+    title: "The BallerCribs Blog",
     description:
       "Guides, case studies, and destinations from the BallerCribs editorial team."
   },
@@ -82,12 +82,14 @@ export default async function BlogIndexPage({
     <article>
       {/* Hero — featured post when no category filter is active. If no
           featured post is published, the hero collapses and the grid
-          takes the top. */}
+          takes the top. Container width matches the listings grid
+          (max-w-7xl) since this is a merchandising surface, not a
+          reading column. */}
       {featured && (
         <section className="border-b border-black/10">
           <Link
             href={`/blog/${featured.slug}`}
-            className="block group max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8 lg:gap-12 items-center"
+            className="block group max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8 lg:gap-12 items-center"
           >
             {featured.coverImageUrl ? (
               <div className="relative aspect-[4/3] overflow-hidden bg-black/5 order-first lg:order-last">
@@ -131,15 +133,15 @@ export default async function BlogIndexPage({
       )}
 
       {/* Category filter pills + grid */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div className="mb-8 flex items-baseline justify-between flex-wrap gap-3">
           <div>
-            <p className="text-xs uppercase tracking-widest text-black/50">Journal</p>
+            <p className="text-xs uppercase tracking-widest text-black/50">Blog</p>
             <h2 className="font-display text-2xl sm:text-3xl mt-2">
               {category
                 ? categoryLabel.get(category) ?? "Latest"
                 : featured
-                  ? "More from the journal"
+                  ? "More from the blog"
                   : "Latest"}
             </h2>
           </div>
