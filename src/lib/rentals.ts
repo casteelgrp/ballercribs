@@ -10,7 +10,7 @@ import type { HeroPhoto } from "./types";
  * listing hero_image_url into that shape to keep the component reusable.
  */
 export async function getRentalHeroImages(): Promise<HeroPhoto[]> {
-  const rentals = await getRentalListings("all").catch(() => []);
+  const rentals = await getRentalListings().catch(() => []);
 
   const rentalPhotos: HeroPhoto[] = rentals
     .filter((l) => Boolean(l.hero_image_url))

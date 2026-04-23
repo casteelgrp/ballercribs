@@ -14,7 +14,6 @@ import type {
   ListingStatus,
   ListingType,
   RentalPriceUnit,
-  RentalTerm,
   User
 } from "@/lib/types";
 
@@ -119,12 +118,10 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
   // Toggle at the top of the form; switching to rental hides sale-specific
   // inputs and surfaces a rental details section. Rental price is stored
   // in cents of the listing's currency — the UI collects whole-currency
-  // units and we convert before submit.
+  // units and we convert before submit. Rental term is fixed to
+  // 'short_term' at the product layer (see listing-validation.ts).
   const [listingType, setListingType] = useState<ListingType>(
     existing?.listing_type ?? "sale"
-  );
-  const [rentalTerm, setRentalTerm] = useState<RentalTerm>(
-    existing?.rental_term ?? "short_term"
   );
   const [rentalPriceDollars, setRentalPriceDollars] = useState<string>(() => {
     if (existing?.rental_price_cents === null || existing?.rental_price_cents === undefined) {
@@ -132,30 +129,15 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
     }
     return String(existing.rental_price_cents / 100);
   });
-  // For short_term, the user picks night vs week; for long_term it's locked
-  // to 'month'. Re-derive a safe default when the term changes.
+  // Historical long_term listings stored 'month' on this column; migration
+  // 015 flipped every extant row to 'night', but if we ever open a legacy
+  // row that slipped through, fall back to 'night' rather than crashing
+  // the select with a value outside its new option list.
   const [rentalPriceUnit, setRentalPriceUnit] = useState<RentalPriceUnit>(
-    existing?.rental_price_unit ??
-      (existing?.rental_term === "long_term" ? "month" : "night")
+    existing?.rental_price_unit === "night" || existing?.rental_price_unit === "week"
+      ? existing.rental_price_unit
+      : "night"
   );
-
-  // Keep the unit in lockstep with the term selection — if the admin picks
-  // long-term the only valid unit is 'month'; flipping to short-term we
-  // clear to 'night' unless they previously had 'week'.
-  useEffect(() => {
-    if (listingType !== "rental") return;
-    if (rentalTerm === "long_term" && rentalPriceUnit !== "month") {
-      setRentalPriceUnit("month");
-    }
-    if (
-      rentalTerm === "short_term" &&
-      rentalPriceUnit !== "night" &&
-      rentalPriceUnit !== "week"
-    ) {
-      setRentalPriceUnit("night");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listingType, rentalTerm]);
 
   function commonFields() {
     const isRental = listingType === "rental";
@@ -183,7 +165,9 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       agent_name: agentName.trim() || null,
       agent_brokerage: agentBrokerage.trim() || null,
       listing_type: listingType,
-      rental_term: isRental ? rentalTerm : null,
+      // Always short_term on the write path — long-term rentals are out of
+      // scope product-side, enforced in resolveRentalFields too.
+      rental_term: isRental ? "short_term" : null,
       rental_price_cents: rentalPriceCents,
       rental_price_unit: isRental ? rentalPriceUnit : null,
       featured,
@@ -208,11 +192,8 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       if (!Number.isFinite(rp) || rp <= 0) {
         return "Rental price is required.";
       }
-      if (rentalTerm === "short_term" && rentalPriceUnit !== "night" && rentalPriceUnit !== "week") {
-        return "Short-term rentals price per night or per week.";
-      }
-      if (rentalTerm === "long_term" && rentalPriceUnit !== "month") {
-        return "Long-term rentals price per month.";
+      if (rentalPriceUnit !== "night" && rentalPriceUnit !== "week") {
+        return "Rentals price per night or per week.";
       }
     }
 
@@ -564,39 +545,6 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
             Rental details
           </legend>
 
-          <div>
-            <span className={labelClass}>Rental term *</span>
-            <div className="flex gap-0 isolate mt-1" role="radiogroup">
-              {(
-                [
-                  { value: "short_term" as const, label: "Short-term" },
-                  { value: "long_term" as const, label: "Long-term" }
-                ]
-              ).map((opt, i) => {
-                const active = rentalTerm === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    disabled={disabled}
-                    onClick={() => setRentalTerm(opt.value)}
-                    className={
-                      "px-4 py-2 text-xs uppercase tracking-widest border transition-colors " +
-                      (i > 0 ? "-ml-px " : "") +
-                      (active
-                        ? "bg-ink text-paper border-ink"
-                        : "bg-white text-black/60 border-black/20 hover:border-black/40")
-                    }
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
             <div>
               <label className={labelClass}>Rental price *</label>
@@ -609,7 +557,7 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
                 required={listingType === "rental"}
                 disabled={disabled}
                 className={inputClass}
-                placeholder={rentalTerm === "long_term" ? "25000" : "2500"}
+                placeholder="2500"
               />
             </div>
             {/* Currency lives alongside the rental price so it's obvious
@@ -635,19 +583,11 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
               <select
                 value={rentalPriceUnit}
                 onChange={(e) => setRentalPriceUnit(e.target.value as RentalPriceUnit)}
-                // Long-term: unit is locked to 'month' per the validation
-                // contract; select renders disabled with just that option.
-                disabled={disabled || rentalTerm === "long_term"}
+                disabled={disabled}
                 className={inputClass + " pr-8 min-w-[6rem]"}
               >
-                {rentalTerm === "short_term" ? (
-                  <>
-                    <option value="night">per night</option>
-                    <option value="week">per week</option>
-                  </>
-                ) : (
-                  <option value="month">per month</option>
-                )}
+                <option value="night">per night</option>
+                <option value="week">per week</option>
               </select>
             </div>
           </div>

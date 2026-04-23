@@ -9,7 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const [saleListings, rentalListings] = await Promise.all([
     getListings("all").catch(() => []),
-    getRentalListings("all").catch(() => [])
+    getRentalListings().catch(() => [])
   ]);
 
   const listingRoutes: MetadataRoute.Sitemap = saleListings.map((l) => ({

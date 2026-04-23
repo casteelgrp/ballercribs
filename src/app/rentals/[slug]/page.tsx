@@ -14,20 +14,14 @@ import {
 
 export const revalidate = 60;
 
-const UNIT_LABEL: Record<"night" | "week" | "month", string> = {
+const UNIT_LABEL: Record<"night" | "week", string> = {
   night: "night",
-  week: "week",
-  month: "month"
-};
-
-const TERM_LABEL: Record<"short_term" | "long_term", string> = {
-  short_term: "Short-term rental",
-  long_term: "Long-term rental"
+  week: "week"
 };
 
 function rentalPriceText(listing: {
   rental_price_cents: number | null;
-  rental_price_unit: "night" | "week" | "month" | null;
+  rental_price_unit: "night" | "week" | null;
   currency: string;
 }): string {
   if (listing.rental_price_cents === null || listing.rental_price_unit === null) {
@@ -133,12 +127,7 @@ export default async function RentalDetailPage({
             "@type": "UnitPriceSpecification",
             price: Math.round(listing.rental_price_cents / 100),
             priceCurrency: listing.currency,
-            unitCode:
-              listing.rental_price_unit === "night"
-                ? "DAY"
-                : listing.rental_price_unit === "week"
-                  ? "WEE"
-                  : "MON"
+            unitCode: listing.rental_price_unit === "night" ? "DAY" : "WEE"
           },
           availability: "https://schema.org/InStock"
         }
@@ -176,9 +165,7 @@ export default async function RentalDetailPage({
             >
               ← All rentals
             </Link>
-            <p className="text-xs uppercase tracking-widest text-accent mt-4">
-              {listing.rental_term ? TERM_LABEL[listing.rental_term] : "Rental"}
-            </p>
+            <p className="text-xs uppercase tracking-widest text-accent mt-4">Rental</p>
             <h1 className="font-display text-3xl sm:text-5xl mt-2 leading-tight">
               {listing.title}
             </h1>

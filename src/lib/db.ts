@@ -210,52 +210,17 @@ export async function getListingBySlug(
 // branch on listing_type. Rentals never have a sold lifecycle, so the
 // ordering is simpler: featured first, then newest-published.
 
-export type PublicRentalTermFilter = "all" | "short_term" | "long_term";
-
 /**
- * Published rental inventory for the /rentals grid, optionally filtered
- * by term. Featured rentals bubble to the top, same rhythm as the sale
- * grid.
+ * Published rental inventory for the /rentals grid. Featured rentals
+ * bubble to the top, same rhythm as the sale grid.
  */
-export async function getRentalListings(
-  term: PublicRentalTermFilter = "all"
-): Promise<Listing[]> {
-  if (term === "short_term" || term === "long_term") {
-    const { rows } = await sql`
-      SELECT * FROM listings
-      WHERE status = 'published' AND listing_type = 'rental' AND rental_term = ${term}
-      ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
-    `;
-    return rows.map(rowToListing);
-  }
+export async function getRentalListings(): Promise<Listing[]> {
   const { rows } = await sql`
     SELECT * FROM listings
     WHERE status = 'published' AND listing_type = 'rental'
     ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
   `;
   return rows.map(rowToListing);
-}
-
-/** Counts per term for the /rentals filter pills. */
-export async function countRentalListingsByTerm(): Promise<{
-  all: number;
-  short_term: number;
-  long_term: number;
-}> {
-  const { rows } = await sql`
-    SELECT
-      COUNT(*)::int AS all,
-      SUM(CASE WHEN rental_term = 'short_term' THEN 1 ELSE 0 END)::int AS short_term,
-      SUM(CASE WHEN rental_term = 'long_term' THEN 1 ELSE 0 END)::int AS long_term
-    FROM listings
-    WHERE status = 'published' AND listing_type = 'rental';
-  `;
-  const row = rows[0] ?? { all: 0, short_term: 0, long_term: 0 };
-  return {
-    all: Number(row.all ?? 0),
-    short_term: Number(row.short_term ?? 0),
-    long_term: Number(row.long_term ?? 0)
-  };
 }
 
 // ─── Admin listing reads ────────────────────────────────────────────────────

@@ -3,15 +3,9 @@ import Image from "next/image";
 import type { Listing } from "@/lib/types";
 import { formatPrice } from "@/lib/currency";
 
-const UNIT_LABEL: Record<"night" | "week" | "month", string> = {
+const UNIT_LABEL: Record<"night" | "week", string> = {
   night: "night",
-  week: "week",
-  month: "month"
-};
-
-const TERM_LABEL: Record<"short_term" | "long_term", string> = {
-  short_term: "Short-term",
-  long_term: "Long-term"
+  week: "week"
 };
 
 function renderCardPrice(listing: Listing): string {
@@ -71,11 +65,6 @@ export function ListingCard({ listing }: { listing: Listing }) {
         <h3 className="font-display text-lg leading-tight line-clamp-2">
           {listing.title}
         </h3>
-        {isRental && listing.rental_term && (
-          <p className="text-[10px] uppercase tracking-widest text-black/45 mt-1">
-            {TERM_LABEL[listing.rental_term]}
-          </p>
-        )}
         <p className="font-medium text-accent mt-1">{renderCardPrice(listing)}</p>
         <p className="text-sm text-black/60 mt-1">{listing.location}</p>
         {(listing.bedrooms || listing.bathrooms || listing.square_feet) && (

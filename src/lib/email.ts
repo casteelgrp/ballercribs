@@ -206,15 +206,6 @@ export async function sendRentalInquiryNotification(inquiry: RentalInquiry) {
     ? BUDGET_LABEL[inquiry.budget_range] ?? inquiry.budget_range
     : null;
 
-  const TERM_PREF_LABEL: Record<string, string> = {
-    short_term: "Short-term (days or weeks)",
-    long_term: "Long-term (months or longer)",
-    not_sure: "Not sure"
-  };
-  const termLabel = inquiry.rental_term_preference
-    ? TERM_PREF_LABEL[inquiry.rental_term_preference] ?? inquiry.rental_term_preference
-    : null;
-
   const subject = `New rental inquiry: ${inquiry.destination} — ${inquiry.name}`;
 
   const rows: Array<[string, string | null]> = [
@@ -222,7 +213,6 @@ export async function sendRentalInquiryNotification(inquiry: RentalInquiry) {
     ["Email", inquiry.email],
     ["Phone", inquiry.phone],
     ["Destination", inquiry.destination],
-    ["Term", termLabel],
     ["Dates", dateRange],
     ["Group size", inquiry.group_size !== null ? String(inquiry.group_size) : null],
     ["Budget", budgetLabel],

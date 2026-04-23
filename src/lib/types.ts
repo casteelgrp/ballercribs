@@ -18,17 +18,25 @@ export interface UserWithHash extends User {
 export type ListingStatus = "draft" | "review" | "published" | "archived";
 
 /**
- * Sale vs short/long-term rental. Sale listings use the existing
- * price_usd / sold_* fields; rentals use the rental_* fields instead.
- * Migration 012 adds listing_type + rental_* columns and backfills every
- * existing row to 'sale'.
+ * Sale vs short-term rental. Sale listings use the existing price_usd /
+ * sold_* fields; rentals use the rental_* fields instead. Long-term rentals
+ * are out of scope for the product — migration 015 flipped historical
+ * long_term rows to short_term and tightened the price-unit CHECK. The
+ * rental_term column retains both CHECK values at the DB layer so the
+ * decision is reversible without a schema migration.
  */
 export type ListingType = "sale" | "rental";
 
+/**
+ * Kept as a two-value union for defensive typing on historical reads —
+ * migration 015 flipped every extant long_term row, but the DB CHECK
+ * still admits both values so the product can re-enable long-term later
+ * without a schema change.
+ */
 export type RentalTerm = "short_term" | "long_term";
 
-/** 'night' and 'week' are short-term only; 'month' is long-term only. */
-export type RentalPriceUnit = "night" | "week" | "month";
+/** Short-term rentals price by the night or by the week. */
+export type RentalPriceUnit = "night" | "week";
 
 export interface GalleryItem {
   url: string;

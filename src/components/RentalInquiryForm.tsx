@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 type Status = "idle" | "submitting" | "success" | "error";
-type TermPreference = "short_term" | "long_term" | "not_sure";
 
 const BUDGET_OPTIONS = [
   { value: "under_25k", label: "Under $25K total" },
@@ -12,12 +11,6 @@ const BUDGET_OPTIONS = [
   { value: "100k_plus", label: "$100K+" },
   { value: "flexible", label: "Flexible" }
 ] as const;
-
-const TERM_OPTIONS: { value: TermPreference; label: string; sub: string }[] = [
-  { value: "short_term", label: "Short-term", sub: "Days or weeks" },
-  { value: "long_term", label: "Long-term", sub: "Months or longer" },
-  { value: "not_sure", label: "Not sure", sub: "Help me figure it out" }
-];
 
 /**
  * Public rental inquiry form on /rentals. Mirrors the submit-and-inline-
@@ -28,39 +21,26 @@ const TERM_OPTIONS: { value: TermPreference; label: string; sub: string }[] = [
  * When the form is landed on from a specific rental listing, the server
  * page passes destinationInitial + listing_id + listing_slug so the
  * inquiry record knows which property triggered it and the admin inbox
- * can render a backlink. termPreferenceInitial auto-selects the matching
- * term radio so someone inquiring from a Short-term rental detail page
- * doesn't have to pick it manually.
+ * can render a backlink.
  */
 export function RentalInquiryForm({
   destinationInitial = "",
   listingId = null,
-  listingSlug = null,
-  termPreferenceInitial = null
+  listingSlug = null
 }: {
   destinationInitial?: string;
   listingId?: number | null;
   listingSlug?: string | null;
-  termPreferenceInitial?: TermPreference | null;
 } = {}) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [flexibleDates, setFlexibleDates] = useState(false);
   const [destination, setDestination] = useState(destinationInitial);
-  const [termPreference, setTermPreference] = useState<TermPreference | null>(
-    termPreferenceInitial
-  );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setStatus("submitting");
     setErrorMsg("");
-
-    if (termPreference === null) {
-      setStatus("error");
-      setErrorMsg("Please choose short-term, long-term, or not sure.");
-      return;
-    }
 
     const fd = new FormData(e.currentTarget);
     const payload = {
@@ -70,7 +50,6 @@ export function RentalInquiryForm({
       destination: String(fd.get("destination") || "").trim(),
       listing_id: listingId,
       listing_slug: listingSlug,
-      rental_term_preference: termPreference,
       start_date: flexibleDates ? "" : String(fd.get("start_date") || ""),
       end_date: flexibleDates ? "" : String(fd.get("end_date") || ""),
       flexible_dates: flexibleDates,
@@ -211,42 +190,6 @@ export function RentalInquiryForm({
           />
         </div>
       </div>
-
-      <fieldset>
-        <legend className={labelClass}>Rental term *</legend>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
-          {TERM_OPTIONS.map((opt) => {
-            const active = termPreference === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setTermPreference(opt.value)}
-                className={
-                  "text-left px-4 py-3 border transition-colors " +
-                  (active
-                    ? "bg-paper text-ink border-accent"
-                    : "bg-transparent text-paper border-paper/25 hover:border-paper/50")
-                }
-              >
-                <span className="block text-sm font-medium uppercase tracking-wider">
-                  {opt.label}
-                </span>
-                <span
-                  className={
-                    "block text-xs mt-1 " +
-                    (active ? "text-ink/60" : "text-paper/55")
-                  }
-                >
-                  {opt.sub}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
 
       <div>
         <label className={labelClass}>Dates</label>

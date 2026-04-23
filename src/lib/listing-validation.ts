@@ -26,9 +26,9 @@ export type RentalFieldResolution = {
  * Rules:
  *   - listing_type ∈ {'sale','rental'} (default 'sale' when absent)
  *   - sale → all rental fields must be null
- *   - rental → rental_term ∈ {'short_term','long_term'}
- *   - rental short_term → unit ∈ {'night','week'}
- *   - rental long_term → unit = 'month'
+ *   - rental → rental_term is forced to 'short_term' (long-term is out of
+ *     scope product-side; any client-sent value is ignored)
+ *   - rental → rental_price_unit ∈ {'night','week'}
  *   - rental price must be a positive integer (cents of listing currency)
  */
 export function resolveRentalFields(
@@ -54,29 +54,16 @@ export function resolveRentalFields(
     };
   }
 
-  const termRaw = String(b?.rental_term ?? "");
-  if (termRaw !== "short_term" && termRaw !== "long_term") {
-    return {
-      ok: false,
-      error: "rental_term must be 'short_term' or 'long_term'."
-    };
-  }
-  const rental_term: RentalTerm = termRaw;
+  const rental_term: RentalTerm = "short_term";
 
   const unitRaw = String(b?.rental_price_unit ?? "");
-  if (
-    (rental_term === "short_term" && unitRaw !== "night" && unitRaw !== "week") ||
-    (rental_term === "long_term" && unitRaw !== "month")
-  ) {
+  if (unitRaw !== "night" && unitRaw !== "week") {
     return {
       ok: false,
-      error:
-        rental_term === "short_term"
-          ? "Short-term rental price unit must be 'night' or 'week'."
-          : "Long-term rental price unit must be 'month'."
+      error: "Rental price unit must be 'night' or 'week'."
     };
   }
-  const rental_price_unit = unitRaw as RentalPriceUnit;
+  const rental_price_unit: RentalPriceUnit = unitRaw;
 
   const priceCents = Number(b?.rental_price_cents);
   if (!Number.isFinite(priceCents) || priceCents <= 0 || !Number.isInteger(priceCents)) {
