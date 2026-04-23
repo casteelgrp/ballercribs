@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { isOwner } from "@/lib/permissions";
+import { canEditPost } from "@/lib/blog-permissions";
 import type { BlogPostListItem, PostStatus } from "@/types/blog";
 import type { User } from "@/lib/types";
 
@@ -17,7 +18,7 @@ export function BlogActions({
   post
 }: {
   user: User;
-  post: BlogPostListItem & { authorUserId?: number | null };
+  post: BlogPostListItem;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -39,10 +40,7 @@ export function BlogActions({
   const btn =
     "text-[10px] uppercase tracking-widest border border-black/20 px-2 py-1 disabled:opacity-30 hover:border-black/40 transition-colors";
 
-  // Non-owner users see Edit only on drafts they authored.
-  const canEdit =
-    owner ||
-    (post.authorUserId === user.id && post.status === "draft");
+  const canEdit = canEditPost(user, post);
 
   return (
     <div className="flex flex-wrap gap-1">

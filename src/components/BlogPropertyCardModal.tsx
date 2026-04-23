@@ -54,16 +54,30 @@ export function BlogPropertyCardModal({
 
   if (!open) return null;
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // Minimum viable card: name, photoUrl, url. Blurb + location are
-    // editorially important but technically optional.
+  // Not a <form onSubmit> — this modal renders inside BlogForm's form, and
+  // nested forms are invalid HTML (triggers a hydration warning and can
+  // swallow the outer submit). Insert is wired to a button click instead;
+  // the keydown handler keeps "Enter to submit" behaviour in text inputs
+  // so removing the form doesn't cost us keyboard UX.
+  function commit() {
     if (!attrs.name.trim() || !attrs.photoUrl.trim() || !attrs.url.trim()) return;
     const finalAttrs: PropertyCardAttrs = {
       ...attrs,
       ctaLabel: attrs.ctaLabel.trim() || DEFAULT_CTA
     };
     onSave(finalAttrs);
+  }
+
+  function onFieldKeyDown(e: React.KeyboardEvent) {
+    // Let Enter make newlines inside the textarea — only submit when the
+    // focus is on a single-line input. Ignore modifier combos so
+    // Cmd+Enter / Shift+Enter stay available for future power-user wiring.
+    const tag = (e.target as HTMLElement).tagName;
+    if (e.key !== "Enter" || tag === "TEXTAREA" || e.shiftKey || e.metaKey || e.ctrlKey) {
+      return;
+    }
+    e.preventDefault();
+    commit();
   }
 
   const inputClass =
@@ -80,8 +94,8 @@ export function BlogPropertyCardModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <form
-        onSubmit={handleSubmit}
+      <div
+        onKeyDown={onFieldKeyDown}
         className="bg-white max-w-lg w-full border border-black/10 p-6 space-y-4"
       >
         <div className="flex items-baseline justify-between">
@@ -170,7 +184,8 @@ export function BlogPropertyCardModal({
 
         <div className="flex gap-2 pt-2">
           <button
-            type="submit"
+            type="button"
+            onClick={commit}
             className="bg-ink text-paper px-5 py-2 text-sm uppercase tracking-widest hover:bg-accent hover:text-ink transition-colors"
           >
             {initial ? "Save changes" : "Insert card"}
@@ -183,7 +198,7 @@ export function BlogPropertyCardModal({
             Cancel
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

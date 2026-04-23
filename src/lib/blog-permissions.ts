@@ -1,4 +1,4 @@
-import type { BlogPost } from "@/types/blog";
+import type { BlogPost, PostStatus } from "@/types/blog";
 import type { User } from "./types";
 import { isOwner } from "./permissions";
 
@@ -12,10 +12,17 @@ export function canCreatePost(_user: User): boolean {
   return true;
 }
 
-export function canEditPost(user: User, post: BlogPost): boolean {
+/**
+ * Narrowed to the minimum shape needed so both BlogPost and
+ * BlogPostListItem callers (admin table + edit page) go through the same
+ * function. Drift between "can see Edit" and "can actually edit" would
+ * surface as a 403 after click — route everything through this helper.
+ */
+export function canEditPost(
+  user: User,
+  post: { authorUserId: number | null; status: PostStatus }
+): boolean {
   if (isOwner(user)) return true;
-  // Non-owners can edit only their own drafts — once a post is in review or
-  // published, it's out of their hands until the owner sends it back.
   if (post.authorUserId !== user.id) return false;
   return post.status === "draft";
 }

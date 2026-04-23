@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { requirePageUser } from "@/lib/auth";
 import { getAdminPostCounts, getAllPostsForAdmin, getCategories } from "@/lib/blog-queries";
+import { canEditPost } from "@/lib/blog-permissions";
 import { BlogActions } from "@/components/BlogActions";
 import type { PostStatus } from "@/types/blog";
 
@@ -106,7 +107,12 @@ export default async function AdminBlogIndexPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-black/10">
-              {posts.map((post) => (
+              {posts.map((post) => {
+                // Same gate the Edit button and PATCH route use — keeps
+                // the title link from sending users to a 404 they can't
+                // avoid. Non-editable rows render plain text.
+                const editable = canEditPost(user, post);
+                return (
                 <tr key={post.id} className="hover:bg-black/[0.02]">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -115,7 +121,16 @@ export default async function AdminBlogIndexPage({
                           ★
                         </span>
                       )}
-                      <span className="font-medium">{post.title}</span>
+                      {editable ? (
+                        <Link
+                          href={`/admin/blog/${post.id}/edit`}
+                          className="font-medium hover:text-accent transition-colors"
+                        >
+                          {post.title}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">{post.title}</span>
+                      )}
                     </div>
                     <p className="text-xs text-black/50 mt-0.5 font-mono">/{post.slug}</p>
                   </td>
@@ -145,7 +160,8 @@ export default async function AdminBlogIndexPage({
                     <BlogActions user={user} post={post} />
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
