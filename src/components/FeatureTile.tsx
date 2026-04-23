@@ -20,12 +20,14 @@ export function FeatureTile({
   photoSrc,
   statsSrc,
   caption,
-  stats
+  stats,
+  label
 }: {
   photoSrc: string;
   statsSrc: string;
   caption: string;
   stats: string;
+  label?: string;
 }) {
   const [photoFailed, setPhotoFailed] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -64,6 +66,12 @@ export function FeatureTile({
         )}
       </div>
       <figcaption>
+        {/* Label frames the tile so readers know whether they're looking at an
+            outlier or a typical result. Small caps, muted — sets expectation
+            without upstaging the numbers. */}
+        {label && (
+          <p className="text-[10px] uppercase tracking-widest text-accent mb-1.5">{label}</p>
+        )}
         {/* Title is context; stats are the persuader. Muted regular-weight title
             above a bolder, smaller, ink stats line — flipped hierarchy. */}
         <p className="text-base font-normal text-black/70">{caption}</p>

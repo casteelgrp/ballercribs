@@ -9,11 +9,11 @@ import { getActiveHeroPhotos } from "@/lib/db";
 export const metadata: Metadata = {
   title: "For Agents — Feature your luxury listings",
   description:
-    "Reach 234K+ luxury real estate followers. Feature your listings to an engaged audience of high-net-worth buyers and sellers. Agent referral network available nationwide.",
+    "10.5M views across 4.4M accounts in 90 days. Feature your luxury listings to an engaged audience of high-net-worth buyers and sellers. Agent referral network available nationwide.",
   openGraph: {
     title: "For Agents — Feature your luxury listings on BallerCribs",
     description:
-      "234K Instagram · 72K Facebook · Millions of monthly views. The audience your listing deserves."
+      "10.5M views in 90 days across 4.4M accounts. The audience your listing deserves."
   },
   alternates: {
     canonical: "/agents"
@@ -77,13 +77,15 @@ export default async function AgentsPage() {
                 <span className="text-accent">millions.</span>
               </h1>
               <p className="mt-6 text-lg text-paper/80 max-w-2xl">
-                Seen every month across Instagram, Facebook, and TikTok.
+                Seen by millions every month across Instagram, Facebook, and TikTok.
+                Verified carousel performance, real buyer inquiries.
               </p>
 
               <div className="mt-10 flex flex-wrap gap-3">
+                <StatPill label="Views in 90 days" value="10.5M" />
+                <StatPill label="Accounts reached" value="4.4M" />
+                <StatPill label="Reach to non-followers" value="82.8%" />
                 <StatPill label="Instagram followers" value="234K" />
-                <StatPill label="Facebook followers" value="72K" />
-                <StatPill label="Monthly views" value="Millions" />
               </div>
 
               <a
@@ -127,116 +129,147 @@ export default async function AgentsPage() {
         </div>
       </section>
 
-      {/* ─── 3. What's included ─────────────────────────────────────── */}
-      <section className="bg-black/[0.02] border-y border-black/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div>
-            <h2 className="font-display text-3xl sm:text-4xl">What you get.</h2>
-            <ul className="mt-8 space-y-3 text-black/80">
-              {[
-                "Professional carousel post on Instagram (9-10 slides, custom copy)",
-                "Instagram Reel with original edit",
-                "Dedicated listing page with photo gallery and inquiry form on ballercribs.com",
-                "Cross-posts to Facebook and TikTok",
-                "Email mention in BallerCribs Weekly newsletter (when applicable)",
-                "All buyer inquiries routed directly to you"
-              ].map((item) => (
-                <li key={item} className="flex gap-3">
-                  <span className="text-accent flex-shrink-0 mt-0.5">✦</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h2 className="font-display text-3xl sm:text-4xl">What it costs.</h2>
-            <div className="mt-8 space-y-4">
-              <PriceCard
-                title="Single Feature"
-                price="Starting at $1,500"
-                body="One property, fully promoted across all channels."
-              />
-              <PriceCard
-                title="Package of 3"
-                price="Starting at $3,750"
-                body="Three featured listings over 30 days. Save $750."
-              />
-              <PriceCard
-                title="Exclusive Takeover"
-                price="Starting at $5,000"
-                body="Dominate our feed for a week. Multiple posts, Reels, and priority newsletter placement."
-              />
-              <p className="text-sm italic text-black/60 pt-2">
-                Custom pricing available for portfolios, luxury brokerages, and multi-property
-                campaigns.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── 4. Referral partner program ────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 border-t border-black/10 pt-16 py-20">
-        <h2 className="font-display text-3xl sm:text-4xl max-w-3xl">
-          We've got the buyer. You close the deal.
-        </h2>
-        <p className="mt-6 text-black/70 max-w-3xl leading-relaxed">
-          Not every property is right for a paid feature — but qualified buyers still come through
-          our inbox every week. When one inquires about a home in your market, we route them to a
-          partner agent and share in the commission. You do what you already do best. We bring the
-          lead.
-        </p>
-
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <ReferralSpec
-            title="25-35% referral fee"
-            body="Standard rate at close. Negotiable on luxury transactions."
-          />
-          <ReferralSpec
-            title="Licensed referral network, cooperative nationwide"
-            body="Broker-to-broker agreements let us refer buyers in any market."
-          />
-          <ReferralSpec
-            title="Pre-qualified leads only"
-            body="Every buyer completes a full inquiry form — timeline, budget, and financing before it hits your inbox."
-          />
-        </div>
-
-        <Link
-          href="/agents?type=referral#inquire"
-          className="inline-block mt-10 border border-ink text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
-        >
-          Become a partner agent →
-        </Link>
-      </section>
-
-      {/* ─── 5. Recent features ─────────────────────────────────────── */}
+      {/* ─── 3. Recent features ─────────────────────────────────────── */}
+      {/* Proof sits above pricing — numbers earn the price, not the other way
+          around. Six tiles: two top performers (1M+) and four typical features
+          to set honest expectations. */}
       <section className="bg-black/[0.02] border-y border-black/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
           <h2 className="font-display text-3xl sm:text-4xl text-center">
             Recent features that moved.
           </h2>
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <p className="mt-4 text-center text-black/70 max-w-2xl mx-auto">
+            Average feature: 30K–100K+ views, 200+ saves, and direct buyer inquiries.
+            Top features cross 1M views.
+          </p>
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <FeatureTile
-              photoSrc="/feature-1-photo.jpg"
-              statsSrc="/feature-1-stats.png"
+              label="Top performer"
+              photoSrc="/feature-wahlberg-hero.jpg"
+              statsSrc="/feature-wahlberg-stats.jpg"
               caption="Mark Wahlberg's $37M Florida mansion"
               stats="1.37M views · 53K likes · 16K shares · 272 days of watch time"
             />
             <FeatureTile
-              photoSrc="/feature-2-photo.jpg"
-              statsSrc="/feature-2-stats.png"
+              label="Top performer"
+              photoSrc="/feature-arizona-hero.jpg"
+              statsSrc="/feature-arizona-stats.jpg"
               caption="Arizona estate with everything"
               stats="1.22M views · 83K interactions · 27.6K shares · 5.9K saves"
             />
             <FeatureTile
-              photoSrc="/feature-3-photo.jpg"
-              statsSrc="/feature-3-stats.png"
-              caption="$100M in the Hamptons"
-              stats="272K views · 13.5K interactions · 1.1K shares"
+              label="Typical feature"
+              photoSrc="/feature-long-island-hero.jpg"
+              statsSrc="/feature-long-island-stats.jpg"
+              caption="Long Island estate in prestigious enclave"
+              stats="94.8K views · 2.3K likes · 1.1K shares · 529 saves"
+            />
+            <FeatureTile
+              label="Typical feature"
+              photoSrc="/feature-utah-hero.jpg"
+              statsSrc="/feature-utah-stats.jpg"
+              caption="Secluded Utah ranch on 160 acres"
+              stats="63.4K views · 1.7K likes · 697 shares · 282 saves"
+            />
+            <FeatureTile
+              label="Typical feature"
+              photoSrc="/feature-beverly-park-hero.jpg"
+              statsSrc="/feature-beverly-park-stats.jpg"
+              caption="Beverly Park fortress — elite LA living"
+              stats="37.9K views · 924 likes · 108 shares · 305 saves"
+            />
+            <FeatureTile
+              label="Typical feature"
+              photoSrc="/feature-socal-hero.jpg"
+              statsSrc="/feature-socal-stats.jpg"
+              caption="SoCal estate with soccer field, gym & theater"
+              stats="28.3K views · 794 likes · 266 shares · 234 saves"
             />
           </div>
+        </div>
+      </section>
+
+      {/* ─── 4. What's included ─────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-20 grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div>
+          <h2 className="font-display text-3xl sm:text-4xl">What you get.</h2>
+          <ul className="mt-8 space-y-3 text-black/80">
+            {[
+              "Professional carousel post on Instagram (9-10 slides, custom copy)",
+              "Instagram Reel with original edit",
+              "Dedicated listing page with photo gallery and inquiry form on ballercribs.com",
+              "Cross-posts to Facebook and TikTok",
+              "Email mention in BallerCribs Weekly newsletter (when applicable)",
+              "All buyer inquiries routed directly to you"
+            ].map((item) => (
+              <li key={item} className="flex gap-3">
+                <span className="text-accent flex-shrink-0 mt-0.5">✦</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="font-display text-3xl sm:text-4xl">What it costs.</h2>
+          <div className="mt-8 space-y-4">
+            <PriceCard
+              title="Single Feature"
+              price="Starting at $1,500"
+              body="One property, fully promoted across all channels."
+            />
+            <PriceCard
+              title="Package of 3"
+              price="Starting at $3,750"
+              body="Three featured listings over 30 days. Save $750."
+            />
+            <PriceCard
+              title="Exclusive Takeover"
+              price="Starting at $5,000"
+              body="Dominate our feed for a week. Multiple posts, Reels, and priority newsletter placement."
+            />
+            <p className="text-sm italic text-black/60 pt-2">
+              Custom pricing available for portfolios, luxury brokerages, and multi-property
+              campaigns.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 5. Referral partner program ────────────────────────────── */}
+      <section className="bg-black/[0.02] border-y border-black/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
+          <h2 className="font-display text-3xl sm:text-4xl max-w-3xl">
+            We've got the buyer. You close the deal.
+          </h2>
+          <p className="mt-6 text-black/70 max-w-3xl leading-relaxed">
+            Not every property is right for a paid feature — but qualified buyers still come through
+            our inbox every week. When one inquires about a home in your market, we route them to a
+            partner agent and share in the commission. You do what you already do best. We bring the
+            lead.
+          </p>
+
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <ReferralSpec
+              title="25-35% referral fee"
+              body="Standard rate at close. Negotiable on luxury transactions."
+            />
+            <ReferralSpec
+              title="Licensed referral network, cooperative nationwide"
+              body="Broker-to-broker agreements let us refer buyers in any market."
+            />
+            <ReferralSpec
+              title="Pre-qualified leads only"
+              body="Every buyer completes a full inquiry form — timeline, budget, and financing before it hits your inbox."
+            />
+          </div>
+
+          <Link
+            href="/agents?type=referral#inquire"
+            className="inline-block mt-10 border border-ink text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
+          >
+            Become a partner agent →
+          </Link>
         </div>
       </section>
 
