@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePageUser } from "@/lib/auth";
 import { getCategories, getPostById } from "@/lib/blog-queries";
 import { canEditPost } from "@/lib/blog-permissions";
 import { BlogForm } from "@/components/BlogForm";
+import { AdminFormCard, AdminFormShell } from "@/components/admin/AdminFormShell";
 
 export const dynamic = "force-dynamic";
 
@@ -28,20 +28,16 @@ export default async function EditBlogPostPage({
   const categories = await getCategories().catch(() => []);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-      <Link
-        href="/admin/blog"
-        className="text-xs uppercase tracking-widest text-black/50 hover:text-ink"
-      >
-        ← All posts
-      </Link>
-      <div className="flex items-baseline justify-between mt-3 mb-8">
+    <AdminFormShell>
+      <div className="mb-8">
         <h2 className="font-display text-2xl">Edit post</h2>
-        <span className="text-[10px] uppercase tracking-widest text-black/50">
-          {post.status}
-        </span>
+        <p className="text-sm text-black/60 mt-1">
+          {post.title} · status: {post.status}
+        </p>
       </div>
-      <BlogForm currentUser={user} categories={categories} existing={post} />
-    </div>
+      <AdminFormCard>
+        <BlogForm currentUser={user} categories={categories} existing={post} />
+      </AdminFormCard>
+    </AdminFormShell>
   );
 }

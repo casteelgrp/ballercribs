@@ -24,7 +24,8 @@
     "migrate:014": "tsx --env-file=.env.local scripts/migrate-014-rental-inquiry-term-preference.ts",
     "migrate:015": "tsx --env-file=.env.local scripts/migrate-015-short-term-only.ts",
     "migrate:016": "tsx --env-file=.env.local scripts/migrate-016-blog-posts.ts",
-    "seed:test-user": "tsx --env-file=.env.local scripts/seed-test-user.ts"
+    "seed:test-user": "tsx --env-file=.env.local scripts/seed-test-user.ts",
+    "seed:blog": "tsx --env-file=.env.local scripts/seed-blog-posts.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

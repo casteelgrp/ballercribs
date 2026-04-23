@@ -28,6 +28,9 @@ export function SiteFooter() {
               <Link href="/rentals" className="hover:text-accent">
                 Rentals
               </Link>
+              <Link href="/blog" className="hover:text-accent">
+                Journal
+              </Link>
               <Link href="/agents" className="hover:text-accent">
                 For Agents
               </Link>

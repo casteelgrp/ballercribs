@@ -7,6 +7,7 @@ import { canApprove, canEdit, canViewListing, isOwner } from "@/lib/permissions"
 import { ListingForm } from "@/components/ListingForm";
 import { ReviewActions } from "@/components/ReviewActions";
 import { ListingActions } from "@/components/ListingActions";
+import { AdminFormCard, AdminFormShell } from "@/components/admin/AdminFormShell";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export default async function AdminEditListingPage({
   })();
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
+    <AdminFormShell>
       <div className="mb-8">
         <h2 className="font-display text-2xl">
           {editable ? "Edit listing" : "View listing"}
@@ -80,9 +81,9 @@ export default async function AdminEditListingPage({
         </div>
       )}
 
-      <div className="border border-black/10 bg-white p-6">
+      <AdminFormCard>
         <ListingForm currentUser={user} existing={listing} readOnly={!editable} />
-      </div>
+      </AdminFormCard>
 
       {/* Owner-only secondary actions (archive, delete, etc.) below the form. */}
       {isOwner(user) && (
@@ -90,6 +91,6 @@ export default async function AdminEditListingPage({
           <ListingActions user={user} listing={listing} />
         </div>
       )}
-    </div>
+    </AdminFormShell>
   );
 }
