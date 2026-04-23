@@ -92,8 +92,13 @@ export default async function BlogDetailPage({
         </div>
       )}
 
-      {/* Narrow column for long-form reading (≈680px). */}
-      <div className="max-w-[42rem] mx-auto px-4 sm:px-6 py-10 sm:py-14">
+      {/* Reading column, ≈80ch (736px). Wide enough to keep line length
+          in the 75–85-character sweet spot on a standard desktop
+          viewport; narrow enough that the body still reads as a
+          dedicated reading surface rather than a full-width text wall.
+          Matches the reading-width convention used by Medium, Substack,
+          and most reading-focused sites. */}
+      <div className="max-w-[46rem] mx-auto px-4 sm:px-6 py-10 sm:py-14">
         <Link
           href="/blog"
           className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
