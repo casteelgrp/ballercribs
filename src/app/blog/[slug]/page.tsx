@@ -92,13 +92,14 @@ export default async function BlogDetailPage({
         </div>
       )}
 
-      {/* Reading column, ≈80ch (736px). Wide enough to keep line length
-          in the 75–85-character sweet spot on a standard desktop
-          viewport; narrow enough that the body still reads as a
-          dedicated reading surface rather than a full-width text wall.
-          Matches the reading-width convention used by Medium, Substack,
-          and most reading-focused sites. */}
-      <div className="max-w-[46rem] mx-auto px-4 sm:px-6 py-10 sm:py-14">
+      {/* Article column at max-w-5xl (1024px wrapper, 976px effective
+          content after px-6 padding). Deliberately wider than the
+          Medium/Substack reading-column convention — lands around 75%
+          of a 1440px desktop viewport, which matches the editorial
+          rhythm Jay wants for feature posts with inline property cards
+          and images. The property card + hero-image spans benefit
+          materially from the extra width. */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         <Link
           href="/blog"
           className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
