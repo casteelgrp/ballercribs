@@ -139,7 +139,7 @@ export default async function AgentsPage() {
             Recent features that moved.
           </h2>
           <p className="mt-4 text-center text-black/70 max-w-2xl mx-auto">
-            Average feature: 30K–100K+ views, 200+ saves, and direct buyer inquiries.
+            Average feature: 100K+ views, 1K+ shares, and direct buyer inquiries.
             Top features cross 1M views.
           </p>
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -158,32 +158,32 @@ export default async function AgentsPage() {
               stats="1.22M views · 83K interactions · 27.6K shares · 5.9K saves"
             />
             <FeatureTile
-              label="Typical feature"
+              label="Featured"
+              photoSrc="/feature-washington-dc-hero.jpg"
+              statsSrc="/feature-washington-dc-stats.jpg"
+              caption="Washington DC mansion with movie theater & elevator"
+              stats="188.8K views · 7K likes · 2.5K shares · 1.3K saves"
+            />
+            <FeatureTile
+              label="Featured"
+              photoSrc="/feature-chattanooga-hero.jpg"
+              statsSrc="/feature-chattanooga-stats.jpg"
+              caption="Chattanooga retreat above the Tennessee River Gorge"
+              stats="150.3K views · 4.2K likes · 2.4K shares · 852 saves"
+            />
+            <FeatureTile
+              label="Featured"
+              photoSrc="/feature-diamond-bar-hero.jpg"
+              statsSrc="/feature-diamond-bar-stats.jpg"
+              caption="Unique icon in Diamond Bar, California"
+              stats="117K views · 2.5K likes · 3.5K shares · 563 saves"
+            />
+            <FeatureTile
+              label="Featured"
               photoSrc="/feature-long-island-hero.jpg"
               statsSrc="/feature-long-island-stats.jpg"
               caption="Long Island estate in prestigious enclave"
               stats="94.8K views · 2.3K likes · 1.1K shares · 529 saves"
-            />
-            <FeatureTile
-              label="Typical feature"
-              photoSrc="/feature-utah-hero.jpg"
-              statsSrc="/feature-utah-stats.jpg"
-              caption="Secluded Utah ranch on 160 acres"
-              stats="63.4K views · 1.7K likes · 697 shares · 282 saves"
-            />
-            <FeatureTile
-              label="Typical feature"
-              photoSrc="/feature-beverly-park-hero.jpg"
-              statsSrc="/feature-beverly-park-stats.jpg"
-              caption="Beverly Park fortress — elite LA living"
-              stats="37.9K views · 924 likes · 108 shares · 305 saves"
-            />
-            <FeatureTile
-              label="Typical feature"
-              photoSrc="/feature-socal-hero.jpg"
-              statsSrc="/feature-socal-stats.jpg"
-              caption="SoCal estate with soccer field, gym & theater"
-              stats="28.3K views · 794 likes · 266 shares · 234 saves"
             />
           </div>
         </div>
