@@ -49,15 +49,15 @@ export function FeatureTile({
               onError={() => setPhotoFailed(true)}
               className="absolute inset-0 w-full h-full object-cover"
             />
-            {/* View-stats chip. Accent as the default state so mobile (no
-                hover) still gets a visible CTA and the button doesn't blend
-                into busy property photos on desktop. Hover darkens for
-                affordance. */}
+            {/* View-stats chip. Always visible across breakpoints — this is a
+                key proof-point CTA on a sales page and mobile doesn't have hover
+                so a hover-gated button would be invisible to half the audience.
+                Color still shifts on hover for affordance. */}
             <button
               type="button"
               onClick={() => setLightboxOpen(true)}
               aria-label={`View Instagram Insights for ${caption}`}
-              className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 bg-accent text-ink text-[11px] uppercase tracking-widest px-2.5 py-1.5 hover:bg-black/75 hover:text-white transition-colors"
+              className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 bg-black/75 text-white text-[11px] uppercase tracking-widest px-2.5 py-1.5 hover:bg-accent hover:text-ink transition-colors"
             >
               <BarChartIcon />
               <span>View stats</span>
