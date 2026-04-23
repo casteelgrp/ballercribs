@@ -37,7 +37,7 @@ export default function NewsletterPage() {
 
       <section className="mt-16 sm:mt-20 text-center">
         <p className="text-sm text-black/60">
-          234K Instagram · 72K Facebook · Tens of millions of monthly views
+          Over 300K follow BallerCribs across Instagram, Facebook, and TikTok.
         </p>
       </section>
     </div>
