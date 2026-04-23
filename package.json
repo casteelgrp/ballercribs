@@ -22,7 +22,8 @@
     "migrate:012": "tsx --env-file=.env.local scripts/migrate-012-rental-listings.ts",
     "migrate:013": "tsx --env-file=.env.local scripts/migrate-013-rental-inquiry-listing-link.ts",
     "migrate:014": "tsx --env-file=.env.local scripts/migrate-014-rental-inquiry-term-preference.ts",
-    "migrate:015": "tsx --env-file=.env.local scripts/migrate-015-short-term-only.ts"
+    "migrate:015": "tsx --env-file=.env.local scripts/migrate-015-short-term-only.ts",
+    "migrate:016": "tsx --env-file=.env.local scripts/migrate-016-blog-posts.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
