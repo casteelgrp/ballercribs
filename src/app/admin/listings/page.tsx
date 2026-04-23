@@ -37,9 +37,13 @@ const STATUS_BADGE: Record<ListingStatus, string> = {
   archived: "bg-black/20 text-black/40"
 };
 
+// Rental uses a warm neutral so it reads as a sibling to sale's cool
+// slate — both are categories, not status. Emerald is reserved for the
+// PUBLISHED status badge; the two badges sit next to each other on
+// rental rows and the prior shared color made them blur together.
 const TYPE_BADGE: Record<ListingType, string> = {
   sale: "bg-slate-100 text-slate-700",
-  rental: "bg-emerald-100 text-emerald-700"
+  rental: "bg-stone-200 text-stone-700"
 };
 
 const TYPE_FILTER_OPTIONS: { value: "all" | ListingType; label: string }[] = [
