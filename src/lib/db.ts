@@ -240,6 +240,14 @@ export async function getHomepageRentals(limit = 3): Promise<Listing[]> {
   return rows.map(rowToListing);
 }
 
+export async function countPublishedRentalListings(): Promise<number> {
+  const { rows } = await sql`
+    SELECT COUNT(*)::int AS n FROM listings
+    WHERE status = 'published' AND listing_type = 'rental';
+  `;
+  return Number(rows[0]?.n ?? 0);
+}
+
 // ─── Admin listing reads ────────────────────────────────────────────────────
 
 export async function getListingByIdAdmin(id: number): Promise<Listing | null> {
@@ -718,30 +726,51 @@ function rowToInquiryWithListing(row: any): InquiryWithListing {
 }
 
 export async function getRecentInquiries(
-  opts: { archived?: boolean; limit?: number } = {}
+  opts: { archived?: boolean; limit?: number; status?: InquiryStatus } = {}
 ): Promise<InquiryWithListing[]> {
   const limit = opts.limit ?? 50;
-  const { rows } = opts.archived
-    ? await sql`
-        SELECT i.*, l.title AS listing_title, l.slug AS listing_slug,
-               u.name AS status_updated_by_name
-        FROM inquiries i
-        LEFT JOIN listings l ON l.id = i.listing_id
-        LEFT JOIN users u ON u.id = i.status_updated_by
-        WHERE i.archived_at IS NOT NULL
-        ORDER BY i.archived_at DESC
-        LIMIT ${limit};
-      `
-    : await sql`
-        SELECT i.*, l.title AS listing_title, l.slug AS listing_slug,
-               u.name AS status_updated_by_name
-        FROM inquiries i
-        LEFT JOIN listings l ON l.id = i.listing_id
-        LEFT JOIN users u ON u.id = i.status_updated_by
-        WHERE i.archived_at IS NULL
-        ORDER BY i.created_at DESC
-        LIMIT ${limit};
-      `;
+  // Three-branch tagged template — Vercel's sql template can't splice
+  // conditional WHERE fragments, so archived / status-filtered /
+  // default non-archived get their own full SQL. Status filter is
+  // dashboard-only ("needs attention" bucket = status='new'); it's
+  // intentionally unavailable on the archived branch since an archived
+  // row at status='new' isn't meaningful.
+  if (opts.archived) {
+    const { rows } = await sql`
+      SELECT i.*, l.title AS listing_title, l.slug AS listing_slug,
+             u.name AS status_updated_by_name
+      FROM inquiries i
+      LEFT JOIN listings l ON l.id = i.listing_id
+      LEFT JOIN users u ON u.id = i.status_updated_by
+      WHERE i.archived_at IS NOT NULL
+      ORDER BY i.archived_at DESC
+      LIMIT ${limit};
+    `;
+    return rows.map(rowToInquiryWithListing);
+  }
+  if (opts.status) {
+    const { rows } = await sql`
+      SELECT i.*, l.title AS listing_title, l.slug AS listing_slug,
+             u.name AS status_updated_by_name
+      FROM inquiries i
+      LEFT JOIN listings l ON l.id = i.listing_id
+      LEFT JOIN users u ON u.id = i.status_updated_by
+      WHERE i.archived_at IS NULL AND i.status = ${opts.status}
+      ORDER BY i.created_at DESC
+      LIMIT ${limit};
+    `;
+    return rows.map(rowToInquiryWithListing);
+  }
+  const { rows } = await sql`
+    SELECT i.*, l.title AS listing_title, l.slug AS listing_slug,
+           u.name AS status_updated_by_name
+    FROM inquiries i
+    LEFT JOIN listings l ON l.id = i.listing_id
+    LEFT JOIN users u ON u.id = i.status_updated_by
+    WHERE i.archived_at IS NULL
+    ORDER BY i.created_at DESC
+    LIMIT ${limit};
+  `;
   return rows.map(rowToInquiryWithListing);
 }
 
@@ -1039,26 +1068,39 @@ export async function createAgentInquiry(data: CreateAgentInquiryInput): Promise
 }
 
 export async function getRecentAgentInquiries(
-  opts: { archived?: boolean; limit?: number } = {}
+  opts: { archived?: boolean; limit?: number; status?: InquiryStatus } = {}
 ): Promise<AgentInquiry[]> {
   const limit = opts.limit ?? 50;
-  const { rows } = opts.archived
-    ? await sql`
-        SELECT a.*, u.name AS status_updated_by_name
-        FROM agent_inquiries a
-        LEFT JOIN users u ON u.id = a.status_updated_by
-        WHERE a.archived_at IS NOT NULL
-        ORDER BY a.archived_at DESC
-        LIMIT ${limit};
-      `
-    : await sql`
-        SELECT a.*, u.name AS status_updated_by_name
-        FROM agent_inquiries a
-        LEFT JOIN users u ON u.id = a.status_updated_by
-        WHERE a.archived_at IS NULL
-        ORDER BY a.created_at DESC
-        LIMIT ${limit};
-      `;
+  if (opts.archived) {
+    const { rows } = await sql`
+      SELECT a.*, u.name AS status_updated_by_name
+      FROM agent_inquiries a
+      LEFT JOIN users u ON u.id = a.status_updated_by
+      WHERE a.archived_at IS NOT NULL
+      ORDER BY a.archived_at DESC
+      LIMIT ${limit};
+    `;
+    return rows.map(rowToAgentInquiry);
+  }
+  if (opts.status) {
+    const { rows } = await sql`
+      SELECT a.*, u.name AS status_updated_by_name
+      FROM agent_inquiries a
+      LEFT JOIN users u ON u.id = a.status_updated_by
+      WHERE a.archived_at IS NULL AND a.status = ${opts.status}
+      ORDER BY a.created_at DESC
+      LIMIT ${limit};
+    `;
+    return rows.map(rowToAgentInquiry);
+  }
+  const { rows } = await sql`
+    SELECT a.*, u.name AS status_updated_by_name
+    FROM agent_inquiries a
+    LEFT JOIN users u ON u.id = a.status_updated_by
+    WHERE a.archived_at IS NULL
+    ORDER BY a.created_at DESC
+    LIMIT ${limit};
+  `;
   return rows.map(rowToAgentInquiry);
 }
 
@@ -1243,7 +1285,7 @@ export async function createRentalInquiry(
 }
 
 export async function getRecentRentalInquiries(
-  opts: { archived?: boolean; limit?: number } = {}
+  opts: { archived?: boolean; limit?: number; status?: InquiryStatus } = {}
 ): Promise<RentalInquiry[]> {
   const limit = opts.limit ?? 50;
   // LEFT JOIN listings so the admin row can render "Inquired about: X"
@@ -1251,25 +1293,39 @@ export async function getRecentRentalInquiries(
   // ON DELETE SET NULL so listing_id + listing_title will be null in
   // that case and the cached listing_slug string still tells us what
   // they asked about.
-  const { rows } = opts.archived
-    ? await sql`
-        SELECT r.*, u.name AS status_updated_by_name, l.title AS listing_title
-        FROM rental_inquiries r
-        LEFT JOIN users u ON u.id = r.status_updated_by
-        LEFT JOIN listings l ON l.id = r.listing_id
-        WHERE r.archived_at IS NOT NULL
-        ORDER BY r.archived_at DESC
-        LIMIT ${limit};
-      `
-    : await sql`
-        SELECT r.*, u.name AS status_updated_by_name, l.title AS listing_title
-        FROM rental_inquiries r
-        LEFT JOIN users u ON u.id = r.status_updated_by
-        LEFT JOIN listings l ON l.id = r.listing_id
-        WHERE r.archived_at IS NULL
-        ORDER BY r.created_at DESC
-        LIMIT ${limit};
-      `;
+  if (opts.archived) {
+    const { rows } = await sql`
+      SELECT r.*, u.name AS status_updated_by_name, l.title AS listing_title
+      FROM rental_inquiries r
+      LEFT JOIN users u ON u.id = r.status_updated_by
+      LEFT JOIN listings l ON l.id = r.listing_id
+      WHERE r.archived_at IS NOT NULL
+      ORDER BY r.archived_at DESC
+      LIMIT ${limit};
+    `;
+    return rows.map(rowToRentalInquiry);
+  }
+  if (opts.status) {
+    const { rows } = await sql`
+      SELECT r.*, u.name AS status_updated_by_name, l.title AS listing_title
+      FROM rental_inquiries r
+      LEFT JOIN users u ON u.id = r.status_updated_by
+      LEFT JOIN listings l ON l.id = r.listing_id
+      WHERE r.archived_at IS NULL AND r.status = ${opts.status}
+      ORDER BY r.created_at DESC
+      LIMIT ${limit};
+    `;
+    return rows.map(rowToRentalInquiry);
+  }
+  const { rows } = await sql`
+    SELECT r.*, u.name AS status_updated_by_name, l.title AS listing_title
+    FROM rental_inquiries r
+    LEFT JOIN users u ON u.id = r.status_updated_by
+    LEFT JOIN listings l ON l.id = r.listing_id
+    WHERE r.archived_at IS NULL
+    ORDER BY r.created_at DESC
+    LIMIT ${limit};
+  `;
   return rows.map(rowToRentalInquiry);
 }
 

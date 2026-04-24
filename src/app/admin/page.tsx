@@ -5,41 +5,63 @@ import {
   countAgentInquiriesByArchiveStatus,
   countInquiriesByArchiveStatus,
   countListingsByStatus,
+  countPublishedRentalListings,
   countRentalInquiriesByArchiveStatus,
+  getAdminListingsWithCreators,
   getRecentAgentInquiries,
   getRecentInquiries,
   getRecentRentalInquiries
 } from "@/lib/db";
+import {
+  getAdminPostCounts,
+  getAllPostsForAdmin,
+  getPublishedPosts
+} from "@/lib/blog-queries";
 import { isOwner } from "@/lib/permissions";
 import { formatRelativeShort } from "@/lib/format";
 import type {
   AgentInquiry,
   Inquiry,
+  Listing,
   ListingStatus,
   RentalInquiry,
   User
 } from "@/lib/types";
+import type { BlogPostListItem } from "@/types/blog";
 
 export const dynamic = "force-dynamic";
 
-// Type + status tokens mirror the unified inquiry inbox so the dashboard
-// feels like a preview of the same table, not a separate widget.
-const TYPE_BADGE: Record<"buyer" | "agent" | "rental", string> = {
-  buyer: "bg-slate-100 text-slate-700",
-  agent: "bg-indigo-100 text-indigo-700",
-  rental: "bg-emerald-100 text-emerald-700"
+type BuyerRecent = Inquiry & { listing_title: string | null; listing_slug: string | null };
+
+// One badge tone per kind — matches the inbox page's type pills so the
+// dashboard reads as a preview of the same data, not a parallel widget.
+const KIND_BADGE: Record<ActivityKind, string> = {
+  "inquiry-buyer": "bg-slate-100 text-slate-700",
+  "inquiry-agent": "bg-indigo-100 text-indigo-700",
+  "inquiry-rental": "bg-emerald-100 text-emerald-700",
+  publication: "bg-amber-100 text-amber-800"
 };
-const TYPE_LABEL: Record<"buyer" | "agent" | "rental", string> = {
-  buyer: "Buyer",
-  agent: "Agent",
-  rental: "Rental"
+const KIND_LABEL: Record<ActivityKind, string> = {
+  "inquiry-buyer": "Buyer",
+  "inquiry-agent": "Agent",
+  "inquiry-rental": "Rental",
+  publication: "Published"
 };
 
-type BuyerRecent = Inquiry & { listing_title: string | null; listing_slug: string | null };
-type RecentRow =
-  | (BuyerRecent & { kind: "buyer" })
-  | (AgentInquiry & { kind: "agent" })
-  | (RentalInquiry & { kind: "rental" });
+type ActivityKind =
+  | "inquiry-buyer"
+  | "inquiry-agent"
+  | "inquiry-rental"
+  | "publication";
+
+interface ActivityRow {
+  key: string;
+  kind: ActivityKind;
+  title: string;
+  subtitle: string;
+  href: string;
+  at: string;
+}
 
 function pageTitleFor(user: User): string {
   return isOwner(user) ? "Dashboard" : "Listing Dashboard";
@@ -56,187 +78,481 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AdminDashboardPage() {
   const user = await requirePageUser();
-  const scopeUserId = isOwner(user) ? undefined : user.id;
+  const owner = isOwner(user);
+  const scopeUserId = owner ? undefined : user.id;
+
+  // One Promise.all so the page paints after the slowest read, not after
+  // ten sequential round-trips. Non-owner paths resolve synchronously to
+  // empty shapes so the shared fetch graph stays flat.
+  const empty = { active: 0, archived: 0 };
+  const emptyListingCounts: Record<ListingStatus, number> = {
+    draft: 0,
+    review: 0,
+    published: 0,
+    archived: 0
+  };
 
   const [
-    counts,
-    inquiryCounts,
-    agentInquiryCounts,
-    rentalInquiryCounts,
+    listingCounts,
+    buyerCounts,
+    agentCounts,
+    rentalCounts,
+    rentalListingCount,
+    postCounts,
+    listingsInReview,
+    draftPosts,
+    newBuyerInquiries,
+    newAgentInquiries,
+    newRentalInquiries,
     recentBuyer,
     recentAgent,
-    recentRental
+    recentRental,
+    recentPublishedListings,
+    recentPublishedPosts
   ] = await Promise.all([
-    countListingsByStatus(scopeUserId).catch(
-      (): Record<ListingStatus, number> => ({
-        draft: 0,
-        review: 0,
-        published: 0,
-        archived: 0
-      })
+    countListingsByStatus(scopeUserId).catch(() => emptyListingCounts),
+    owner
+      ? countInquiriesByArchiveStatus().catch(() => empty)
+      : Promise.resolve(empty),
+    owner
+      ? countAgentInquiriesByArchiveStatus().catch(() => empty)
+      : Promise.resolve(empty),
+    owner
+      ? countRentalInquiriesByArchiveStatus().catch(() => empty)
+      : Promise.resolve(empty),
+    owner ? countPublishedRentalListings().catch(() => 0) : Promise.resolve(0),
+    owner
+      ? getAdminPostCounts().catch(() => ({
+          all: 0,
+          draft: 0,
+          review: 0,
+          published: 0,
+          archived: 0
+        }))
+      : Promise.resolve({ all: 0, draft: 0, review: 0, published: 0, archived: 0 }),
+    getAdminListingsWithCreators("review", scopeUserId).catch(
+      (): (Listing & { creator_name: string | null })[] => []
     ),
-    isOwner(user)
-      ? countInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
-      : Promise.resolve({ active: 0, archived: 0 }),
-    isOwner(user)
-      ? countAgentInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
-      : Promise.resolve({ active: 0, archived: 0 }),
-    isOwner(user)
-      ? countRentalInquiriesByArchiveStatus().catch(() => ({ active: 0, archived: 0 }))
-      : Promise.resolve({ active: 0, archived: 0 }),
-    // Over-fetch each kind (6) so the merged + sorted top-6 has enough
-    // candidates. Anything beyond that lives in the full inbox anyway.
-    isOwner(user)
-      ? getRecentInquiries({ archived: false, limit: 6 }).catch(() => [])
-      : Promise.resolve([]),
-    isOwner(user)
-      ? getRecentAgentInquiries({ archived: false, limit: 6 }).catch(() => [])
-      : Promise.resolve([]),
-    isOwner(user)
-      ? getRecentRentalInquiries({ archived: false, limit: 6 }).catch(() => [])
-      : Promise.resolve([])
+    owner
+      ? getAllPostsForAdmin({ status: "draft" }).catch(
+          (): BlogPostListItem[] => []
+        )
+      : Promise.resolve([] as BlogPostListItem[]),
+    owner
+      ? getRecentInquiries({ status: "new", limit: 6 }).catch(
+          (): BuyerRecent[] => []
+        )
+      : Promise.resolve([] as BuyerRecent[]),
+    owner
+      ? getRecentAgentInquiries({ status: "new", limit: 6 }).catch(
+          (): AgentInquiry[] => []
+        )
+      : Promise.resolve([] as AgentInquiry[]),
+    owner
+      ? getRecentRentalInquiries({ status: "new", limit: 6 }).catch(
+          (): RentalInquiry[] => []
+        )
+      : Promise.resolve([] as RentalInquiry[]),
+    owner
+      ? getRecentInquiries({ archived: false, limit: 6 }).catch(
+          (): BuyerRecent[] => []
+        )
+      : Promise.resolve([] as BuyerRecent[]),
+    owner
+      ? getRecentAgentInquiries({ archived: false, limit: 6 }).catch(
+          (): AgentInquiry[] => []
+        )
+      : Promise.resolve([] as AgentInquiry[]),
+    owner
+      ? getRecentRentalInquiries({ archived: false, limit: 6 }).catch(
+          (): RentalInquiry[] => []
+        )
+      : Promise.resolve([] as RentalInquiry[]),
+    getAdminListingsWithCreators("published", scopeUserId).catch(
+      (): (Listing & { creator_name: string | null })[] => []
+    ),
+    owner
+      ? getPublishedPosts({ limit: 6 }).catch((): BlogPostListItem[] => [])
+      : Promise.resolve([] as BlogPostListItem[])
   ]);
 
-  const recentMixed: RecentRow[] = mergeRecent(
+  const totalInquiries =
+    buyerCounts.active +
+    buyerCounts.archived +
+    agentCounts.active +
+    agentCounts.archived +
+    rentalCounts.active +
+    rentalCounts.archived;
+
+  const needsAttention = buildNeedsAttention({
+    listingsInReview,
+    draftPosts,
+    newBuyerInquiries,
+    newAgentInquiries,
+    newRentalInquiries,
+    owner
+  });
+
+  const activity = buildActivityFeed({
     recentBuyer,
     recentAgent,
-    recentRental
-  ).slice(0, 6);
+    recentRental,
+    recentPublishedListings,
+    recentPublishedPosts
+  }).slice(0, 10);
+
+  const allCaughtUp = needsAttention.every((section) => section.items.length === 0);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-      <section
-        className={
-          isOwner(user)
-            ? "grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10"
-            : "grid grid-cols-2 gap-4 mb-10"
-        }
-      >
-        {isOwner(user) && (
-          <>
-            <StatCard
-              label="Buyer inquiries"
-              value={inquiryCounts.active}
-              href="/admin/inquiries?type=buyer"
-            />
-            <StatCard
-              label="Agent inquiries"
-              value={agentInquiryCounts.active}
-              href="/admin/inquiries?type=agent"
-            />
-            <StatCard
-              label="Rental inquiries"
-              value={rentalInquiryCounts.active}
-              href="/admin/inquiries?type=rental"
-            />
-          </>
-        )}
-        <StatCard
-          label="Listings in review"
-          value={counts.review}
-          href="/admin/listings?status=review"
-        />
-        <StatCard
-          label="Published listings"
-          value={counts.published}
-          href="/admin/listings?status=published"
-        />
-      </section>
-
-      <section className="flex flex-wrap gap-3 mb-12">
-        <Link
-          href="/admin/listings/new"
-          className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors"
-        >
-          New Listing →
-        </Link>
-        {isOwner(user) && (
-          <Link
-            href="/admin/inquiries"
-            className="border border-ink text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
-          >
-            View Inquiries →
-          </Link>
-        )}
-      </section>
-
-      {isOwner(user) && (
-        <section>
-          <div className="flex items-baseline justify-between mb-4">
-            <h3 className="font-display text-xl">Recent inquiries</h3>
-            <Link
-              href="/admin/inquiries"
-              className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
-            >
-              See all →
-            </Link>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left column — needs-attention queues. Wider because the rows
+            are link lists; the right column holds compressed stats. */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-2xl">Needs attention</h2>
           </div>
-          {recentMixed.length === 0 ? (
-            <p className="text-sm text-black/50">No inquiries yet.</p>
-          ) : (
-            <div className="border border-black/10 bg-white divide-y divide-black/10">
-              {recentMixed.map((row) => (
-                <Link
-                  key={`${row.kind}-${row.id}`}
-                  href={`/admin/inquiries?type=${row.kind}`}
-                  className="flex items-baseline justify-between gap-3 p-4 hover:bg-black/[0.02] transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={
-                          "text-[10px] uppercase tracking-widest px-1.5 py-0.5 " +
-                          TYPE_BADGE[row.kind]
-                        }
-                      >
-                        {TYPE_LABEL[row.kind]}
-                      </span>
-                      <p className="font-medium truncate">{row.name}</p>
-                    </div>
-                    <p className="text-xs text-black/55 mt-0.5 truncate">
-                      {subtitleFor(row)}
-                    </p>
-                  </div>
-                  <p className="text-xs text-black/50 shrink-0 whitespace-nowrap">
-                    {formatRelativeShort(row.created_at)}
-                  </p>
-                </Link>
-              ))}
+
+          {allCaughtUp ? (
+            <div className="border border-black/10 bg-white p-8 text-center">
+              <p className="font-display text-xl">All caught up.</p>
+              <p className="text-sm text-black/55 mt-1">
+                Nothing in the queues right now.
+              </p>
             </div>
+          ) : (
+            needsAttention.map((section) =>
+              section.items.length === 0 ? null : (
+                <NeedsAttentionSection key={section.heading} section={section} />
+              )
+            )
           )}
+        </div>
+
+        {/* Right column — at-a-glance stats + quick actions. Each stat
+            row compresses to label + value + link so five of them stack
+            cleanly in the narrow col-span-1 gutter. */}
+        <aside className="space-y-8">
+          <section>
+            <h2 className="font-display text-2xl mb-4">At a glance</h2>
+            <div className="border border-black/10 bg-white divide-y divide-black/10">
+              <StatRow
+                label="Published listings"
+                value={listingCounts.published}
+                href="/admin/listings?status=published"
+              />
+              {owner && (
+                <StatRow
+                  label="Published blog posts"
+                  value={postCounts.published}
+                  href="/admin/blog?status=published"
+                />
+              )}
+              {owner && (
+                <StatRow
+                  label="Published rentals"
+                  value={rentalListingCount}
+                  href="/admin/listings?status=published&type=rental"
+                />
+              )}
+              {owner && (
+                <StatRow
+                  label="Total inquiries"
+                  value={totalInquiries}
+                  href="/admin/inquiries"
+                />
+              )}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-display text-2xl mb-4">Quick actions</h2>
+            <div className="flex flex-col gap-2">
+              <Link
+                href="/admin/listings/new"
+                className="bg-ink text-paper px-5 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors text-center"
+              >
+                New listing
+              </Link>
+              {owner && (
+                <Link
+                  href="/admin/blog/new"
+                  className="border border-ink text-ink px-5 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors text-center"
+                >
+                  New blog post
+                </Link>
+              )}
+              {owner && (
+                <Link
+                  href="/admin/inquiries"
+                  className="border border-ink text-ink px-5 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors text-center"
+                >
+                  View all inquiries
+                </Link>
+              )}
+              {owner && (
+                <Link
+                  href="/admin/hero-photos"
+                  className="border border-ink text-ink px-5 py-3 text-sm uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors text-center"
+                >
+                  Manage hero photos
+                </Link>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      {/* Full-width recent activity feed below both columns. Mixes
+          inquiries + publications on a single timeline so the dashboard
+          feels like a diary of what happened, not a set of siloed
+          lists. Capped at 10 — full history lives in the per-surface
+          admin indexes. */}
+      {owner && activity.length > 0 && (
+        <section className="mt-12">
+          <h2 className="font-display text-2xl mb-4">Recent activity</h2>
+          <div className="border border-black/10 bg-white divide-y divide-black/10">
+            {activity.map((row) => (
+              <Link
+                key={row.key}
+                href={row.href}
+                className="flex items-baseline justify-between gap-3 p-4 hover:bg-black/[0.02] transition-colors"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className={
+                        "text-[10px] uppercase tracking-widest px-1.5 py-0.5 " +
+                        KIND_BADGE[row.kind]
+                      }
+                    >
+                      {KIND_LABEL[row.kind]}
+                    </span>
+                    <p className="font-medium truncate">{row.title}</p>
+                  </div>
+                  <p className="text-xs text-black/55 mt-0.5 truncate">
+                    {row.subtitle}
+                  </p>
+                </div>
+                <p className="text-xs text-black/50 shrink-0 whitespace-nowrap">
+                  {formatRelativeShort(row.at)}
+                </p>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
     </div>
   );
 }
 
-function mergeRecent(
-  buyer: BuyerRecent[],
-  agent: AgentInquiry[],
-  rental: RentalInquiry[]
-): RecentRow[] {
-  const tagged: RecentRow[] = [
-    ...buyer.map((b) => ({ ...b, kind: "buyer" as const })),
-    ...agent.map((a) => ({ ...a, kind: "agent" as const })),
-    ...rental.map((r) => ({ ...r, kind: "rental" as const }))
-  ];
-  tagged.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+// ─── Needs-attention assembly ─────────────────────────────────────────────
+
+interface NeedsAttentionItem {
+  key: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  at: string | null;
+}
+
+interface NeedsAttentionSection {
+  heading: string;
+  /** Total items available (for "See all N →" count). */
+  total: number;
+  /** Up to 5 items to render inline. */
+  items: NeedsAttentionItem[];
+  seeAllHref: string;
+}
+
+function buildNeedsAttention(args: {
+  listingsInReview: (Listing & { creator_name: string | null })[];
+  draftPosts: BlogPostListItem[];
+  newBuyerInquiries: BuyerRecent[];
+  newAgentInquiries: AgentInquiry[];
+  newRentalInquiries: RentalInquiry[];
+  owner: boolean;
+}): NeedsAttentionSection[] {
+  const sections: NeedsAttentionSection[] = [];
+
+  sections.push({
+    heading: "Listings in review",
+    total: args.listingsInReview.length,
+    seeAllHref: "/admin/listings?status=review",
+    items: args.listingsInReview.slice(0, 5).map((l) => ({
+      key: `review-${l.id}`,
+      title: l.title,
+      subtitle:
+        (l.creator_name ? `By ${l.creator_name}` : "") +
+        (l.location ? (l.creator_name ? ` · ${l.location}` : l.location) : ""),
+      href: `/admin/listings/${l.id}/edit`,
+      at: l.submitted_at ?? l.updated_at
+    }))
+  });
+
+  if (args.owner) {
+    sections.push({
+      heading: "Unread buyer inquiries",
+      total: args.newBuyerInquiries.length,
+      seeAllHref: "/admin/inquiries?type=buyer&status=new",
+      items: args.newBuyerInquiries.slice(0, 5).map((i) => ({
+        key: `buyer-${i.id}`,
+        title: i.name,
+        subtitle: i.listing_title ? `Re: ${i.listing_title}` : i.email,
+        href: `/admin/inquiries?type=buyer&status=new`,
+        at: i.created_at
+      }))
+    });
+
+    sections.push({
+      heading: "Unread agent inquiries",
+      total: args.newAgentInquiries.length,
+      seeAllHref: "/admin/inquiries?type=agent&status=new",
+      items: args.newAgentInquiries.slice(0, 5).map((a) => ({
+        key: `agent-${a.id}`,
+        title: a.name,
+        subtitle: a.brokerage || a.city_state || a.email,
+        href: `/admin/inquiries?type=agent&status=new`,
+        at: a.created_at
+      }))
+    });
+
+    sections.push({
+      heading: "Unread rental inquiries",
+      total: args.newRentalInquiries.length,
+      seeAllHref: "/admin/inquiries?type=rental&status=new",
+      items: args.newRentalInquiries.slice(0, 5).map((r) => ({
+        key: `rental-${r.id}`,
+        title: r.name,
+        subtitle: `${r.destination} · ${r.email}`,
+        href: `/admin/inquiries?type=rental&status=new`,
+        at: r.created_at
+      }))
+    });
+
+    sections.push({
+      heading: "Blog posts in draft",
+      total: args.draftPosts.length,
+      seeAllHref: "/admin/blog?status=draft",
+      items: args.draftPosts.slice(0, 5).map((p) => ({
+        key: `draft-${p.id}`,
+        title: p.title,
+        subtitle: p.categorySlug,
+        href: `/admin/blog/${p.id}/edit`,
+        at: null
+      }))
+    });
+  }
+
+  return sections;
+}
+
+function NeedsAttentionSection({ section }: { section: NeedsAttentionSection }) {
+  const overflow = section.total > section.items.length;
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="font-display text-lg">
+          {section.heading}{" "}
+          <span className="text-sm text-black/50 font-sans">({section.total})</span>
+        </h3>
+        {overflow && (
+          <Link
+            href={section.seeAllHref}
+            className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
+          >
+            See all {section.total} →
+          </Link>
+        )}
+      </div>
+      <div className="border border-black/10 bg-white divide-y divide-black/10">
+        {section.items.map((item) => (
+          <Link
+            key={item.key}
+            href={item.href}
+            className="flex items-baseline justify-between gap-3 p-4 hover:bg-black/[0.02] transition-colors"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="font-medium truncate">{item.title}</p>
+              {item.subtitle && (
+                <p className="text-xs text-black/55 mt-0.5 truncate">{item.subtitle}</p>
+              )}
+            </div>
+            {item.at && (
+              <p className="text-xs text-black/50 shrink-0 whitespace-nowrap">
+                {formatRelativeShort(item.at)}
+              </p>
+            )}
+          </Link>
+        ))}
+      </div>
+    </section>
   );
-  return tagged;
 }
 
-function subtitleFor(row: RecentRow): string {
-  if (row.kind === "buyer") {
-    return row.listing_title ? `Re: ${row.listing_title}` : row.email;
-  }
-  if (row.kind === "rental") {
-    return `Rental — ${row.destination}`;
-  }
-  return row.brokerage || row.city_state || row.email;
+// ─── Activity feed assembly ───────────────────────────────────────────────
+
+function buildActivityFeed(args: {
+  recentBuyer: BuyerRecent[];
+  recentAgent: AgentInquiry[];
+  recentRental: RentalInquiry[];
+  recentPublishedListings: (Listing & { creator_name: string | null })[];
+  recentPublishedPosts: BlogPostListItem[];
+}): ActivityRow[] {
+  const rows: ActivityRow[] = [
+    ...args.recentBuyer.map<ActivityRow>((i) => ({
+      key: `ab-${i.id}`,
+      kind: "inquiry-buyer",
+      title: i.name,
+      subtitle: i.listing_title ? `Re: ${i.listing_title}` : i.email,
+      href: `/admin/inquiries?type=buyer`,
+      at: i.created_at
+    })),
+    ...args.recentAgent.map<ActivityRow>((a) => ({
+      key: `aa-${a.id}`,
+      kind: "inquiry-agent",
+      title: a.name,
+      subtitle: a.brokerage || a.city_state || a.email,
+      href: `/admin/inquiries?type=agent`,
+      at: a.created_at
+    })),
+    ...args.recentRental.map<ActivityRow>((r) => ({
+      key: `ar-${r.id}`,
+      kind: "inquiry-rental",
+      title: r.name,
+      subtitle: `Rental — ${r.destination}`,
+      href: `/admin/inquiries?type=rental`,
+      at: r.created_at
+    })),
+    ...args.recentPublishedListings
+      .filter((l) => l.published_at !== null)
+      .slice(0, 10)
+      .map<ActivityRow>((l) => ({
+        key: `pl-${l.id}`,
+        kind: "publication",
+        title: l.title,
+        subtitle: l.listing_type === "rental" ? "Rental listing" : "Listing",
+        href: `/admin/listings/${l.id}/edit`,
+        at: l.published_at as string
+      })),
+    ...args.recentPublishedPosts
+      .filter((p) => p.publishedAt !== null)
+      .map<ActivityRow>((p) => ({
+        key: `pp-${p.id}`,
+        kind: "publication",
+        title: p.title,
+        subtitle: "Blog post",
+        href: `/admin/blog/${p.id}/edit`,
+        at: (p.publishedAt as Date).toISOString()
+      }))
+  ];
+  rows.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  return rows;
 }
 
-function StatCard({
+// ─── Primitives ───────────────────────────────────────────────────────────
+
+function StatRow({
   label,
   value,
   href
@@ -248,10 +564,10 @@ function StatCard({
   return (
     <Link
       href={href}
-      className="border border-black/10 bg-white p-5 hover:border-accent hover:bg-accent/5 transition-colors"
+      className="flex items-baseline justify-between p-4 hover:bg-accent/5 transition-colors"
     >
-      <p className="text-xs uppercase tracking-widest text-black/50">{label}</p>
-      <p className="font-display text-3xl mt-2">{value}</p>
+      <span className="text-xs uppercase tracking-widest text-black/55">{label}</span>
+      <span className="font-display text-2xl">{value}</span>
     </Link>
   );
 }
