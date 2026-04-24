@@ -80,9 +80,25 @@ export default async function HomePage() {
             <p className="text-xs uppercase tracking-widest text-black/50">Featured</p>
             <h2 className="font-display text-3xl sm:text-4xl mt-2">Latest listings</h2>
           </div>
-          <Link href="/listings" className="text-sm hover:text-accent underline underline-offset-4">
-            View all →
-          </Link>
+          {/* Secondary "For agents" path sits to the left of the primary
+              "View all" — "View all" stays right-most to preserve the
+              existing muscle memory for buyers clicking through.
+              Separator rule matches SiteHeader's nav-divider pattern. */}
+          <div className="flex items-center gap-4 text-sm">
+            <Link
+              href="/agents"
+              className="hover:text-accent underline underline-offset-4"
+            >
+              For agents →
+            </Link>
+            <span className="h-4 w-px bg-black/20" aria-hidden="true" />
+            <Link
+              href="/listings"
+              className="hover:text-accent underline underline-offset-4"
+            >
+              View all →
+            </Link>
+          </div>
         </div>
 
         {listings.length === 0 ? (
