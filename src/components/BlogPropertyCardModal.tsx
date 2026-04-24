@@ -34,12 +34,23 @@ export function BlogPropertyCardModal({
   onClose: () => void;
 }) {
   const [attrs, setAttrs] = useState<PropertyCardAttrs>(initial ?? EMPTY);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string>("");
+  // The preview's <img> falls back to a neutral block when the URL 404s
+  // or otherwise fails to load — keyed off the URL itself so a new
+  // photoUrl retries cleanly.
+  const [previewFailedFor, setPreviewFailedFor] = useState<string>("");
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset when the modal opens so a re-open shows the latest `initial`
   // instead of last session's typing.
   useEffect(() => {
-    if (open) setAttrs(initial ?? EMPTY);
+    if (open) {
+      setAttrs(initial ?? EMPTY);
+      setUploadError("");
+      setPreviewFailedFor("");
+    }
   }, [open, initial]);
 
   useEffect(() => {
@@ -78,6 +89,38 @@ export function BlogPropertyCardModal({
     }
     e.preventDefault();
     commit();
+  }
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setUploadError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/blog/upload-image", {
+        method: "POST",
+        body: fd
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.url) {
+        setUploadError(data.error || "Upload failed. Try again or paste a URL.");
+        return;
+      }
+      // Uploading the same URL twice shouldn't leave the preview stuck
+      // in the failed state — reset the error key so onError can fire
+      // fresh if the new URL also fails.
+      setPreviewFailedFor("");
+      setAttrs((a) => ({ ...a, photoUrl: data.url as string }));
+    } catch (err) {
+      setUploadError(
+        err instanceof Error ? err.message : "Upload failed. Try again or paste a URL."
+      );
+    } finally {
+      setUploading(false);
+    }
   }
 
   const inputClass =
@@ -135,13 +178,73 @@ export function BlogPropertyCardModal({
         </div>
 
         <div>
-          <label className={labelClass}>Photo URL *</label>
+          <span className={labelClass}>Photo *</span>
+          {/* Preview thumbnail. Keyed off attrs.photoUrl so it shows for
+              any source: newly-uploaded, pasted URL, or pre-filled on
+              edit. onError falls back to a neutral "preview unavailable"
+              block (same pattern as FeatureTile) without clearing
+              photoUrl — the saved node may still render if the URL was
+              briefly unreachable. */}
+          {attrs.photoUrl && (
+            <div className="mb-2 relative aspect-square w-32 overflow-hidden border border-black/10 bg-black/5">
+              {previewFailedFor === attrs.photoUrl ? (
+                <div className="absolute inset-0 flex items-center justify-center text-center text-[10px] uppercase tracking-widest text-black/40 p-2">
+                  Preview unavailable
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={attrs.photoUrl}
+                  alt="Property photo preview"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={() => setPreviewFailedFor(attrs.photoUrl)}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Upload button triggers the hidden file picker. Disabled
+              while a request is in flight. On success, photoUrl is set
+              from the endpoint's returned URL (same shape as the paste
+              path). On failure, the error renders inline and the URL
+              input remains available as a fallback. */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-ink text-paper px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent hover:text-ink transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading ? "Uploading…" : "Upload image"}
+            </button>
+            <span className="text-[10px] uppercase tracking-widest text-black/40">
+              or paste URL
+            </span>
+          </div>
           <input
-            required
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleUpload(file);
+              // Reset so selecting the same file twice still fires onChange.
+              e.target.value = "";
+            }}
+          />
+          {uploadError && (
+            <p className="mt-1 text-xs text-red-600">{uploadError}</p>
+          )}
+
+          <input
             type="url"
             value={attrs.photoUrl}
-            onChange={(e) => setAttrs({ ...attrs, photoUrl: e.target.value })}
-            className={inputClass}
+            onChange={(e) => {
+              setPreviewFailedFor("");
+              setAttrs({ ...attrs, photoUrl: e.target.value });
+            }}
+            className={inputClass + " mt-2"}
             placeholder="https://…/hero.webp"
           />
         </div>
