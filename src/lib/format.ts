@@ -31,15 +31,26 @@ export function formatRelativeShort(iso: string | null | undefined, now = Date.n
 
 // ─── Slug generation ───────────────────────────────────────────────────────
 
-const STOP_WORDS = new Set<string>([
+// English stopwords shared by listing + blog slug generators. These are
+// structural words that add noise to URLs without helping SEO or
+// readability — articles, conjunctions, prepositions, auxiliaries.
+const BASE_STOP_WORDS = new Set<string>([
   "the", "a", "an", "is", "are", "for", "of", "in", "at", "on", "to",
   "and", "or", "but", "with", "this", "that", "these", "those", "its",
   "it's", "as", "be", "been", "being", "have", "has", "had", "do",
   "does", "did", "will", "would", "could", "should", "may", "might",
-  "must", "can", "shall", "&",
-  // Generic property nouns — stripped because every listing has them.
+  "must", "can", "shall", "&"
+]);
+
+// Listing-specific noise: every property listing has "estate" or
+// "mansion" somewhere in the title; stripping these keeps listing slugs
+// memorable. Blog titles use these words meaningfully ("Villa vs Estate"
+// is a real post idea) so the blog generator doesn't apply this set.
+const LISTING_NOUNS = new Set<string>([
   "living", "home", "house", "property", "estate", "mansion", "residence"
 ]);
+
+const STOP_WORDS = new Set<string>([...BASE_STOP_WORDS, ...LISTING_NOUNS]);
 
 const RESERVED_SLUGS = new Set<string>([
   "admin", "api", "listings", "login", "new", "edit", "sold"
@@ -163,27 +174,28 @@ export function isValidSlug(s: string): boolean {
 }
 
 /**
- * Editorial slug — for blog posts. Preserves full titles minus
- * punctuation; no stopword strip, no keyword cap, just length cap at
- * the last hyphen before MAX_SLUG_LENGTH so we never cut mid-word.
- *
- * generateSlug was designed for listings, where titles carry redundant
- * property-noun noise ("estate", "mansion", "home") and address-style
- * numbers that actively hurt SEO readability. Blog titles are
- * author-composed editorial lines — every word is intentional, and
- * keeping them matches the Medium/Substack URL convention.
+ * Editorial slug — for blog posts. Strips base English stopwords
+ * (articles, conjunctions, prepositions, auxiliaries) but keeps every
+ * meaningful word — no keyword cap like the listings generator, and
+ * no listing-specific noun filter (blog titles use "estate"/"mansion"
+ * meaningfully). Length-capped at the last hyphen before
+ * MAX_SLUG_LENGTH so we never cut mid-word.
  *
  * Examples:
  *   "Herschel Supply Enters the Golf World With First Collection"
- *     → "herschel-supply-enters-the-golf-world-with-first-collection"
+ *     → "herschel-supply-enters-golf-world-first-collection"
  *   "The 10 Most Outrageous Vacation Mansions on the Internet"
- *     → "the-10-most-outrageous-vacation-mansions-on-the-internet"
- *   Overlong title past MAX_SLUG_LENGTH gets hyphen-boundary truncation
+ *     → "10-most-outrageous-vacation-mansions-internet"
+ *   "Inside a $100M+ Beverly Park fortress sale"
+ *     → "inside-100m-beverly-park-fortress-sale"
+ *   Overlong titles past MAX_SLUG_LENGTH get hyphen-boundary truncation
  *   via the shared capLength helper.
  */
 export function generateBlogSlug(title: string): string {
-  const slug = slugifyText(title);
-  return slug ? capLength(slug, MAX_SLUG_LENGTH) : `post-${shortHash(title)}`;
+  const tokens = tokenize(title).filter((t) => !BASE_STOP_WORDS.has(t));
+  const combined = tokens.join("-");
+  if (!combined) return `post-${shortHash(title)}`;
+  return capLength(combined, MAX_SLUG_LENGTH);
 }
 
 // ─── Legacy ────────────────────────────────────────────────────────────────
