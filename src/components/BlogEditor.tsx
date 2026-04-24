@@ -371,30 +371,26 @@ export function BlogEditor({
           ProseMirror detects the nearest scrollable ancestor for
           caret-into-view. Inline style overrides the Tailwind height
           class when heightPx is non-null (user has dragged or a
-          persisted value was loaded).
+          persisted value was loaded). */}
+      <EditorContent
+        editor={editor}
+        className="p-4 h-[70vh] overflow-y-auto"
+        style={heightPx !== null ? { height: `${heightPx}px` } : undefined}
+      />
 
-          Wrapping relative div anchors the corner grip's absolute
-          position to the scroll container — same visual pattern as
-          the native textarea grip on /admin/listings/[id]/edit, but
-          cursor is ns-resize since drag is vertical-only. */}
-      <div className="relative">
-        <EditorContent
-          editor={editor}
-          className="p-4 h-[70vh] overflow-y-auto"
-          style={heightPx !== null ? { height: `${heightPx}px` } : undefined}
-        />
+      {/* Resize grip row — sibling below the scroll container so the
+          grip sits outside the editor's scrolling area (matches the
+          listings native-textarea pattern where the grip is rendered
+          below the text, in its own corner). Normal-flow layout, no
+          absolute positioning, no scrollbar collision. */}
+      <div className="flex justify-end border-t border-black/10 bg-black/[0.02] px-2 py-1.5">
         <div
           role="separator"
           aria-orientation="horizontal"
           aria-label="Resize editor (double-click to reset)"
           onMouseDown={onHandleMouseDown}
           onDoubleClick={onHandleDoubleClick}
-          // Inset from the literal corner so the grip doesn't stack on
-          // the browser's native scrollbar bottom arrow (Windows
-          // classic scrollbars are ~17px wide — 8px inset would still
-          // overlap). right-6 clears the scrollbar column; bottom-2
-          // matches the vertical rhythm.
-          className="group absolute bottom-2 right-6 w-3.5 h-3.5 cursor-ns-resize"
+          className="group w-3.5 h-3.5 cursor-ns-resize"
         >
           <svg
             viewBox="0 0 14 14"
