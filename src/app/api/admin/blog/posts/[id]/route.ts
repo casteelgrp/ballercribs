@@ -1,32 +1,10 @@
 import { NextResponse } from "next/server";
-import DOMPurify from "isomorphic-dompurify";
 import { requireUser } from "@/lib/auth";
 import { deletePost, getPostById, updatePost } from "@/lib/blog-queries";
 import { canDeletePost, canEditPost } from "@/lib/blog-permissions";
+import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 
 export const runtime = "nodejs";
-
-// Same allowlist as the create route — keep in sync if we extend the
-// editor's node palette. The set here matches StarterKit + Link + Image
-// + PropertyCard's renderHTML output.
-const SANITIZE_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
-  ALLOWED_TAGS: [
-    "p", "br", "strong", "em", "b", "i", "u", "s", "code", "pre",
-    "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
-    "hr", "a", "img", "div", "span"
-  ],
-  ALLOWED_ATTR: [
-    "href", "target", "rel", "src", "alt", "title", "loading",
-    "class", "data-property-card"
-  ],
-  ALLOWED_URI_REGEXP: /^(?:https?:|\/|mailto:|tel:|#)/i
-};
-
-function sanitizeHtml(input: unknown): string | undefined {
-  if (typeof input !== "string") return undefined;
-  if (input === "") return "";
-  return DOMPurify.sanitize(input, SANITIZE_CONFIG);
-}
 
 export async function PATCH(
   req: Request,
@@ -64,7 +42,7 @@ export async function PATCH(
         subtitle: body?.subtitle,
         excerpt: body?.excerpt,
         bodyJson: body?.bodyJson,
-        bodyHtml: sanitizeHtml(body?.bodyHtml),
+        bodyHtml: sanitizeBlogHtml(body?.bodyHtml),
         coverImageUrl: body?.coverImageUrl,
         socialCoverUrl: body?.socialCoverUrl,
         metaTitle: body?.metaTitle,

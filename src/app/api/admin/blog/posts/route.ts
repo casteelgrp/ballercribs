@@ -1,37 +1,13 @@
 import { NextResponse } from "next/server";
-import DOMPurify from "isomorphic-dompurify";
 import { requireUser } from "@/lib/auth";
 import { createPost, getAllPostsForAdmin } from "@/lib/blog-queries";
 import { canCreatePost } from "@/lib/blog-permissions";
+import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import type { PostStatus } from "@/types/blog";
 
 export const runtime = "nodejs";
 
 const VALID_STATUSES = new Set<PostStatus>(["draft", "review", "published", "archived"]);
-
-// body_html comes from the TipTap editor via editor.getHTML(). Our own
-// editor is the authored source, but we sanitize anyway — cheap XSS
-// insurance against a future path that accepts HTML from elsewhere, or
-// a compromised author session. The allowlist matches our extension set
-// (StarterKit + Link + Image + PropertyCard) plus the property-card
-// attrs so the renderHTML output survives the pass.
-const SANITIZE_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
-  ALLOWED_TAGS: [
-    "p", "br", "strong", "em", "b", "i", "u", "s", "code", "pre",
-    "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
-    "hr", "a", "img", "div", "span"
-  ],
-  ALLOWED_ATTR: [
-    "href", "target", "rel", "src", "alt", "title", "loading",
-    "class", "data-property-card"
-  ],
-  ALLOWED_URI_REGEXP: /^(?:https?:|\/|mailto:|tel:|#)/i
-};
-
-function sanitizeHtml(input: string | null | undefined): string | null {
-  if (input === null || input === undefined || input === "") return null;
-  return DOMPurify.sanitize(input, SANITIZE_CONFIG);
-}
 
 export async function GET(req: Request) {
   let user;
@@ -92,7 +68,8 @@ export async function POST(req: Request) {
         subtitle: body?.subtitle ?? null,
         excerpt: body?.excerpt ?? null,
         bodyJson: body?.bodyJson ?? null,
-        bodyHtml: sanitizeHtml(typeof body?.bodyHtml === "string" ? body.bodyHtml : null),
+        // Create path: no "skip" semantics, coerce undefined → null.
+        bodyHtml: sanitizeBlogHtml(body?.bodyHtml) ?? null,
         coverImageUrl: body?.coverImageUrl ?? null,
         socialCoverUrl: body?.socialCoverUrl ?? null,
         metaTitle: body?.metaTitle ?? null,
