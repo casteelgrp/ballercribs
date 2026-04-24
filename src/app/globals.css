@@ -380,9 +380,8 @@ html, body {
   opacity: 0.92;
 }
 .blog-prose .blog-gallery__caption {
-  margin: 0.4rem 0 0;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  color: rgba(10, 10, 10, 0.6);
-  font-style: italic;
+  /* Hidden on the inline grid — captions belong in the lightbox, not
+     under every thumbnail. The element stays in the DOM so BlogBody's
+     click handler can read textContent when opening the lightbox. */
+  display: none;
 }
