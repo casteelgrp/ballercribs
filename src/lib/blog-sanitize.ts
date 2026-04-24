@@ -25,11 +25,18 @@ const CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
   ALLOWED_TAGS: [
     "p", "br", "strong", "em", "b", "i", "u", "s", "code", "pre",
     "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
-    "hr", "a", "img", "div", "span"
+    "hr", "a", "img", "div", "span",
+    // Gallery block markup (D4): figure + figcaption wrap each item,
+    // the outer container is a <div data-gallery>.
+    "figure", "figcaption"
   ],
   ALLOWED_ATTR: [
     "href", "target", "rel", "src", "alt", "title", "loading",
-    "class", "data-property-card"
+    "class", "data-property-card",
+    // Gallery attrs (D4): data-gallery on the container, data-count
+    // + data-images on the same container (data-images is the
+    // round-trip JSON blob the extension emits for reliable parseHTML).
+    "data-gallery", "data-count", "data-images"
   ],
   ALLOWED_URI_REGEXP: /^(?:https?:|\/|mailto:|tel:|#)/i
 };

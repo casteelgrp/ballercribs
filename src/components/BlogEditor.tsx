@@ -8,7 +8,9 @@ import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
 import { PropertyCard, type PropertyCardAttrs } from "./editor-extensions/PropertyCard";
+import { Gallery, type GalleryAttrs } from "./editor-extensions/Gallery";
 import { BlogPropertyCardModal } from "./BlogPropertyCardModal";
+import { BlogGalleryModal } from "./BlogGalleryModal";
 
 type ModalState = {
   open: boolean;
@@ -46,6 +48,11 @@ export function BlogEditor({
   disabled?: boolean;
 }) {
   const [modal, setModal] = useState<ModalState>(EMPTY_MODAL);
+  const [galleryModal, setGalleryModal] = useState<{
+    open: boolean;
+    pos: number | null;
+    initial: GalleryAttrs | null;
+  }>({ open: false, pos: null, initial: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -80,7 +87,8 @@ export function BlogEditor({
       Image,
       Placeholder.configure({ placeholder: "Start writing…" }),
       Typography,
-      PropertyCard
+      PropertyCard,
+      Gallery
     ],
     content: initialContent ?? "",
     onUpdate: ({ editor }) => {
@@ -98,6 +106,21 @@ export function BlogEditor({
     };
     storage.onEditRequest = (pos, attrs) => {
       setModal({ open: true, pos, initial: attrs });
+    };
+    return () => {
+      storage.onEditRequest = null;
+    };
+  }, [editor]);
+
+  // Same pattern for Gallery — NodeView's Edit pill bubbles up to open
+  // the modal pre-filled via the extension's storage.
+  useEffect(() => {
+    if (!editor) return;
+    const storage = editor.storage.gallery as {
+      onEditRequest: null | ((pos: number, attrs: GalleryAttrs) => void);
+    };
+    storage.onEditRequest = (pos, attrs) => {
+      setGalleryModal({ open: true, pos, initial: attrs });
     };
     return () => {
       storage.onEditRequest = null;
@@ -184,6 +207,20 @@ export function BlogEditor({
       editor.chain().focus().insertPropertyCard(attrs).run();
     }
     setModal(EMPTY_MODAL);
+  }
+
+  function insertGallery() {
+    setGalleryModal({ open: true, pos: null, initial: null });
+  }
+
+  function saveGallery(attrs: GalleryAttrs) {
+    if (!editor) return;
+    if (galleryModal.pos !== null) {
+      editor.chain().focus().updateGalleryAt(galleryModal.pos, attrs).run();
+    } else {
+      editor.chain().focus().insertGallery(attrs).run();
+    }
+    setGalleryModal({ open: false, pos: null, initial: null });
   }
 
   async function handleImageFile(file: File) {
@@ -323,6 +360,14 @@ export function BlogEditor({
         >
           + Property
         </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={insertGallery}
+          className={btn(false)}
+        >
+          + Gallery
+        </button>
         <span className="w-px bg-black/10 mx-1" aria-hidden="true" />
         <button
           type="button"
@@ -422,6 +467,13 @@ export function BlogEditor({
         initial={modal.initial}
         onSave={savePropertyCard}
         onClose={() => setModal(EMPTY_MODAL)}
+      />
+
+      <BlogGalleryModal
+        open={galleryModal.open}
+        initial={galleryModal.initial}
+        onSave={saveGallery}
+        onClose={() => setGalleryModal({ open: false, pos: null, initial: null })}
       />
     </div>
   );

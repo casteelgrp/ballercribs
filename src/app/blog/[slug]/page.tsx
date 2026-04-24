@@ -4,6 +4,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getCategories, getPostBySlug } from "@/lib/blog-queries";
 import { getUserById } from "@/lib/db";
+import { BlogBody } from "@/components/BlogBody";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
 
 export const revalidate = 60;
@@ -180,12 +181,10 @@ export default async function BlogDetailPage({
 
         <div className="mt-8">
           {hasBody ? (
-            <div
-              className="blog-prose"
-              // body_html is sanitized server-side by DOMPurify at write
-              // time (POST + PATCH routes in /api/admin/blog/posts).
-              dangerouslySetInnerHTML={{ __html: post.bodyHtml as string }}
-            />
+            // BlogBody wraps the sanitized HTML and wires the gallery
+            // lightbox via click delegation. Falls back gracefully on
+            // bodies without galleries (listener attaches to nothing).
+            <BlogBody html={post.bodyHtml as string} />
           ) : (
             <p className="text-black/50 italic">No content yet.</p>
           )}
