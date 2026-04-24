@@ -176,12 +176,13 @@ function FullShell({ children }: { children: React.ReactNode }) {
 }
 
 function CompactShell({ children }: { children: React.ReactNode }) {
-  // Spans the article width at every breakpoint; the form itself caps at
-  // max-w-md so the input+button row doesn't stretch to absurd widths on
-  // wide desktops while the surrounding copy still reads as full-width.
+  // Centered under the article column — mx-auto blocks the max-w-xl
+  // wrapper, text-center cascades to the prompt copy + success message
+  // + error line so the form feels visually centered rather than just
+  // block-centered with left-aligned content inside.
   return (
     <div className="pt-8 border-t border-black/10">
-      <div className="max-w-xl">{children}</div>
+      <div className="max-w-xl mx-auto text-center">{children}</div>
     </div>
   );
 }
