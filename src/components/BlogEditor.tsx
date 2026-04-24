@@ -364,32 +364,56 @@ export function BlogEditor({
       />
 
       {/* Editor surface. Fixed-height pane (h-[70vh] default, persistable
-          via the drag handle below) so the page doesn't stretch on long
+          via the corner grip below) so the page doesn't stretch on long
           posts. Content scrolls internally below the sticky toolbar —
           the toolbar's sticky context is the outer wrapper, not this
           scroll container, so internal scrolling doesn't affect it.
           ProseMirror detects the nearest scrollable ancestor for
           caret-into-view. Inline style overrides the Tailwind height
           class when heightPx is non-null (user has dragged or a
-          persisted value was loaded). */}
-      <EditorContent
-        editor={editor}
-        className="p-4 h-[70vh] overflow-y-auto"
-        style={heightPx !== null ? { height: `${heightPx}px` } : undefined}
-      />
+          persisted value was loaded).
 
-      {/* Vertical-only resize handle. Drag changes height + persists to
-          localStorage on mouseup; double-click resets to the 70vh
-          default. Min clamped to 40vh on drag so it can't shrink to
-          uselessness; no upper bound per spec. */}
-      <div
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="Resize editor (double-click to reset)"
-        onMouseDown={onHandleMouseDown}
-        onDoubleClick={onHandleDoubleClick}
-        className="h-2 border-t border-black/10 bg-black/5 hover:bg-black/10 cursor-ns-resize"
-      />
+          Wrapping relative div anchors the corner grip's absolute
+          position to the scroll container — same visual pattern as
+          the native textarea grip on /admin/listings/[id]/edit, but
+          cursor is ns-resize since drag is vertical-only. */}
+      <div className="relative">
+        <EditorContent
+          editor={editor}
+          className="p-4 h-[70vh] overflow-y-auto"
+          style={heightPx !== null ? { height: `${heightPx}px` } : undefined}
+        />
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize editor (double-click to reset)"
+          onMouseDown={onHandleMouseDown}
+          onDoubleClick={onHandleDoubleClick}
+          className="group absolute bottom-0 right-0 w-3.5 h-3.5 cursor-ns-resize"
+        >
+          <svg
+            viewBox="0 0 14 14"
+            className="w-full h-full"
+            fill="none"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <line
+              x1="1" y1="13" x2="13" y2="1"
+              className="stroke-black/30 group-hover:stroke-black/60 transition-colors"
+            />
+            <line
+              x1="5" y1="13" x2="13" y2="5"
+              className="stroke-black/30 group-hover:stroke-black/60 transition-colors"
+            />
+            <line
+              x1="9" y1="13" x2="13" y2="9"
+              className="stroke-black/30 group-hover:stroke-black/60 transition-colors"
+            />
+          </svg>
+        </div>
+      </div>
 
       <BlogPropertyCardModal
         open={modal.open}
