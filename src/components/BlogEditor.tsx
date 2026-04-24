@@ -389,7 +389,12 @@ export function BlogEditor({
           aria-label="Resize editor (double-click to reset)"
           onMouseDown={onHandleMouseDown}
           onDoubleClick={onHandleDoubleClick}
-          className="group absolute bottom-0 right-0 w-3.5 h-3.5 cursor-ns-resize"
+          // Inset from the literal corner so the grip doesn't stack on
+          // the browser's native scrollbar bottom arrow (Windows
+          // classic scrollbars are ~17px wide — 8px inset would still
+          // overlap). right-6 clears the scrollbar column; bottom-2
+          // matches the vertical rhythm.
+          className="group absolute bottom-2 right-6 w-3.5 h-3.5 cursor-ns-resize"
         >
           <svg
             viewBox="0 0 14 14"
