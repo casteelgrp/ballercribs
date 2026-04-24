@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import { isOwner } from "@/lib/permissions";
 import { AdminTabs } from "@/components/admin/AdminTabs";
+import { AdminSearch } from "@/components/admin/AdminSearch";
 
 export const dynamic = "force-dynamic";
 
@@ -35,14 +36,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Signed in as {user.name} ({user.email})
           </p>
         </div>
-        <form action="/api/admin/logout" method="POST">
-          <button
-            type="submit"
-            className="text-sm underline underline-offset-4 hover:text-accent"
-          >
-            Sign out
-          </button>
-        </form>
+        {/* Admin search sits next to Sign out — dropdown drops below the
+            input and overlays the page content. On narrow viewports the
+            flex-wrap on the header stacks it under the title block. */}
+        <div className="flex items-center gap-4 flex-wrap w-full sm:w-auto">
+          <AdminSearch />
+          <form action="/api/admin/logout" method="POST">
+            <button
+              type="submit"
+              className="text-sm underline underline-offset-4 hover:text-accent"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-6 border-b border-black/10">
         <AdminTabs isOwner={isOwner(user)} />
