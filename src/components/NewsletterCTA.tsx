@@ -8,8 +8,18 @@ type Variant = "full" | "compact";
 type Status = "idle" | "submitting" | "success" | "error";
 
 /**
- * Contextual newsletter signup rendered inline on the homepage and listing
- * detail pages. The standalone /newsletter page keeps its own richer form
+ * Context for the compact headline copy:
+ *   - "item"    (default) — listings + rentals details. Prepends
+ *                "Like this one? " referring to the property the reader
+ *                is viewing.
+ *   - "article" — blog post details. Omits the prefix since it reads
+ *                awkwardly as "Like this article?".
+ */
+type CompactContext = "item" | "article";
+
+/**
+ * Contextual newsletter signup rendered inline on the homepage and detail
+ * pages. The standalone /newsletter page keeps its own richer form
  * (name + email); these CTAs ask for email only so they disappear into the
  * editorial flow without adding friction.
  *
@@ -17,14 +27,23 @@ type Status = "idle" | "submitting" | "success" | "error";
  *  - 'full'    : homepage between-sections band (cream tint, full-width,
  *                centered headline + sub). Feels like a magazine section
  *                break, not a marketing pop-up.
- *  - 'compact' : listing detail post-content prompt. Narrow, thin top
- *                divider, single-line copy.
+ *  - 'compact' : detail-page conversion ask. Full-bleed dark band
+ *                (bg-ink text-paper) that reads as a deliberate stop,
+ *                not a thin strip. Pairs visually with the For Agents
+ *                band + homepage Featured rentals as the site's
+ *                dark-anchor rhythm.
  *
  * Both hit the existing /api/newsletter/subscribe endpoint. `data-cta`
  * attributes on the submit button + form let us wire up click tracking
  * later without hunting — 'newsletter-homepage' and 'newsletter-listing'.
  */
-export function NewsletterCTA({ variant }: { variant: Variant }) {
+export function NewsletterCTA({
+  variant,
+  context = "item"
+}: {
+  variant: Variant;
+  context?: CompactContext;
+}) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
 
@@ -79,8 +98,20 @@ export function NewsletterCTA({ variant }: { variant: Variant }) {
     );
   }
 
-  // ─── Form body — shared input group, variant-specific layout wrapper ─────
+  // ─── Form body — shared input group, variant-aware classes ────────────────
+  //
+  // Light variant (full): cream-bg input, ink button. Dark variant (compact):
+  // paper-bg input (still clearly reads "type here" on ink), accent-gold
+  // button. Same JSX shape; only the color classes flip.
   const emailId = `newsletter-cta-${variant}-email`;
+  const isCompact = variant === "compact";
+  const inputClass = isCompact
+    ? "flex-1 min-w-0 bg-paper text-ink placeholder-ink/40 border border-transparent px-4 py-3 text-base focus:border-accent focus:outline-none disabled:opacity-60"
+    : "flex-1 min-w-0 border border-black/20 bg-white px-4 py-3 text-base focus:border-accent focus:outline-none disabled:opacity-60";
+  const buttonClass = isCompact
+    ? "bg-accent text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+    : "bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap";
+
   const formInner = (
     <>
       <label htmlFor={emailId} className="sr-only">
@@ -94,22 +125,28 @@ export function NewsletterCTA({ variant }: { variant: Variant }) {
         autoComplete="email"
         placeholder="your@email.com"
         disabled={status === "submitting"}
-        className="flex-1 min-w-0 border border-black/20 bg-white px-4 py-3 text-base focus:border-accent focus:outline-none disabled:opacity-60"
+        className={inputClass}
       />
       <button
         type="submit"
         disabled={status === "submitting"}
         data-cta={dataCta}
-        className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        className={buttonClass}
       >
         {status === "submitting" ? "Subscribing…" : "Subscribe"}
       </button>
     </>
   );
 
+  // Error text color tracks the band: red-300 reads cleanly on ink,
+  // red-600 reads cleanly on the cream full-variant tint.
   const errorNode =
     status === "error" ? (
-      <p className="text-sm text-red-600 mt-2">
+      <p
+        className={
+          "text-sm mt-2 " + (isCompact ? "text-red-300" : "text-red-600")
+        }
+      >
         {errorMsg.includes("/newsletter") ? (
           <>
             Something went wrong. Try again or visit{" "}
@@ -147,20 +184,33 @@ export function NewsletterCTA({ variant }: { variant: Variant }) {
     );
   }
 
-  // Compact (listing detail page)
+  // Compact — full-bleed dark band on detail pages. Headline copy flips
+  // between "Like this one? …" (item context — listings, rentals) and the
+  // plain version ("Like this article?" would read awkwardly on blog).
+  const compactHeadline =
+    context === "article"
+      ? "Get the wildest luxury homes every week — free."
+      : "Like this one? Get the wildest luxury homes every week — free.";
+
   return (
     <CompactShell>
-      <p className="text-sm text-black/70 mb-3">
-        Like this one? Get the wildest luxury homes every week — free.
+      <p className="text-xs uppercase tracking-widest text-accent">
+        BallerCribs Weekly
       </p>
+      <h2 className="font-display text-3xl sm:text-4xl mt-3 text-paper">
+        {compactHeadline}
+      </h2>
       <form
         onSubmit={handleSubmit}
         data-cta={dataCta}
-        className="flex flex-col sm:flex-row gap-2 sm:gap-0 items-stretch"
+        className="mt-8 flex flex-col sm:flex-row gap-2 sm:gap-0 items-stretch max-w-md mx-auto"
       >
         {formInner}
       </form>
-      {errorNode}
+      {errorNode && <div className="max-w-md mx-auto">{errorNode}</div>}
+      <p className="text-[11px] text-paper/55 mt-4">
+        Free forever. Unsubscribe anytime.
+      </p>
     </CompactShell>
   );
 }
@@ -176,13 +226,20 @@ function FullShell({ children }: { children: React.ReactNode }) {
 }
 
 function CompactShell({ children }: { children: React.ReactNode }) {
-  // Centered under the article column — mx-auto blocks the max-w-xl
-  // wrapper, text-center cascades to the prompt copy + success message
-  // + error line so the form feels visually centered rather than just
-  // block-centered with left-aligned content inside.
+  // Full-bleed dark band, matching For Agents + the homepage Featured
+  // rentals section as the site's dark anchors. Callers must render
+  // this OUTSIDE their article/reading column div so the ink stretches
+  // edge-to-edge — if wrapped inside a max-w content column the band
+  // degrades to a narrow strip and loses its visual weight.
+  //
+  // text-center cascades to the eyebrow, headline, success message,
+  // and disclaimer; the form itself overrides centering via its own
+  // flex layout.
   return (
-    <div className="pt-8 border-t border-black/10">
-      <div className="max-w-xl mx-auto text-center">{children}</div>
-    </div>
+    <section className="bg-ink text-paper">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
+        {children}
+      </div>
+    </section>
   );
 }

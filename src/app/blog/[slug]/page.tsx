@@ -202,12 +202,13 @@ export default async function BlogDetailPage({
           </Link>
         </div>
 
-        {/* CompactShell renders its own pt-8 + top border, so just drop it
-            at the end of the reading column. */}
-        <div className="mt-8">
-          <NewsletterCTA variant="compact" />
-        </div>
       </div>
+
+      {/* Full-bleed newsletter band — rendered OUTSIDE the 42rem reading
+          column so the dark ink stretches edge-to-edge. context="article"
+          drops the "Like this one?" prefix that only reads naturally on
+          property detail pages. */}
+      <NewsletterCTA variant="compact" context="article" />
     </article>
   );
 }

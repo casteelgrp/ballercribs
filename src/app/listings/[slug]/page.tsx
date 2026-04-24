@@ -283,13 +283,11 @@ export default async function ListingPage({
           </aside>
         </div>
 
-        {/* Newsletter CTA lives below the entire two-col grid so it spans the
-            reading width of the page instead of competing with the sticky
-            inquire form in the sidebar. Full-width band on the article, not a
-            narrow column. */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
-          <NewsletterCTA variant="compact" />
-        </div>
+        {/* Full-bleed newsletter band — rendered OUTSIDE the max-w-7xl
+            content grid above so the dark ink stretches edge-to-edge.
+            Default context="item" keeps the "Like this one?" prefix
+            which reads naturally on a property page. */}
+        <NewsletterCTA variant="compact" />
       </article>
     </ListingMediaProvider>
   );

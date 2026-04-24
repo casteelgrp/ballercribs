@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/currency";
 import { formatSqft } from "@/lib/format";
 import { stripMarkdown } from "@/lib/markdown";
 import { ListingDescription } from "@/components/ListingDescription";
+import { NewsletterCTA } from "@/components/NewsletterCTA";
 import {
   ListingGalleryGrid,
   ListingHeroImage,
@@ -245,6 +246,12 @@ export default async function RentalDetailPage({
             </div>
           </aside>
         </div>
+
+        {/* Full-bleed newsletter band. Added in D6 so all three detail
+            page types (listings / rentals / blog) share the same
+            conversion ask. Default context="item" keeps "Like this one?"
+            — fits the rental-detail framing. */}
+        <NewsletterCTA variant="compact" />
       </article>
     </ListingMediaProvider>
   );
