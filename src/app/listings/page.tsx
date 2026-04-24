@@ -6,6 +6,7 @@ import {
   type PublicListingStatusFilter
 } from "@/lib/db";
 import { ListingCard } from "@/components/ListingCard";
+import { ForAgentsBand } from "@/components/ForAgentsBand";
 
 const VALID_STATUSES: PublicListingStatusFilter[] = ["active", "sold", "all"];
 
@@ -67,29 +68,51 @@ export default async function ListingsPage({
   ]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-      <div className="mb-8">
-        <p className="text-xs uppercase tracking-widest text-black/50">All properties</p>
-        <h1 className="font-display text-4xl sm:text-5xl mt-2">Listings</h1>
-        <p className="text-black/60 mt-3 max-w-2xl">
-          Every home featured on @ballercribs, curated from the world's top luxury markets.
-        </p>
+    <>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        {/* Header — solo "For agents →" link right-aligned against the
+            stacked eyebrow/h1/description block. flex-wrap drops it
+            under on narrow viewports; mt-2 sm:mt-3 roughly aligns the
+            link baseline with the h1 row instead of hanging from the
+            eyebrow. */}
+        <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-black/50">All properties</p>
+            <h1 className="font-display text-4xl sm:text-5xl mt-2">Listings</h1>
+            <p className="text-black/60 mt-3 max-w-2xl">
+              Every home featured on @ballercribs, curated from the world's top luxury markets.
+            </p>
+          </div>
+          <Link
+            href="/agents"
+            className="text-sm hover:text-accent underline underline-offset-4 mt-2 sm:mt-3"
+          >
+            For agents →
+          </Link>
+        </div>
+
+        <StatusTabs current={status} counts={counts} />
+
+        {listings.length === 0 ? (
+          <div className="border border-dashed border-black/20 py-24 text-center text-black/50 mt-6">
+            <p>{emptyStateFor(status)}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-6">
+            {listings.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        )}
       </div>
 
-      <StatusTabs current={status} counts={counts} />
-
-      {listings.length === 0 ? (
-        <div className="border border-dashed border-black/20 py-24 text-center text-black/50 mt-6">
-          <p>{emptyStateFor(status)}</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-6">
-          {listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
-          ))}
-        </div>
-      )}
-    </div>
+      {/* Full-bleed For Agents band at the bottom of the catalog. Moved
+          here from the homepage in D6 — /listings visitors scrolling the
+          feed include agents evaluating fit at a higher rate than home-
+          page casual scrollers. Rendered outside the max-w-7xl container
+          so the ink stretches edge-to-edge. */}
+      <ForAgentsBand />
+    </>
   );
 }
 

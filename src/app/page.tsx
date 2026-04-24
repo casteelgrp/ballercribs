@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -190,46 +189,13 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Newsletter — mid-funnel invite between the editorial grid and the
-          agent CTA. Full-width band keeps it feeling like a magazine
-          section break rather than a marketing pop-up. */}
+      {/* Newsletter — final conversion ask before the footer. The For
+          Agents band previously sat below this; moved to /listings in
+          D6 on the theory that agents self-select into the catalog
+          page, where the audience ratio favours them more than the
+          homepage does. Header "For agents →" link above still gives
+          them a top-of-page discovery path. */}
       <NewsletterCTA variant="full" />
-
-      {/* For agents CTA */}
-      <section className="bg-ink text-paper">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 text-center">
-          <Image
-            src="/logo-white.png"
-            alt="BallerCribs"
-            width={400}
-            height={80}
-            className="h-20 w-auto mx-auto mb-6"
-          />
-          <p className="text-xs uppercase tracking-widest text-accent">For agents</p>
-          <h2 className="font-display text-3xl sm:text-4xl mt-3">
-            Put your listing in front of millions.
-          </h2>
-          <p className="mt-4 text-paper/70 max-w-2xl mx-auto">
-            Seen by millions every month across Instagram, Facebook, and TikTok. Featured
-            placements include a carousel post, a Reel, a dedicated listing page, and direct buyer
-            inquiries.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center items-center gap-4">
-            <Link
-              href="/agents"
-              className="inline-block bg-accent text-ink px-6 py-3 text-sm uppercase tracking-widest hover:bg-paper transition-colors"
-            >
-              Get featured
-            </Link>
-            <a
-              href="mailto:theballercribs@gmail.com?subject=Featured%20listing%20inquiry"
-              className="text-sm text-paper/70 hover:text-paper underline underline-offset-4"
-            >
-              Or email us directly
-            </a>
-          </div>
-        </div>
-      </section>
     </>
   );
 }
