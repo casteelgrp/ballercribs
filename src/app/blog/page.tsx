@@ -48,11 +48,9 @@ export default async function BlogIndexPage({
   const pageRaw = Number(sp.page);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
 
-  const [categories, featured, totalCount, posts] = await Promise.all([
+  const [categories, featuredRaw, totalCount, posts] = await Promise.all([
     getCategories().catch(() => [] as PostCategory[]),
-    // Hero only appears when no category is selected — filtered views
-    // are browsing-in-a-category, not the "latest thing we published".
-    category ? Promise.resolve(null) : getFeaturedPost().catch(() => null),
+    getFeaturedPost().catch(() => null),
     getPublishedPostCount({ category: category || undefined }).catch(() => 0),
     getPublishedPosts({
       category: category || undefined,
@@ -61,8 +59,20 @@ export default async function BlogIndexPage({
     }).catch(() => [] as BlogPostListItem[])
   ]);
 
-  // Exclude the featured post from the grid so it only appears once on
-  // page 1 of the unfiltered view.
+  // Featured hero renders when: no filter is active, OR the active
+  // filter matches the featured post's category. An out-of-category
+  // hero above a filtered grid reads as a bug, so suppress it in that
+  // case. (Reverses the D1 behavior that suppressed on any filter —
+  // D2 intentionally keeps the hero in-view inside matching categories
+  // so "Guides" viewers still see the merchandising headline.)
+  const featured =
+    featuredRaw && (!category || featuredRaw.categorySlug === category)
+      ? featuredRaw
+      : null;
+
+  // Exclude the featured post from the grid so it only appears once.
+  // Only needed when the hero is actually rendering — when suppressed,
+  // the featured row (if it's in the filtered set) stays in the grid.
   const gridPosts = featured ? posts.filter((p) => p.id !== featured.id) : posts;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -80,9 +90,10 @@ export default async function BlogIndexPage({
 
   return (
     <article>
-      {/* Hero — featured post when no category filter is active. If no
-          featured post is published, the hero collapses and the grid
-          takes the top. Container width matches the listings grid
+      {/* Hero — featured post. Renders when no filter is active, or
+          when the active filter matches the featured post's category
+          (so "Guides" viewers still see the headline if the featured
+          post is a Guide). Container matches the listings grid
           (max-w-7xl) since this is a merchandising surface, not a
           reading column. */}
       {featured && (
