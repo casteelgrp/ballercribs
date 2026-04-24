@@ -401,15 +401,15 @@ export function BlogEditor({
           >
             <line
               x1="1" y1="13" x2="13" y2="1"
-              className="stroke-black/50 group-hover:stroke-black/60 transition-colors"
+              className="stroke-black/60 group-hover:stroke-black/70 transition-colors"
             />
             <line
               x1="5" y1="13" x2="13" y2="5"
-              className="stroke-black/50 group-hover:stroke-black/60 transition-colors"
+              className="stroke-black/60 group-hover:stroke-black/70 transition-colors"
             />
             <line
               x1="9" y1="13" x2="13" y2="9"
-              className="stroke-black/50 group-hover:stroke-black/60 transition-colors"
+              className="stroke-black/60 group-hover:stroke-black/70 transition-colors"
             />
           </svg>
         </div>
