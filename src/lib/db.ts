@@ -223,6 +223,23 @@ export async function getRentalListings(): Promise<Listing[]> {
   return rows.map(rowToListing);
 }
 
+/**
+ * Homepage "Featured rentals" section. Same sort as the /rentals index
+ * (featured first, then newest) but capped at `limit`. The ORDER BY does
+ * the graceful-fallback work for free — when fewer than `limit` rentals
+ * are flagged featured, the remaining slots fill with the most recent
+ * published rentals, so the section never renders half-empty.
+ */
+export async function getHomepageRentals(limit = 3): Promise<Listing[]> {
+  const { rows } = await sql`
+    SELECT * FROM listings
+    WHERE status = 'published' AND listing_type = 'rental'
+    ORDER BY featured DESC, COALESCE(published_at, created_at) DESC
+    LIMIT ${limit};
+  `;
+  return rows.map(rowToListing);
+}
+
 // ─── Admin listing reads ────────────────────────────────────────────────────
 
 export async function getListingByIdAdmin(id: number): Promise<Listing | null> {

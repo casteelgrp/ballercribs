@@ -1,8 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getActiveHeroPhotos, getFeaturedListings } from "@/lib/db";
+import {
+  getActiveHeroPhotos,
+  getFeaturedListings,
+  getHomepageRentals
+} from "@/lib/db";
+import { getCategories, getPublishedPosts } from "@/lib/blog-queries";
 import { ListingCard } from "@/components/ListingCard";
+import { BlogCard } from "@/components/BlogCard";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
 
@@ -16,12 +22,20 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  // Fetch listings + hero photos in parallel. Both are best-effort — DB hiccups
-  // shouldn't take down the homepage.
-  const [listings, heroPhotos] = await Promise.all([
+  // Fetch all homepage data in parallel. All four reads are best-effort
+  // — DB hiccups shouldn't take down the homepage. The blog/rentals
+  // sections render empty-state placeholders if their queries miss.
+  const [listings, heroPhotos, blogPosts, categories, rentals] = await Promise.all([
     getFeaturedListings(6).catch(() => []),
-    getActiveHeroPhotos().catch(() => [])
+    getActiveHeroPhotos().catch(() => []),
+    getPublishedPosts({ limit: 3 }).catch(() => []),
+    getCategories().catch(() => []),
+    getHomepageRentals(3).catch(() => [])
   ]);
+
+  // Category-slug → display-name lookup for blog card eyebrows. Built
+  // once per render — blog cards don't need to re-resolve.
+  const categoryLabel = new Map(categories.map((c) => [c.slug, c.name]));
 
   return (
     <>
@@ -86,6 +100,69 @@ export default async function HomePage() {
           </div>
         )}
       </section>
+
+      {/* Latest from the blog — editorial depth below the listings grid.
+          Placed above rentals deliberately: blog posts signal "this is
+          a publication, not just a catalog" and drive return visits
+          via SEO. Hidden entirely when no published posts exist yet. */}
+      {blogPosts.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 border-t border-black/10">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-black/50">Blog</p>
+              <h2 className="font-display text-3xl sm:text-4xl mt-2">
+                Latest from the blog
+              </h2>
+            </div>
+            <Link
+              href="/blog"
+              className="text-sm hover:text-accent underline underline-offset-4"
+            >
+              View all →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+            {blogPosts.map((post) => (
+              <BlogCard
+                key={post.id}
+                post={post}
+                categoryLabel={
+                  categoryLabel.get(post.categorySlug) ?? post.categorySlug
+                }
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Featured rentals — featured flag first, then newest published
+          fills remaining slots (ORDER BY in getHomepageRentals). Hidden
+          entirely when no rentals exist. ListingCard already branches
+          on listing_type='rental' to render per-night/week pricing,
+          no dedicated RentalCard needed. */}
+      {rentals.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 border-t border-black/10">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-black/50">Rentals</p>
+              <h2 className="font-display text-3xl sm:text-4xl mt-2">
+                Featured rentals
+              </h2>
+            </div>
+            <Link
+              href="/rentals"
+              className="text-sm hover:text-accent underline underline-offset-4"
+            >
+              Browse rentals →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {rentals.map((rental) => (
+              <ListingCard key={rental.id} listing={rental} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Newsletter — mid-funnel invite between the editorial grid and the
           agent CTA. Full-width band keeps it feeling like a magazine
