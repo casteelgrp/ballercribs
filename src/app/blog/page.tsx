@@ -14,10 +14,18 @@ import { BlogCard } from "@/components/BlogCard";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Blog",
+  title: "BallerCribs Blog",
   description:
     "Guides, case studies, and destinations from the BallerCribs editorial team — luxury real estate, mansion rentals, and markets worth knowing.",
   openGraph: {
+    type: "website",
+    url: "/blog",
+    title: "The BallerCribs Blog",
+    description:
+      "Guides, case studies, and destinations from the BallerCribs editorial team."
+  },
+  twitter: {
+    card: "summary_large_image",
     title: "The BallerCribs Blog",
     description:
       "Guides, case studies, and destinations from the BallerCribs editorial team."

@@ -11,6 +11,14 @@ export const metadata: Metadata = {
   description:
     "10.5M views across 4.4M accounts in 90 days. Feature your luxury listings to an engaged audience of high-net-worth buyers and sellers. Agent referral network available nationwide.",
   openGraph: {
+    type: "website",
+    url: "/agents",
+    title: "For Agents — Feature your luxury listings on BallerCribs",
+    description:
+      "10.5M views in 90 days across 4.4M accounts. The audience your listing deserves."
+  },
+  twitter: {
+    card: "summary_large_image",
     title: "For Agents — Feature your luxury listings on BallerCribs",
     description:
       "10.5M views in 90 days across 4.4M accounts. The audience your listing deserves."

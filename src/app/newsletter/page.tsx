@@ -7,6 +7,13 @@ export const metadata: Metadata = {
   title: { absolute: "Newsletter — BallerCribs Weekly" },
   description: "The wildest luxury homes on the internet, delivered weekly. Free.",
   openGraph: {
+    type: "website",
+    url: "/newsletter",
+    title: "Newsletter — BallerCribs Weekly",
+    description: "The wildest luxury homes on the internet, delivered weekly. Free."
+  },
+  twitter: {
+    card: "summary_large_image",
     title: "Newsletter — BallerCribs Weekly",
     description: "The wildest luxury homes on the internet, delivered weekly. Free."
   },

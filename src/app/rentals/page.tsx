@@ -12,9 +12,17 @@ export const metadata: Metadata = {
   description:
     "Short-term luxury mansion rentals — weddings, family trips, corporate retreats. Browse featured homes or tell us what you need.",
   openGraph: {
+    type: "website",
+    url: "/rentals",
     title: "Rent a Mega-Mansion | BallerCribs",
     description:
       "Short-term luxury rentals — estates, architectural icons, and resort-scale homes. Browse or tell us what you're looking for."
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rent a Mega-Mansion | BallerCribs",
+    description:
+      "Short-term luxury rentals — estates, architectural icons, and resort-scale homes."
   },
   alternates: {
     canonical: "/rentals"

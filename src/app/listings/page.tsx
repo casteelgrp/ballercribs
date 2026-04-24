@@ -37,6 +37,14 @@ function resolveStatus(raw: string | undefined): PublicListingStatusFilter {
   return "active";
 }
 
+// Shared across every status view — the per-status titles handle
+// pipeline state (active / sold / all); the body + card treatment stay
+// constant so a share of /listings or /listings?status=sold both read
+// as "the listings catalog," not two different products.
+const OG_DESCRIPTION =
+  "Curated mega-mansions, architectural icons, and estates across the US and beyond. Direct lines to the listing agents.";
+const OG_TITLE = "Luxury Listings";
+
 export async function generateMetadata({
   searchParams
 }: {
@@ -50,7 +58,18 @@ export async function generateMetadata({
   return {
     title: TITLES[status],
     description: DESCRIPTIONS[status],
-    alternates: { canonical }
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      url: canonical,
+      title: OG_TITLE,
+      description: OG_DESCRIPTION
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: OG_TITLE,
+      description: OG_DESCRIPTION
+    }
   };
 }
 
