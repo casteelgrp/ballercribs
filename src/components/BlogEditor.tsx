@@ -9,8 +9,10 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
 import { PropertyCard, type PropertyCardAttrs } from "./editor-extensions/PropertyCard";
 import { Gallery, type GalleryAttrs } from "./editor-extensions/Gallery";
+import { VideoEmbed, type VideoEmbedAttrs } from "./editor-extensions/VideoEmbed";
 import { BlogPropertyCardModal } from "./BlogPropertyCardModal";
 import { BlogGalleryModal } from "./BlogGalleryModal";
+import { BlogVideoEmbedModal } from "./BlogVideoEmbedModal";
 
 type ModalState = {
   open: boolean;
@@ -53,6 +55,11 @@ export function BlogEditor({
     pos: number | null;
     initial: GalleryAttrs | null;
   }>({ open: false, pos: null, initial: null });
+  const [videoModal, setVideoModal] = useState<{
+    open: boolean;
+    pos: number | null;
+    initial: VideoEmbedAttrs | null;
+  }>({ open: false, pos: null, initial: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -88,7 +95,8 @@ export function BlogEditor({
       Placeholder.configure({ placeholder: "Start writing…" }),
       Typography,
       PropertyCard,
-      Gallery
+      Gallery,
+      VideoEmbed
     ],
     content: initialContent ?? "",
     onUpdate: ({ editor }) => {
@@ -121,6 +129,20 @@ export function BlogEditor({
     };
     storage.onEditRequest = (pos, attrs) => {
       setGalleryModal({ open: true, pos, initial: attrs });
+    };
+    return () => {
+      storage.onEditRequest = null;
+    };
+  }, [editor]);
+
+  // And for VideoEmbed — same storage-callback plumbing.
+  useEffect(() => {
+    if (!editor) return;
+    const storage = editor.storage.videoEmbed as {
+      onEditRequest: null | ((pos: number, attrs: VideoEmbedAttrs) => void);
+    };
+    storage.onEditRequest = (pos, attrs) => {
+      setVideoModal({ open: true, pos, initial: attrs });
     };
     return () => {
       storage.onEditRequest = null;
@@ -221,6 +243,20 @@ export function BlogEditor({
       editor.chain().focus().insertGallery(attrs).run();
     }
     setGalleryModal({ open: false, pos: null, initial: null });
+  }
+
+  function insertVideo() {
+    setVideoModal({ open: true, pos: null, initial: null });
+  }
+
+  function saveVideo(attrs: VideoEmbedAttrs) {
+    if (!editor) return;
+    if (videoModal.pos !== null) {
+      editor.chain().focus().updateVideoEmbedAt(videoModal.pos, attrs).run();
+    } else {
+      editor.chain().focus().insertVideoEmbed(attrs).run();
+    }
+    setVideoModal({ open: false, pos: null, initial: null });
   }
 
   async function handleImageFile(file: File) {
@@ -368,6 +404,14 @@ export function BlogEditor({
         >
           + Gallery
         </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={insertVideo}
+          className={btn(false)}
+        >
+          + Video
+        </button>
         <span className="w-px bg-black/10 mx-1" aria-hidden="true" />
         <button
           type="button"
@@ -474,6 +518,13 @@ export function BlogEditor({
         initial={galleryModal.initial}
         onSave={saveGallery}
         onClose={() => setGalleryModal({ open: false, pos: null, initial: null })}
+      />
+
+      <BlogVideoEmbedModal
+        open={videoModal.open}
+        initial={videoModal.initial}
+        onSave={saveVideo}
+        onClose={() => setVideoModal({ open: false, pos: null, initial: null })}
       />
     </div>
   );

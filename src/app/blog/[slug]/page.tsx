@@ -150,14 +150,11 @@ export default async function BlogDetailPage({
           and images. The property card + hero-image spans benefit
           materially from the extra width. */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        <Link
-          href="/blog"
-          className="text-xs uppercase tracking-widest text-black/50 hover:text-accent"
-        >
-          ← Back to blog
-        </Link>
-
-        <p className="text-xs uppercase tracking-widest text-accent mt-6">
+        {/* Top "Back to blog" link removed — the category chip at the
+            bottom of the article and the site nav already cover return
+            paths. The footer back-link stays for readers who scroll to
+            the end. */}
+        <p className="text-xs uppercase tracking-widest text-accent">
           {categoryName}
         </p>
         <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl leading-[1.1] mt-3">

@@ -385,3 +385,23 @@ html, body {
      click handler can read textContent when opening the lightbox. */
   display: none;
 }
+
+/* ─── Video embed block (D4) ───────────────────────────────────────────
+   Responsive 16:9 wrapper that lets the iframe fill 100% of the
+   container. aspect-ratio works everywhere modern; padding-bottom
+   would be the fallback but we don't ship to IE. */
+.blog-prose .blog-video-embed {
+  margin: 2.25rem 0;
+  background: #000;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+}
+.blog-prose .blog-video-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
