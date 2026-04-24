@@ -380,10 +380,11 @@ export function BlogEditor({
 
       {/* Resize grip row — sibling below the scroll container so the
           grip sits outside the editor's scrolling area (matches the
-          listings native-textarea pattern where the grip is rendered
-          below the text, in its own corner). Normal-flow layout, no
-          absolute positioning, no scrollbar collision. */}
-      <div className="flex justify-end border-t border-black/10 bg-black/[0.02] px-2 py-1.5">
+          listings native-textarea pattern where the grip lives at the
+          corner, integrated with the surface). No divider / no tint so
+          the row reads as a seamless continuation of the editor, not a
+          distinct footer strip. */}
+      <div className="flex justify-end px-2 py-1.5">
         <div
           role="separator"
           aria-orientation="horizontal"
