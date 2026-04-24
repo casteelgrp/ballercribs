@@ -19,6 +19,11 @@ type ModalState = {
 
 const EMPTY_MODAL: ModalState = { open: false, pos: null, initial: null };
 
+// Persistence key for the resize handle. Any non-numeric / non-positive
+// value in localStorage is ignored on mount; the CSS default (70vh) is
+// used and the handle re-initializes on next drag.
+const HEIGHT_LS_KEY = "blog-editor-height";
+
 /**
  * Wrapper around TipTap's useEditor that owns the toolbar + property-card
  * modal. The surrounding form is agnostic of editor internals — it passes
@@ -43,6 +48,15 @@ export function BlogEditor({
   const [modal, setModal] = useState<ModalState>(EMPTY_MODAL);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Resize state. `heightPx = null` means "use the CSS default
+  // (h-[70vh])" — SSR and the first client render both see null, which
+  // keeps the rendered markup identical and avoids hydration mismatch.
+  // heightPxRef mirrors the state for listener closures (window
+  // listeners registered on mousedown don't re-bind on each render).
+  const [heightPx, setHeightPx] = useState<number | null>(null);
+  const heightPxRef = useRef<number | null>(null);
+  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const editor = useEditor({
     editable: !disabled,
@@ -89,6 +103,74 @@ export function BlogEditor({
       storage.onEditRequest = null;
     };
   }, [editor]);
+
+  // Hydrate the editor height from localStorage after mount. Running
+  // inside useEffect keeps the SSR/pre-hydration render deterministic
+  // (heightPx stays null, CSS default 70vh applies); any persisted
+  // value only shows up on the next client paint.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(HEIGHT_LS_KEY);
+      if (raw === null) return;
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) setHeightPx(n);
+    } catch {
+      // localStorage unavailable (Safari private mode, quota, etc.) —
+      // silently fall back to the default. Not worth surfacing a UI
+      // warning for an author tool.
+    }
+  }, []);
+
+  // Keep the ref in sync with state so the mouseup handler can read the
+  // final dragged value without stale-closure footguns. Ref-first writes
+  // in onMove also keep the persist-on-mouseup path accurate even if a
+  // render hasn't flushed yet.
+  useEffect(() => {
+    heightPxRef.current = heightPx;
+  }, [heightPx]);
+
+  function onHandleMouseDown(e: React.MouseEvent) {
+    // preventDefault kills the native text-selection drag that would
+    // otherwise start on mousedown — keeps the editor selection intact.
+    e.preventDefault();
+    const startHeight =
+      heightPxRef.current ?? Math.round(window.innerHeight * 0.7);
+    dragRef.current = { startY: e.clientY, startHeight };
+
+    function onMove(ev: MouseEvent) {
+      if (!dragRef.current) return;
+      const delta = ev.clientY - dragRef.current.startY;
+      const minPx = window.innerHeight * 0.4;
+      const next = Math.max(minPx, dragRef.current.startHeight + delta);
+      heightPxRef.current = next;
+      setHeightPx(next);
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      dragRef.current = null;
+      try {
+        const final = heightPxRef.current;
+        if (final !== null) {
+          localStorage.setItem(HEIGHT_LS_KEY, String(Math.round(final)));
+        }
+      } catch {
+        // Persistence failure is non-fatal — the in-memory height still
+        // applies for this session.
+      }
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function onHandleDoubleClick() {
+    try {
+      localStorage.removeItem(HEIGHT_LS_KEY);
+    } catch {
+      // Same as above — removeItem failure is non-fatal.
+    }
+    setHeightPx(null);
+  }
 
   function insertCard() {
     setModal({ open: true, pos: null, initial: null });
@@ -281,13 +363,33 @@ export function BlogEditor({
         }}
       />
 
-      {/* Max-height caps the editor surface at ~70vh so a long post
-          doesn't stretch the page to monstrous heights. Content scrolls
-          internally below the (still-sticky, outside this scroll
-          container) toolbar. ProseMirror detects the nearest scrollable
-          ancestor for caret-into-view, so typing past the fold still
-          scrolls correctly. */}
-      <EditorContent editor={editor} className="p-4 max-h-[70vh] overflow-y-auto" />
+      {/* Editor surface. Fixed-height pane (h-[70vh] default, persistable
+          via the drag handle below) so the page doesn't stretch on long
+          posts. Content scrolls internally below the sticky toolbar —
+          the toolbar's sticky context is the outer wrapper, not this
+          scroll container, so internal scrolling doesn't affect it.
+          ProseMirror detects the nearest scrollable ancestor for
+          caret-into-view. Inline style overrides the Tailwind height
+          class when heightPx is non-null (user has dragged or a
+          persisted value was loaded). */}
+      <EditorContent
+        editor={editor}
+        className="p-4 h-[70vh] overflow-y-auto"
+        style={heightPx !== null ? { height: `${heightPx}px` } : undefined}
+      />
+
+      {/* Vertical-only resize handle. Drag changes height + persists to
+          localStorage on mouseup; double-click resets to the 70vh
+          default. Min clamped to 40vh on drag so it can't shrink to
+          uselessness; no upper bound per spec. */}
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize editor (double-click to reset)"
+        onMouseDown={onHandleMouseDown}
+        onDoubleClick={onHandleDoubleClick}
+        className="h-2 border-t border-black/10 bg-black/5 hover:bg-black/10 cursor-ns-resize"
+      />
 
       <BlogPropertyCardModal
         open={modal.open}
