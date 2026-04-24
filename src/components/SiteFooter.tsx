@@ -9,7 +9,7 @@ export function SiteFooter() {
   const minimal = pathname === "/admin/login";
 
   return (
-    <footer className="border-t border-black/10 mt-24 py-10">
+    <footer className="border-t border-black/10 py-10">
       <div
         className={
           "max-w-7xl mx-auto px-4 sm:px-6 text-sm text-black/60 " +
