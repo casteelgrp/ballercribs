@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getCategories, getPostBySlug } from "@/lib/blog-queries";
+import { getUserById } from "@/lib/db";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
 
 export const revalidate = 60;
@@ -68,7 +69,15 @@ export default async function BlogDetailPage({
   const post = await getPostBySlug(slug).catch(() => null);
   if (!post) notFound();
 
-  const categories = await getCategories().catch(() => []);
+  // getPostBySlug's default includeUnpublished=false means we're always
+  // looking at a status='published' row here — the JSON-LD below emits
+  // unconditionally on that structural invariant (no extra gate needed).
+  const [categories, author] = await Promise.all([
+    getCategories().catch(() => []),
+    post.authorUserId !== null
+      ? getUserById(post.authorUserId).catch(() => null)
+      : Promise.resolve(null)
+  ]);
   const categoryName =
     categories.find((c) => c.slug === post.categorySlug)?.name ?? post.categorySlug;
 
@@ -77,8 +86,48 @@ export default async function BlogDetailPage({
   // than blank-space-with-no-explanation.
   const hasBody = Boolean(post.bodyHtml && post.bodyHtml.trim());
 
+  // BlogPosting is a subtype of Article that Google's rich-result
+  // parsers treat distinctly from news articles — more specific match
+  // without widening the field set. Spread-if-present pattern keeps
+  // nulls out of the final JSON so schema validators stay happy.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
+  const descriptionForSchema =
+    post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
+  const imageForSchema = post.socialCoverUrl || post.coverImageUrl || undefined;
+  const structuredData: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    ...(descriptionForSchema && { description: descriptionForSchema }),
+    ...(imageForSchema && { image: [imageForSchema] }),
+    ...(post.publishedAt && { datePublished: post.publishedAt.toISOString() }),
+    ...(post.updatedAt && { dateModified: post.updatedAt.toISOString() }),
+    ...(author?.name && {
+      author: { "@type": "Person", name: author.name }
+    }),
+    publisher: {
+      "@type": "Organization",
+      name: "BallerCribs",
+      logo: {
+        "@type": "ImageObject",
+        url: `${siteUrl}/logo-black.png`,
+        width: 180,
+        height: 36
+      }
+    },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": `${siteUrl}/blog/${post.slug}`
+    }
+  };
+
   return (
     <article>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       {post.coverImageUrl && (
         <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] bg-black/5">
           <Image

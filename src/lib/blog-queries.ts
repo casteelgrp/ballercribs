@@ -210,6 +210,26 @@ export async function getPostById(id: string): Promise<BlogPost | null> {
   return rows[0] ? rowToBlogPost(rows[0]) : null;
 }
 
+/**
+ * Minimal shape for sitemap.xml generation — slug + updated_at only.
+ * Kept separate from getPublishedPosts (which returns the richer list-
+ * item shape) so the sitemap walker stays cheap at higher post counts.
+ * Drafts / review / archived rows are filtered out at the SQL layer.
+ */
+export async function getPublishedPostSitemapEntries(): Promise<
+  Array<{ slug: string; updatedAt: Date }>
+> {
+  const { rows } = await sql`
+    SELECT slug, updated_at FROM blog_posts
+    WHERE status = 'published'
+    ORDER BY updated_at DESC;
+  `;
+  return rows.map((r) => ({
+    slug: r.slug as string,
+    updatedAt: new Date(r.updated_at)
+  }));
+}
+
 // ─── Admin reads ───────────────────────────────────────────────────────────
 
 /** Every post visible to admins, optionally filtered by status. */

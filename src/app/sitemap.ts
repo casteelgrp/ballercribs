@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getListings, getRentalListings } from "@/lib/db";
+import { getPublishedPostSitemapEntries } from "@/lib/blog-queries";
 
 // Next.js auto-exposes this as /sitemap.xml. Rebuilt on every request
 // unless we add a revalidate — leaving dynamic so a newly-published
@@ -7,9 +8,10 @@ import { getListings, getRentalListings } from "@/lib/db";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
 
-  const [saleListings, rentalListings] = await Promise.all([
+  const [saleListings, rentalListings, blogPosts] = await Promise.all([
     getListings("all").catch(() => []),
-    getRentalListings().catch(() => [])
+    getRentalListings().catch(() => []),
+    getPublishedPostSitemapEntries().catch(() => [])
   ]);
 
   const listingRoutes: MetadataRoute.Sitemap = saleListings.map((l) => ({
@@ -25,6 +27,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(l.updated_at || l.created_at),
     changeFrequency: "weekly",
     priority: 0.75
+  }));
+
+  const blogRoutes: MetadataRoute.Sitemap = blogPosts.map((p) => ({
+    url: `${baseUrl}/blog/${p.slug}`,
+    lastModified: p.updatedAt,
+    changeFrequency: "monthly",
+    priority: 0.6
   }));
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -53,6 +62,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.7
     },
+    // Blog index sits slightly above the individual article priority
+    // since it's a crawl entry point that links to every post.
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7
+    },
     // Legal pages — indexable for trust + search compliance, but low
     // priority since they're supporting content, not the site's reason to
     // exist. Updated only when we revise the policy text itself.
@@ -76,5 +93,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   ];
 
-  return [...staticRoutes, ...listingRoutes, ...rentalRoutes];
+  return [...staticRoutes, ...listingRoutes, ...rentalRoutes, ...blogRoutes];
 }
