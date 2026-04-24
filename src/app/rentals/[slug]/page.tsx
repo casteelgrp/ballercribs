@@ -5,6 +5,7 @@ import { getListingBySlug } from "@/lib/db";
 import { formatPrice } from "@/lib/currency";
 import { formatSqft } from "@/lib/format";
 import { stripMarkdown } from "@/lib/markdown";
+import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
 import { ListingDescription } from "@/components/ListingDescription";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
 import {
@@ -155,6 +156,13 @@ export default async function RentalDetailPage({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+        <JsonLd
+          data={breadcrumbListSchema([
+            { name: "Home", url: "/" },
+            { name: "Rentals", url: "/rentals" },
+            { name: listing.title, url: `/rentals/${listing.slug}` }
+          ])}
         />
         <ListingHeroImage src={listing.hero_image_url} alt={listing.title} />
 

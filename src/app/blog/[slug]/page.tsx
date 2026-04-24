@@ -4,6 +4,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getCategories, getPostBySlug } from "@/lib/blog-queries";
 import { getUserById } from "@/lib/db";
+import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
 import { BlogBody } from "@/components/BlogBody";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
 
@@ -128,6 +129,13 @@ export default async function BlogDetailPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <JsonLd
+        data={breadcrumbListSchema([
+          { name: "Home", url: "/" },
+          { name: "Blog", url: "/blog" },
+          { name: post.title, url: `/blog/${post.slug}` }
+        ])}
       />
       {post.coverImageUrl && (
         <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] bg-black/5">

@@ -4,6 +4,7 @@ import { getListingBySlug } from "@/lib/db";
 import { formatSqft } from "@/lib/format";
 import { formatPrice } from "@/lib/currency";
 import { stripMarkdown } from "@/lib/markdown";
+import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
 import { InquireForm } from "@/components/InquireForm";
 import { ListingDescription } from "@/components/ListingDescription";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
@@ -156,6 +157,13 @@ export default async function ListingPage({
           // Schema.org JSON-LD — rendered as invisible metadata, read by
           // search engines + LLMs for rich results + summarisation.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+        <JsonLd
+          data={breadcrumbListSchema([
+            { name: "Home", url: "/" },
+            { name: "Listings", url: "/listings" },
+            { name: listing.title, url: `/listings/${listing.slug}` }
+          ])}
         />
         {/* Hero image — clickable, opens lightbox at slide 0 */}
         <ListingHeroImage

@@ -6,6 +6,11 @@ import {
   getHomepageRentals
 } from "@/lib/db";
 import { getCategories, getPublishedPosts } from "@/lib/blog-queries";
+import {
+  JsonLd,
+  organizationSchema,
+  websiteSchema
+} from "@/lib/jsonld";
 import { ListingCard } from "@/components/ListingCard";
 import { BlogCard } from "@/components/BlogCard";
 import { HeroCarousel } from "@/components/HeroCarousel";
@@ -38,6 +43,15 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Site-wide JSON-LD. Organization gives BallerCribs a publisher
+          identity Google can attach to downstream Article / Listing
+          records; WebSite + SearchAction unlocks the sitelinks search
+          box in SERPs. Both emit on the homepage only — duplicating
+          site-identity schema across subpages provides no lift and
+          adds validator noise. */}
+      <JsonLd data={organizationSchema()} />
+      <JsonLd data={websiteSchema()} />
+
       {/* Hero — photo carousel when curated photos exist, else the original
           text-on-cream block (two-tier fallback per spec). */}
       {heroPhotos.length > 0 ? (

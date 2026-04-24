@@ -8,6 +8,7 @@ import {
   getPublishedPosts
 } from "@/lib/blog-queries";
 import type { BlogPostListItem, PostCategory } from "@/types/blog";
+import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
 import { BlogCard } from "@/components/BlogCard";
 
 export const revalidate = 60;
@@ -68,6 +69,15 @@ export default async function BlogIndexPage({
     categories.map((c) => [c.slug, c.name])
   );
 
+  // BreadcrumbList on the category-filtered view only — bare /blog is
+  // already a top-level entry and doesn't benefit from a single-item
+  // trail. Item URL includes the ?category= query string so the
+  // breadcrumb resolves to itself (Home > Blog > Modern) instead of
+  // pointing at /blog, which Google flags as redundant.
+  const activeCategoryName = category
+    ? categoryLabel.get(category) ?? null
+    : null;
+
   function pageHref(n: number): string {
     const qs = new URLSearchParams();
     if (category) qs.set("category", category);
@@ -78,6 +88,18 @@ export default async function BlogIndexPage({
 
   return (
     <article>
+      {activeCategoryName && (
+        <JsonLd
+          data={breadcrumbListSchema([
+            { name: "Home", url: "/" },
+            { name: "Blog", url: "/blog" },
+            {
+              name: activeCategoryName,
+              url: `/blog?category=${category}`
+            }
+          ])}
+        />
+      )}
       {/* Hero — featured post. Renders when no filter is active, or
           when the active filter matches the featured post's category
           (so "Guides" viewers still see the headline if the featured
