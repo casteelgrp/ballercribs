@@ -359,9 +359,13 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
       {/* Top-of-form save bar — only shown for already-saved listings so users
-          editing a long form don't have to scroll to the bottom to save. */}
+          editing a long form don't have to scroll to the bottom to save.
+          Sticky at top-16 matches SiteHeader's h-16 so the bar pins flush
+          below the site nav instead of sliding behind it. z-20 sits above
+          normal flow but below SiteHeader's z-40 (which wins overlaps) and
+          below modal z-50s. */}
       {!readOnly && isPersisted && (
-        <div className="flex items-center justify-between gap-3 pb-4 border-b border-black/10 sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-black/10 sticky top-16 bg-white z-20">
           <button
             type="button"
             disabled={submitting}
