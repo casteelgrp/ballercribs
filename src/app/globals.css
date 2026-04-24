@@ -405,3 +405,30 @@ html, body {
   border: 0;
   display: block;
 }
+
+/* ─── Homepage rhythm — dark rental cards (D6 polish) ──────────────────
+   Scoped section-level theme override for the Featured rentals grid.
+   The shared ListingCard was built for cream backgrounds — these rules
+   re-skin it for the dark section wrapper without touching the card
+   component itself. Only the rentals section carries this class, so
+   the same ListingCard renders cleanly on both /listings (cream) and
+   the homepage rentals band (ink).
+     - h3 title → paper
+     - .text-black/60 (location) → paper @ 70%
+     - .text-black/50 (meta) → paper @ 55%
+     - .bg-ink.text-paper (Featured badge) → flip to paper-on-ink
+   .text-accent (gold price) is intentionally untouched — same tone
+   reads fine on ink, matches the For Agents CTA pattern. */
+.dark-rental-card h3 {
+  color: #fafaf7;
+}
+.dark-rental-card .text-black\/60 {
+  color: rgba(250, 250, 247, 0.7);
+}
+.dark-rental-card .text-black\/50 {
+  color: rgba(250, 250, 247, 0.55);
+}
+.dark-rental-card .bg-ink.text-paper {
+  background: #fafaf7;
+  color: #0a0a0a;
+}

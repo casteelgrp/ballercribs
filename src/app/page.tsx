@@ -101,65 +101,75 @@ export default async function HomePage() {
         )}
       </section>
 
-      {/* Latest from the blog — editorial depth below the listings grid.
-          Placed above rentals deliberately: blog posts signal "this is
-          a publication, not just a catalog" and drive return visits
-          via SEO. Hidden entirely when no published posts exist yet. */}
+      {/* Latest from the blog — bg-white gives a crisp tonal step
+          against the body cream (#fafaf7). Centered header + CTA-below-
+          grid breaks the three-sections-stacked repetition of
+          left-aligned eyebrow + top-right link; listings and rentals
+          keep the parallel left-aligned treatment since they're both
+          product catalogs. Hidden entirely when no published posts
+          exist yet. */}
       {blogPosts.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 border-t border-black/10">
-          <div className="flex items-end justify-between mb-8">
-            <div>
+        <section className="bg-white border-t border-black/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+            <div className="text-center mb-10">
               <p className="text-xs uppercase tracking-widest text-black/50">Blog</p>
               <h2 className="font-display text-3xl sm:text-4xl mt-2">
                 Latest from the blog
               </h2>
             </div>
-            <Link
-              href="/blog"
-              className="text-sm hover:text-accent underline underline-offset-4"
-            >
-              View all →
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
-            {blogPosts.map((post) => (
-              <BlogCard
-                key={post.id}
-                post={post}
-                categoryLabel={
-                  categoryLabel.get(post.categorySlug) ?? post.categorySlug
-                }
-              />
-            ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+              {blogPosts.map((post) => (
+                <BlogCard
+                  key={post.id}
+                  post={post}
+                  categoryLabel={
+                    categoryLabel.get(post.categorySlug) ?? post.categorySlug
+                  }
+                />
+              ))}
+            </div>
+            <div className="mt-12 text-center">
+              <Link
+                href="/blog"
+                className="text-sm hover:text-accent underline underline-offset-4"
+              >
+                View all posts →
+              </Link>
+            </div>
           </div>
         </section>
       )}
 
-      {/* Featured rentals — featured flag first, then newest published
-          fills remaining slots (ORDER BY in getHomepageRentals). Hidden
-          entirely when no rentals exist. ListingCard already branches
-          on listing_type='rental' to render per-night/week pricing,
-          no dedicated RentalCard needed. */}
+      {/* Featured rentals — dark section, unifies with the For Agents
+          band below as the page's two dark anchors. py-12 sm:py-16
+          trims mobile vertical weight (dark fills more viewport on
+          phones). The `.dark-rental-card` wrapper re-skins the shared
+          ListingCard's cream-mode colors for this section only —
+          card component stays pristine (see globals.css). */}
       {rentals.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 border-t border-black/10">
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-black/50">Rentals</p>
-              <h2 className="font-display text-3xl sm:text-4xl mt-2">
-                Featured rentals
-              </h2>
+        <section className="bg-ink text-paper">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-paper/50">
+                  Rentals
+                </p>
+                <h2 className="font-display text-3xl sm:text-4xl mt-2 text-paper">
+                  Featured rentals
+                </h2>
+              </div>
+              <Link
+                href="/rentals"
+                className="text-sm text-paper hover:text-accent underline underline-offset-4 decoration-paper/40 hover:decoration-accent"
+              >
+                Browse rentals →
+              </Link>
             </div>
-            <Link
-              href="/rentals"
-              className="text-sm hover:text-accent underline underline-offset-4"
-            >
-              Browse rentals →
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {rentals.map((rental) => (
-              <ListingCard key={rental.id} listing={rental} />
-            ))}
+            <div className="dark-rental-card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {rentals.map((rental) => (
+                <ListingCard key={rental.id} listing={rental} />
+              ))}
+            </div>
           </div>
         </section>
       )}
