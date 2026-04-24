@@ -63,12 +63,17 @@ export async function generateMetadata({
       type: "website",
       url: canonical,
       title: OG_TITLE,
-      description: OG_DESCRIPTION
+      description: OG_DESCRIPTION,
+      // Re-declared here because Next.js replaces parent openGraph
+      // wholesale when a child sets its own block — otherwise the
+      // site-wide default from layout.tsx gets dropped.
+      images: ["/opengraph-image"]
     },
     twitter: {
       card: "summary_large_image",
       title: OG_TITLE,
-      description: OG_DESCRIPTION
+      description: OG_DESCRIPTION,
+      images: ["/opengraph-image"]
     }
   };
 }

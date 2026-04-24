@@ -15,13 +15,15 @@ export const metadata: Metadata = {
     url: "/agents",
     title: "For Agents — Feature your luxury listings on BallerCribs",
     description:
-      "10.5M views in 90 days across 4.4M accounts. The audience your listing deserves."
+      "10.5M views in 90 days across 4.4M accounts. The audience your listing deserves.",
+    images: ["/opengraph-image"]
   },
   twitter: {
     card: "summary_large_image",
     title: "For Agents — Feature your luxury listings on BallerCribs",
     description:
-      "10.5M views in 90 days across 4.4M accounts. The audience your listing deserves."
+      "10.5M views in 90 days across 4.4M accounts. The audience your listing deserves.",
+    images: ["/opengraph-image"]
   },
   alternates: {
     canonical: "/agents"

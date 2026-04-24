@@ -22,13 +22,15 @@ export const metadata: Metadata = {
     url: "/blog",
     title: "The BallerCribs Blog",
     description:
-      "Guides, case studies, and destinations from the BallerCribs editorial team."
+      "Guides, case studies, and destinations from the BallerCribs editorial team.",
+    images: ["/opengraph-image"]
   },
   twitter: {
     card: "summary_large_image",
     title: "The BallerCribs Blog",
     description:
-      "Guides, case studies, and destinations from the BallerCribs editorial team."
+      "Guides, case studies, and destinations from the BallerCribs editorial team.",
+    images: ["/opengraph-image"]
   },
   alternates: { canonical: "/blog" }
 };

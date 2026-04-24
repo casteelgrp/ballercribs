@@ -16,13 +16,15 @@ export const metadata: Metadata = {
     url: "/rentals",
     title: "Rent a Mega-Mansion | BallerCribs",
     description:
-      "Short-term luxury rentals — estates, architectural icons, and resort-scale homes. Browse or tell us what you're looking for."
+      "Short-term luxury rentals — estates, architectural icons, and resort-scale homes. Browse or tell us what you're looking for.",
+    images: ["/opengraph-image"]
   },
   twitter: {
     card: "summary_large_image",
     title: "Rent a Mega-Mansion | BallerCribs",
     description:
-      "Short-term luxury rentals — estates, architectural icons, and resort-scale homes."
+      "Short-term luxury rentals — estates, architectural icons, and resort-scale homes.",
+    images: ["/opengraph-image"]
   },
   alternates: {
     canonical: "/rentals"

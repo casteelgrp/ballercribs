@@ -10,12 +10,14 @@ export const metadata: Metadata = {
     type: "website",
     url: "/newsletter",
     title: "Newsletter — BallerCribs Weekly",
-    description: "The wildest luxury homes on the internet, delivered weekly. Free."
+    description: "The wildest luxury homes on the internet, delivered weekly. Free.",
+    images: ["/opengraph-image"]
   },
   twitter: {
     card: "summary_large_image",
     title: "Newsletter — BallerCribs Weekly",
-    description: "The wildest luxury homes on the internet, delivered weekly. Free."
+    description: "The wildest luxury homes on the internet, delivered weekly. Free.",
+    images: ["/opengraph-image"]
   },
   alternates: {
     canonical: "/newsletter"
