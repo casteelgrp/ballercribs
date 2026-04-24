@@ -52,11 +52,15 @@ export function HeroCarousel({ photos }: { photos: HeroPhoto[] }) {
             fill
             sizes="100vw"
             priority={i === 0}
-            // All slides share the initial viewport — eager-load the rest so
-            // crossfades don't reveal blank space while a photo decodes.
-            loading={i === 0 ? undefined : "eager"}
+            // Slide 0 is the LCP target — priority sets fetchPriority="high"
+            // and emits <link rel="preload">. Remaining slides lazy-load:
+            // slide 1 doesn't crossfade in until T+6s, by which time the LCP
+            // is already measured, so eager-loading all 8 only steals
+            // bandwidth from the image the user's actually waiting for.
+            // Trade-off: the first crossfade may briefly show blank while
+            // slide 2 decodes — acceptable for a 6s dwell window.
+            loading={i === 0 ? "eager" : "lazy"}
             className="object-cover animate-kenburns"
-            unoptimized
           />
         </div>
       ))}
