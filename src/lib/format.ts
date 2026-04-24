@@ -162,6 +162,30 @@ export function isValidSlug(s: string): boolean {
   return validateSlug(s) === null;
 }
 
+/**
+ * Editorial slug — for blog posts. Preserves full titles minus
+ * punctuation; no stopword strip, no keyword cap, just length cap at
+ * the last hyphen before MAX_SLUG_LENGTH so we never cut mid-word.
+ *
+ * generateSlug was designed for listings, where titles carry redundant
+ * property-noun noise ("estate", "mansion", "home") and address-style
+ * numbers that actively hurt SEO readability. Blog titles are
+ * author-composed editorial lines — every word is intentional, and
+ * keeping them matches the Medium/Substack URL convention.
+ *
+ * Examples:
+ *   "Herschel Supply Enters the Golf World With First Collection"
+ *     → "herschel-supply-enters-the-golf-world-with-first-collection"
+ *   "The 10 Most Outrageous Vacation Mansions on the Internet"
+ *     → "the-10-most-outrageous-vacation-mansions-on-the-internet"
+ *   Overlong title past MAX_SLUG_LENGTH gets hyphen-boundary truncation
+ *   via the shared capLength helper.
+ */
+export function generateBlogSlug(title: string): string {
+  const slug = slugifyText(title);
+  return slug ? capLength(slug, MAX_SLUG_LENGTH) : `post-${shortHash(title)}`;
+}
+
 // ─── Legacy ────────────────────────────────────────────────────────────────
 
 /** @deprecated Use generateSlug(title, location) instead. Kept for any internal callers. */

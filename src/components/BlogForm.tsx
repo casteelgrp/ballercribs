@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { generateSlug, validateSlug } from "@/lib/format";
+import { generateBlogSlug, validateSlug } from "@/lib/format";
 import { ImageUpload } from "./ImageUpload";
 import { BlogEditor } from "./BlogEditor";
 import { isOwner } from "@/lib/permissions";
@@ -62,7 +62,7 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
   useEffect(() => {
     if (slugManuallyEdited) return;
     if (!title.trim()) return;
-    const t = setTimeout(() => setSlug(generateSlug(title, "")), 250);
+    const t = setTimeout(() => setSlug(generateBlogSlug(title)), 250);
     return () => clearTimeout(t);
   }, [title, slugManuallyEdited]);
 

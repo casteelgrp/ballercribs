@@ -7,7 +7,7 @@ import type {
   PostStatus,
   UpdatePostInput
 } from "@/types/blog";
-import { generateSlug } from "./format";
+import { generateBlogSlug } from "./format";
 
 // ─── Row mappers ───────────────────────────────────────────────────────────
 //
@@ -315,7 +315,7 @@ export async function createPost(
   if (!data.categorySlug) throw new Error("categorySlug is required");
 
   const slugCandidate =
-    data.slug?.trim() || generateSlug(title, "") || `post-${Date.now()}`;
+    data.slug?.trim() || generateBlogSlug(title) || `post-${Date.now()}`;
   const slug = await uniqueSlug(slugCandidate);
 
   const readingTime = computeReadingTimeMinutes(data.bodyJson ?? null);
