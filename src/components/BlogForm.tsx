@@ -148,14 +148,21 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
 
       setSavedAt(Date.now());
       if (transitionTo) {
+        // Transitions land the user on the list view — scrolling to top
+        // is expected here (different surface entirely).
         router.push("/admin/blog");
         router.refresh();
       } else if (!isPersisted && postId) {
         // First-save of a brand-new post — jump into edit mode so further
         // saves PATCH the existing row instead of POSTing a second one.
-        router.push(`/admin/blog/${postId}/edit`);
+        // scroll:false keeps the author's position in the editor since
+        // the content is visually identical after the URL change.
+        router.push(`/admin/blog/${postId}/edit`, { scroll: false });
         router.refresh();
       } else {
+        // No transition on an existing post — refresh re-fetches the
+        // server component without navigating, so scroll is preserved
+        // for free.
         router.refresh();
       }
     } catch (err) {
@@ -173,8 +180,35 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
   const showSubmitForReview = !isPersisted || currentStatus === "draft";
   const showPublish = owner && (!isPersisted || currentStatus === "draft" || currentStatus === "review");
 
+  // Shared label so the top and bottom save buttons read consistently
+  // as state changes. "Save as draft" on a brand-new post, "Save draft"
+  // on an existing draft, "Save changes" once the post is past draft.
+  const saveLabel = submitting
+    ? "Saving…"
+    : isPersisted
+      ? currentStatus === "draft"
+        ? "Save draft"
+        : "Save changes"
+      : "Save as draft";
+
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+      {/* Top save button — non-sticky, right-aligned. Handles save-access
+          at the top of a long form so the author doesn't have to scroll
+          to the bottom after a minor edit. Shares save() + submitting
+          state with the bottom buttons, so clicking either disables
+          both and shows the same label. */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => save()}
+          className="bg-ink text-paper px-6 py-2.5 text-sm uppercase tracking-widest hover:bg-accent hover:text-ink transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saveLabel}
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
           <label className={labelClass}>Title *</label>
@@ -336,13 +370,7 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
           onClick={() => save()}
           className="bg-ink text-paper px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent hover:text-ink transition-colors disabled:opacity-50"
         >
-          {submitting
-            ? "Saving…"
-            : isPersisted
-              ? currentStatus === "draft"
-                ? "Save draft"
-                : "Save changes"
-              : "Save as draft"}
+          {saveLabel}
         </button>
         {showSubmitForReview && (
           <button

@@ -153,7 +153,12 @@ export function BlogEditor({
 
   return (
     <div className="border border-black/20 bg-white">
-      <div className="flex flex-wrap gap-1 p-2 border-b border-black/10 bg-black/[0.02]">
+      {/* Toolbar pins to the viewport (top-16 matches SiteHeader's h-16)
+          while the editor container is in view. bg-paper is opaque so
+          inline content doesn't bleed through when scrolled; z-20 keeps
+          it below SiteHeader's z-40. Unsticks automatically when the
+          outer container scrolls past. */}
+      <div className="flex flex-wrap gap-1 p-2 border-b border-black/10 bg-paper sticky top-16 z-20">
         <button
           type="button"
           disabled={disabled}
@@ -276,7 +281,13 @@ export function BlogEditor({
         }}
       />
 
-      <EditorContent editor={editor} className="p-4" />
+      {/* Max-height caps the editor surface at ~70vh so a long post
+          doesn't stretch the page to monstrous heights. Content scrolls
+          internally below the (still-sticky, outside this scroll
+          container) toolbar. ProseMirror detects the nearest scrollable
+          ancestor for caret-into-view, so typing past the fold still
+          scrolls correctly. */}
+      <EditorContent editor={editor} className="p-4 max-h-[70vh] overflow-y-auto" />
 
       <BlogPropertyCardModal
         open={modal.open}
