@@ -15,7 +15,7 @@ export function BlogImageNodeView(props: NodeViewProps) {
   const caption = attrs.caption?.trim() ?? "";
 
   function requestEdit() {
-    const cb = props.editor.storage.blogImage?.onEditRequest as
+    const cb = props.editor.storage.image?.onEditRequest as
       | undefined
       | ((pos: number, attrs: BlogImageAttrs) => void);
     if (!cb) return;

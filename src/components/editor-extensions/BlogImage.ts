@@ -25,6 +25,17 @@ export type BlogImageAttrs = {
  * extension's storage; <BlogEditor> wires that callback to open its
  * modal pre-filled.
  */
+// Storage is keyed by ext.name at runtime — `image` here matches
+// name: "image" below, which has to stay "image" so existing posts'
+// {type: "image"} JSON nodes hydrate against the same slot and
+// setImage() still works.
+//
+// Commands gets its own `blogImage` namespace because the stock
+// Image extension already declares Commands["image"] = { setImage }
+// and TS interface merging treats two different shapes on the same
+// key as a conflict, not a merge. The namespace key is type-only —
+// runtime command lookup is flat — so updateInlineImageAt is reachable
+// via editor.chain().updateInlineImageAt(...) regardless.
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     blogImage: {
@@ -32,7 +43,7 @@ declare module "@tiptap/core" {
     };
   }
   interface Storage {
-    blogImage: {
+    image: {
       onEditRequest:
         | null
         | ((pos: number, attrs: BlogImageAttrs) => void);

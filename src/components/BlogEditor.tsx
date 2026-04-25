@@ -156,10 +156,13 @@ export function BlogEditor({
   }, [editor]);
 
   // BlogImage — Edit pill on the inline-image NodeView opens the
-  // alt + caption modal pre-filled with the current attrs.
+  // alt + caption modal pre-filled with the current attrs. Storage
+  // is keyed `image` (matches the extension's name) so existing
+  // posts' {type: "image"} nodes hydrate against the same slot;
+  // PropertyCard / Gallery / VideoEmbed each use their own name.
   useEffect(() => {
     if (!editor) return;
-    const storage = editor.storage.blogImage as {
+    const storage = editor.storage.image as {
       onEditRequest: null | ((pos: number, attrs: BlogImageAttrs) => void);
     };
     storage.onEditRequest = (pos, attrs) => {
