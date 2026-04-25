@@ -35,11 +35,17 @@ export async function generateMetadata({
   const title = post.metaTitle?.trim() || post.title;
   const description =
     post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
-  const images = post.socialCoverUrl
-    ? [post.socialCoverUrl]
-    : post.coverImageUrl
-      ? [post.coverImageUrl]
-      : [];
+  // OG image source: socialCoverUrl wins (purpose-built 1200x630), then
+  // coverImageUrl, else nothing. Alt only emits when coverImageAlt is
+  // explicitly set — title already lives in og:title, so falling back
+  // there would render as duplicate noise to a screen-reader user
+  // landing on a Facebook/LinkedIn share preview.
+  const imageUrl = post.socialCoverUrl || post.coverImageUrl || null;
+  const ogImages = imageUrl
+    ? post.coverImageAlt?.trim()
+      ? [{ url: imageUrl, alt: post.coverImageAlt.trim() }]
+      : [imageUrl]
+    : [];
 
   return {
     // absolute → no "| BallerCribs" suffix so the article title owns the
@@ -51,12 +57,13 @@ export async function generateMetadata({
       description,
       type: "article",
       publishedTime: post.publishedAt?.toISOString(),
-      images
+      images: ogImages
     },
     twitter: {
       card: "summary_large_image",
       title,
-      description
+      description,
+      images: ogImages
     },
     alternates: { canonical: `/blog/${post.slug}` }
   };
@@ -97,12 +104,22 @@ export default async function BlogDetailPage({
   const descriptionForSchema =
     post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
   const imageForSchema = post.socialCoverUrl || post.coverImageUrl || undefined;
+  // Promote image to ImageObject when we have alt text — Google uses
+  // ImageObject.description as image-search context, distinct from the
+  // post headline. Bare URL is the legacy shape and stays valid when no
+  // alt is set (existing posts pre-018 fall through this path).
+  const trimmedCoverAlt = post.coverImageAlt?.trim() || null;
+  const schemaImage = imageForSchema
+    ? trimmedCoverAlt
+      ? [{ "@type": "ImageObject", url: imageForSchema, description: trimmedCoverAlt }]
+      : [imageForSchema]
+    : null;
   const structuredData: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: post.title,
     ...(descriptionForSchema && { description: descriptionForSchema }),
-    ...(imageForSchema && { image: [imageForSchema] }),
+    ...(schemaImage && { image: schemaImage }),
     ...(post.publishedAt && { datePublished: post.publishedAt.toISOString() }),
     ...(post.updatedAt && { dateModified: post.updatedAt.toISOString() }),
     ...(author?.name && {
@@ -141,7 +158,7 @@ export default async function BlogDetailPage({
         <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] bg-black/5">
           <Image
             src={post.coverImageUrl}
-            alt={post.title}
+            alt={post.coverImageAlt || post.title}
             fill
             sizes="100vw"
             priority

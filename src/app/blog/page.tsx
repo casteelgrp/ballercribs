@@ -126,7 +126,7 @@ export default async function BlogIndexPage({
               <div className="relative aspect-[4/3] overflow-hidden bg-black/5 order-first lg:order-last">
                 <Image
                   src={featured.coverImageUrl}
-                  alt={featured.title}
+                  alt={featured.coverImageAlt || featured.title}
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   priority

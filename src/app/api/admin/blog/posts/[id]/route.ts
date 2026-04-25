@@ -44,6 +44,7 @@ export async function PATCH(
         bodyJson: body?.bodyJson,
         bodyHtml: sanitizeBlogHtml(body?.bodyHtml),
         coverImageUrl: body?.coverImageUrl,
+        coverImageAlt: body?.coverImageAlt,
         socialCoverUrl: body?.socialCoverUrl,
         metaTitle: body?.metaTitle,
         metaDescription: body?.metaDescription,

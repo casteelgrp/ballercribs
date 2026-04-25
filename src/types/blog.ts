@@ -27,6 +27,8 @@ export type BlogPost = {
   bodyJson: unknown | null;
   bodyHtml: string | null;
   coverImageUrl: string | null;
+  /** Accessibility text for the cover. Falls back to post.title on render. */
+  coverImageAlt: string | null;
   socialCoverUrl: string | null;
   metaTitle: string | null;
   metaDescription: string | null;
@@ -51,6 +53,7 @@ export type BlogPostListItem = Pick<
   | "subtitle"
   | "excerpt"
   | "coverImageUrl"
+  | "coverImageAlt"
   | "categorySlug"
   | "isFeatured"
   | "status"
@@ -72,6 +75,7 @@ export type CreatePostInput = {
   bodyJson?: unknown | null;
   bodyHtml?: string | null;
   coverImageUrl?: string | null;
+  coverImageAlt?: string | null;
   socialCoverUrl?: string | null;
   metaTitle?: string | null;
   metaDescription?: string | null;

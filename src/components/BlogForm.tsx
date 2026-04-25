@@ -42,6 +42,7 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
   );
   const [excerpt, setExcerpt] = useState(existing?.excerpt ?? "");
   const [coverImageUrl, setCoverImageUrl] = useState(existing?.coverImageUrl ?? "");
+  const [coverImageAlt, setCoverImageAlt] = useState(existing?.coverImageAlt ?? "");
   const [socialCoverUrl, setSocialCoverUrl] = useState(existing?.socialCoverUrl ?? "");
   const [isFeatured, setIsFeatured] = useState(Boolean(existing?.isFeatured));
   const [metaTitle, setMetaTitle] = useState(existing?.metaTitle ?? "");
@@ -89,6 +90,7 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
       bodyJson,
       bodyHtml,
       coverImageUrl: coverImageUrl.trim() || null,
+      coverImageAlt: coverImageAlt.trim() || null,
       socialCoverUrl: socialCoverUrl.trim() || null,
       metaTitle: metaTitle.trim() || null,
       metaDescription: metaDescription.trim() || null,
@@ -283,6 +285,31 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
       </div>
 
       <ImageUpload label="Cover image" value={coverImageUrl} onChange={setCoverImageUrl} />
+
+      {/* Cover alt — accessibility text + og:image:alt + JSON-LD
+          ImageObject.description. Distinct from the post title: should
+          describe what's IN the image, not restate the headline. Falls
+          back to title on render when blank, so leaving this empty is
+          the same shape existing posts had pre-018 — but worth filling
+          in for the audience that needs it. */}
+      <div>
+        <label className={labelClass} htmlFor="cover-alt">
+          Cover image alt text
+        </label>
+        <input
+          id="cover-alt"
+          type="text"
+          value={coverImageAlt}
+          onChange={(e) => setCoverImageAlt(e.target.value)}
+          placeholder="Aerial view of Beverly Park estate at dusk"
+          className={inputClass}
+        />
+        <p className="mt-1 text-xs text-black/50">
+          Describes the image for screen readers, social shares, and image
+          search. Don&apos;t restate the title — describe what&apos;s in the
+          photo. Falls back to the post title if left empty.
+        </p>
+      </div>
 
       <div>
         <label className="flex items-center gap-2 text-sm cursor-pointer">

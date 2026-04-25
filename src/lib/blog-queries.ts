@@ -26,6 +26,7 @@ function rowToBlogPost(row: any): BlogPost {
     bodyJson: row.body_json ?? null,
     bodyHtml: row.body_html ?? null,
     coverImageUrl: row.cover_image_url ?? null,
+    coverImageAlt: row.cover_image_alt ?? null,
     socialCoverUrl: row.social_cover_url ?? null,
     metaTitle: row.meta_title ?? null,
     metaDescription: row.meta_description ?? null,
@@ -60,6 +61,7 @@ function rowToListItem(row: any): BlogPostListItem {
     subtitle: row.subtitle ?? null,
     excerpt: row.excerpt ?? null,
     coverImageUrl: row.cover_image_url ?? null,
+    coverImageAlt: row.cover_image_alt ?? null,
     categorySlug: row.category_slug,
     isFeatured: Boolean(row.is_featured),
     status: row.status as PostStatus,
@@ -128,7 +130,7 @@ export async function getPublishedPosts(opts?: {
 
   if (opts?.category) {
     const { rows } = await sql`
-      SELECT id, slug, title, subtitle, excerpt, cover_image_url,
+      SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
              category_slug, is_featured, status, published_at,
              reading_time_minutes, author_user_id
       FROM blog_posts
@@ -140,7 +142,7 @@ export async function getPublishedPosts(opts?: {
   }
 
   const { rows } = await sql`
-    SELECT id, slug, title, subtitle, excerpt, cover_image_url,
+    SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
            category_slug, is_featured, status, published_at,
            reading_time_minutes, author_user_id
     FROM blog_posts
@@ -171,7 +173,7 @@ export async function getPublishedPostCount(opts?: {
 /** The one featured post, if any — must also be published to surface publicly. */
 export async function getFeaturedPost(): Promise<BlogPostListItem | null> {
   const { rows } = await sql`
-    SELECT id, slug, title, subtitle, excerpt, cover_image_url,
+    SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
            category_slug, is_featured, status, published_at,
            reading_time_minutes, author_user_id
     FROM blog_posts
@@ -238,7 +240,7 @@ export async function getAllPostsForAdmin(opts?: {
 }): Promise<BlogPostListItem[]> {
   if (opts?.status) {
     const { rows } = await sql`
-      SELECT id, slug, title, subtitle, excerpt, cover_image_url,
+      SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
              category_slug, is_featured, status, published_at,
              reading_time_minutes, author_user_id
       FROM blog_posts
@@ -248,7 +250,7 @@ export async function getAllPostsForAdmin(opts?: {
     return rows.map(rowToListItem);
   }
   const { rows } = await sql`
-    SELECT id, slug, title, subtitle, excerpt, cover_image_url,
+    SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
            category_slug, is_featured, status, published_at,
            reading_time_minutes, author_user_id
     FROM blog_posts
@@ -333,7 +335,7 @@ export async function createPost(
     INSERT INTO blog_posts (
       slug, title, subtitle, excerpt,
       body_json, body_html,
-      cover_image_url, social_cover_url,
+      cover_image_url, cover_image_alt, social_cover_url,
       meta_title, meta_description,
       category_slug, is_featured,
       author_user_id, reading_time_minutes
@@ -345,6 +347,7 @@ export async function createPost(
       ${bodyJsonText}::jsonb,
       ${data.bodyHtml ?? null},
       ${data.coverImageUrl ?? null},
+      ${data.coverImageAlt ?? null},
       ${data.socialCoverUrl ?? null},
       ${data.metaTitle ?? null},
       ${data.metaDescription ?? null},
@@ -398,6 +401,7 @@ export async function updatePost(
       body_json            = ${nextBodyJsonText}::jsonb,
       body_html            = ${data.bodyHtml === undefined ? existing.bodyHtml : data.bodyHtml},
       cover_image_url      = ${data.coverImageUrl === undefined ? existing.coverImageUrl : data.coverImageUrl},
+      cover_image_alt      = ${data.coverImageAlt === undefined ? existing.coverImageAlt : data.coverImageAlt},
       social_cover_url     = ${data.socialCoverUrl === undefined ? existing.socialCoverUrl : data.socialCoverUrl},
       meta_title           = ${data.metaTitle === undefined ? existing.metaTitle : data.metaTitle},
       meta_description     = ${data.metaDescription === undefined ? existing.metaDescription : data.metaDescription},

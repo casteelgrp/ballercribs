@@ -71,6 +71,7 @@ export async function POST(req: Request) {
         // Create path: no "skip" semantics, coerce undefined → null.
         bodyHtml: sanitizeBlogHtml(body?.bodyHtml) ?? null,
         coverImageUrl: body?.coverImageUrl ?? null,
+        coverImageAlt: body?.coverImageAlt ?? null,
         socialCoverUrl: body?.socialCoverUrl ?? null,
         metaTitle: body?.metaTitle ?? null,
         metaDescription: body?.metaDescription ?? null,
