@@ -247,6 +247,24 @@ html, body {
   height: auto;
   margin: 2rem 0;
 }
+/* Inline image with caption. The wrapping <figure class="blog-figure">
+   is the marker — gallery figures live under [data-gallery] and never
+   carry this class, so the rules below stay scoped to the inline path.
+   The figure absorbs the image's vertical margin so caption + image
+   read as one block. */
+.blog-prose .blog-figure {
+  margin: 2rem 0;
+}
+.blog-prose .blog-figure img {
+  margin: 0;
+}
+.blog-prose .blog-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: rgba(10, 10, 10, 0.6);
+  line-height: 1.5;
+}
 .blog-prose hr {
   border: 0;
   border-top: 1px solid rgba(10, 10, 10, 0.15);

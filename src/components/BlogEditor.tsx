@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
+import { BlogImage, type BlogImageAttrs } from "./editor-extensions/BlogImage";
 import { PropertyCard, type PropertyCardAttrs } from "./editor-extensions/PropertyCard";
 import { Gallery, type GalleryAttrs } from "./editor-extensions/Gallery";
 import { VideoEmbed, type VideoEmbedAttrs } from "./editor-extensions/VideoEmbed";
+import { BlogImageAttrsModal } from "./BlogImageAttrsModal";
 import { BlogPropertyCardModal } from "./BlogPropertyCardModal";
 import { BlogGalleryModal } from "./BlogGalleryModal";
 import { BlogVideoEmbedModal } from "./BlogVideoEmbedModal";
@@ -60,6 +61,11 @@ export function BlogEditor({
     pos: number | null;
     initial: VideoEmbedAttrs | null;
   }>({ open: false, pos: null, initial: null });
+  const [imageModal, setImageModal] = useState<{
+    open: boolean;
+    pos: number | null;
+    initial: BlogImageAttrs | null;
+  }>({ open: false, pos: null, initial: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -91,7 +97,7 @@ export function BlogEditor({
         autolink: true,
         HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" }
       }),
-      Image,
+      BlogImage,
       Placeholder.configure({ placeholder: "Start writing…" }),
       Typography,
       PropertyCard,
@@ -143,6 +149,21 @@ export function BlogEditor({
     };
     storage.onEditRequest = (pos, attrs) => {
       setVideoModal({ open: true, pos, initial: attrs });
+    };
+    return () => {
+      storage.onEditRequest = null;
+    };
+  }, [editor]);
+
+  // BlogImage — Edit pill on the inline-image NodeView opens the
+  // alt + caption modal pre-filled with the current attrs.
+  useEffect(() => {
+    if (!editor) return;
+    const storage = editor.storage.blogImage as {
+      onEditRequest: null | ((pos: number, attrs: BlogImageAttrs) => void);
+    };
+    storage.onEditRequest = (pos, attrs) => {
+      setImageModal({ open: true, pos, initial: attrs });
     };
     return () => {
       storage.onEditRequest = null;
@@ -259,6 +280,14 @@ export function BlogEditor({
     setVideoModal({ open: false, pos: null, initial: null });
   }
 
+  function saveImageAttrs(attrs: BlogImageAttrs) {
+    if (!editor) return;
+    if (imageModal.pos !== null) {
+      editor.chain().focus().updateInlineImageAt(imageModal.pos, attrs).run();
+    }
+    setImageModal({ open: false, pos: null, initial: null });
+  }
+
   async function handleImageFile(file: File) {
     if (!editor) return;
     setUploading(true);
@@ -274,7 +303,11 @@ export function BlogEditor({
         window.alert(data.error || "Upload failed");
         return;
       }
-      editor.chain().focus().setImage({ src: data.url, alt: file.name }).run();
+      // Insert with empty alt — auto-filling the filename ("DSC_0847.webp")
+      // tells screen readers garbage. Empty is more honest. Author opens
+      // the image's Edit pill afterwards to fill in alt + an optional
+      // caption via BlogImageAttrsModal.
+      editor.chain().focus().setImage({ src: data.url, alt: "" }).run();
     } finally {
       setUploading(false);
     }
@@ -525,6 +558,13 @@ export function BlogEditor({
         initial={videoModal.initial}
         onSave={saveVideo}
         onClose={() => setVideoModal({ open: false, pos: null, initial: null })}
+      />
+
+      <BlogImageAttrsModal
+        open={imageModal.open}
+        initial={imageModal.initial}
+        onSave={saveImageAttrs}
+        onClose={() => setImageModal({ open: false, pos: null, initial: null })}
       />
     </div>
   );
