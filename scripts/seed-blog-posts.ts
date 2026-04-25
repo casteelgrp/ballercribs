@@ -10,25 +10,8 @@
  * are left alone (use /admin/blog to edit them instead).
  */
 import { sql } from "@vercel/postgres";
-import DOMPurify from "isomorphic-dompurify";
 import { computeReadingTimeMinutes } from "../src/lib/blog-queries";
-
-// Same allowlist the API route uses so body_html stored by the seed
-// matches what a real editor save would produce. Importing the API
-// route's config would pull in server-only adjacent code; duplicating
-// the short list here is cheaper than refactoring.
-const SANITIZE_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
-  ALLOWED_TAGS: [
-    "p", "br", "strong", "em", "b", "i", "u", "s", "code", "pre",
-    "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
-    "hr", "a", "img", "div", "span"
-  ],
-  ALLOWED_ATTR: [
-    "href", "target", "rel", "src", "alt", "title", "loading",
-    "class", "data-property-card"
-  ],
-  ALLOWED_URI_REGEXP: /^(?:https?:|\/|mailto:|tel:|#)/i
-};
+import { sanitizeBlogHtml } from "../src/lib/blog-sanitize";
 
 type Seed = {
   slug: string;
@@ -139,7 +122,7 @@ function escapeAttr(s: string): string {
 function buildBody(nodes: any[]): { bodyJson: unknown; bodyHtml: string } {
   const bodyJson = { type: "doc", content: nodes };
   const rawHtml = nodes.map(nodeToHtml).join("");
-  const bodyHtml = DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG);
+  const bodyHtml = sanitizeBlogHtml(rawHtml) ?? "";
   return { bodyJson, bodyHtml };
 }
 

@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 import { isAllowedEmbedSrc } from "./video-url";
 
 /**
@@ -13,67 +13,71 @@ import { isAllowedEmbedSrc } from "./video-url";
  * up. Previously this config was duplicated verbatim across two route
  * files — extract was a pre-D4 cleanup.
  *
- * Allowlist shape:
+ * Backed by sanitize-html (htmlparser2) instead of isomorphic-dompurify
+ * (jsdom) — D6 swap. The jsdom subtree pulled in @exodus/bytes which
+ * shipped an ESM-only encoding-lite that html-encoding-sniffer requires
+ * via CJS, crashing every blog write route on module load. sanitize-html
+ * has the same allowlist semantics and no jsdom.
+ *
+ * Allowlist shape (faithful translation of the prior DOMPurify config):
  *   - Tags: StarterKit (paragraphs, headings, lists, inline formatting,
  *     blockquote, code, hr) + Link (a) + Image (img) + PropertyCard
- *     renderHTML output (div + span)
- *   - Attrs: the minimum set the extensions emit (href/target/rel for
- *     links, src/alt/title/loading for images, class + data-property-card
- *     for the card markup)
- *   - URI scheme: http(s) + relative + mailto + tel + fragment.
+ *     renderHTML output (div + span) + Gallery (figure, figcaption) +
+ *     Video embed (iframe, restricted by exclusiveFilter below)
+ *   - Attrs: applied to '*' to match DOMPurify's flat ALLOWED_ATTR
+ *     behavior (any allowed attr permitted on any allowed tag) — this
+ *     is more permissive than sanitize-html's per-tag default, but
+ *     matches what was shipping before
+ *   - Schemes: http, https, mailto, tel. Relative URLs (/...) and
+ *     fragments (#...) pass without a scheme check — sanitize-html's
+ *     default. Protocol-relative URLs (//evil.com) are blocked by
+ *     allowProtocolRelative: false (also the default).
  */
-const CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
-  ALLOWED_TAGS: [
-    "p", "br", "strong", "em", "b", "i", "u", "s", "code", "pre",
-    "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
-    "hr", "a", "img", "div", "span",
-    // Gallery block markup (D4): figure + figcaption wrap each item,
-    // the outer container is a <div data-gallery>.
-    "figure", "figcaption",
-    // Video embed block (D4): <div data-video-embed><iframe …></div>.
-    // Iframe src is additionally validated by a hook (below) — only
-    // youtube-nocookie and player.vimeo URLs survive.
-    "iframe"
-  ],
-  ALLOWED_ATTR: [
-    "href", "target", "rel", "src", "alt", "title", "loading",
-    "class", "data-property-card",
-    // Gallery attrs (D4): data-gallery on the container, data-count
-    // + data-images on the same container (data-images is the
-    // round-trip JSON blob the extension emits for reliable parseHTML).
-    "data-gallery", "data-count", "data-images",
-    // Video-embed attrs (D4): provider + id on the wrapper for the
-    // extension's parseHTML round-trip; iframe standard attrs for the
-    // actual embed. referrerpolicy / sandbox deliberately NOT included.
-    "data-video-embed", "data-provider", "data-video-id",
-    "width", "height", "frameborder", "allow", "allowfullscreen"
-  ],
-  ALLOWED_URI_REGEXP: /^(?:https?:|\/|mailto:|tel:|#)/i
-};
+const ALLOWED_TAGS = [
+  "p", "br", "strong", "em", "b", "i", "u", "s", "code", "pre",
+  "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
+  "hr", "a", "img", "div", "span",
+  // Gallery block markup (D4): figure + figcaption wrap each item,
+  // the outer container is a <div data-gallery>.
+  "figure", "figcaption",
+  // Video embed block (D4): <div data-video-embed><iframe …></div>.
+  // Iframe src is additionally validated by exclusiveFilter below —
+  // only youtube-nocookie and player.vimeo URLs survive.
+  "iframe"
+];
 
-// Strict iframe-src allowlist. The ALLOWED_URI_REGEXP above applies
-// to every URI attr (href, img src, iframe src) uniformly — it can't
-// tell the difference between "a link to example.com" (fine) and "an
-// iframe loading example.com" (not fine). We install a DOMPurify hook
-// that strips any iframe whose src doesn't match the two privacy-
-// enhanced providers we emit. Module-level guard keeps the hook
-// registered exactly once across hot reloads.
-let iframeHookInstalled = false;
-function ensureIframeHook() {
-  if (iframeHookInstalled) return;
-  DOMPurify.addHook("uponSanitizeElement", (node, data) => {
-    if (data.tagName !== "iframe") return;
-    const src = (node as Element).getAttribute?.("src") ?? "";
-    if (!isAllowedEmbedSrc(src)) {
-      // Remove the offending iframe entirely — an iframe with its src
-      // cleared would still render a frame, and we'd rather lose the
-      // block than leave an empty one.
-      (node as Element).parentNode?.removeChild(node as Element);
-    }
-  });
-  iframeHookInstalled = true;
-}
-ensureIframeHook();
+const ALLOWED_ATTRS = [
+  "href", "target", "rel", "src", "alt", "title", "loading",
+  "class", "data-property-card",
+  // Gallery attrs (D4): data-gallery on the container, data-count
+  // + data-images on the same container (data-images is the
+  // round-trip JSON blob the extension emits for reliable parseHTML).
+  "data-gallery", "data-count", "data-images",
+  // Video-embed attrs (D4): provider + id on the wrapper for the
+  // extension's parseHTML round-trip; iframe standard attrs for the
+  // actual embed. referrerpolicy / sandbox deliberately NOT included.
+  "data-video-embed", "data-provider", "data-video-id",
+  "width", "height", "frameborder", "allow", "allowfullscreen"
+];
+
+const CONFIG: sanitizeHtml.IOptions = {
+  allowedTags: ALLOWED_TAGS,
+  allowedAttributes: { "*": ALLOWED_ATTRS },
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  // sanitize-html applies allowedSchemes to all URI-bearing attrs by
+  // default (href, src, etc.). Relative + fragment URLs pass without
+  // matching any scheme — that's the sanitize-html default and matches
+  // the prior /^(?:https?:|\/|mailto:|tel:|#)/i regex.
+  allowProtocolRelative: false,
+  // Strip any iframe whose src isn't from the privacy-enhanced
+  // providers the embed extension emits. Replaces the prior DOMPurify
+  // uponSanitizeElement hook. Returning true removes the element.
+  exclusiveFilter: (frame) => {
+    if (frame.tag !== "iframe") return false;
+    const src = frame.attribs.src ?? "";
+    return !isAllowedEmbedSrc(src);
+  }
+};
 
 /**
  * Sanitize body_html from an arbitrary caller input.
@@ -89,5 +93,5 @@ ensureIframeHook();
 export function sanitizeBlogHtml(input: unknown): string | undefined {
   if (typeof input !== "string") return undefined;
   if (input === "") return "";
-  return DOMPurify.sanitize(input, CONFIG);
+  return sanitizeHtml(input, CONFIG);
 }
