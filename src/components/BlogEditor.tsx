@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -86,13 +86,6 @@ export function BlogEditor({
     // emits initial content server-side, which fights Next.js client
     // hydration.
     immediatelyRender: false,
-    // TipTap 3 defaults shouldRerenderOnTransaction to false; without it,
-    // toolbar buttons that read `editor.isActive(...)` paint their state
-    // at mount and never update. Cursor in an H2 wouldn't highlight the
-    // H2 button because the parent doesn't re-render on selection
-    // change. Per-keystroke re-renders are fine on this admin-only
-    // surface — the buttons' className branches are cheap.
-    shouldRerenderOnTransaction: true,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
@@ -125,6 +118,41 @@ export function BlogEditor({
       onChange(editor.getJSON(), editor.getHTML());
     }
   });
+
+  // Surgical reactivity for the toolbar's active-state highlighting.
+  // useEditor in TipTap 3 doesn't auto-rerender on transactions; the
+  // earlier shouldRerenderOnTransaction:true workaround triggered an
+  // infinite loop in combination with the link bubble menu's
+  // useEditorState. useEditorState is the right primitive — it
+  // subscribes only to the derived flags below and short-circuits
+  // re-renders when nothing changes via shallow equality. Same pattern
+  // the BlogLinkBubbleMenu uses for its link-attr reads.
+  const toolbarStateRaw = useEditorState({
+    editor,
+    selector: ({ editor }) => ({
+      isH2: editor?.isActive("heading", { level: 2 }) ?? false,
+      isH3: editor?.isActive("heading", { level: 3 }) ?? false,
+      isBold: editor?.isActive("bold") ?? false,
+      isItalic: editor?.isActive("italic") ?? false,
+      isBulletList: editor?.isActive("bulletList") ?? false,
+      isOrderedList: editor?.isActive("orderedList") ?? false,
+      isBlockquote: editor?.isActive("blockquote") ?? false,
+      isLink: editor?.isActive("link") ?? false
+    })
+  });
+  // useEditorState's overload for nullable editor returns T | null —
+  // fall back to all-false so the toolbar JSX has stable shape during
+  // the brief pre-mount window when editor is still null.
+  const toolbarState = toolbarStateRaw ?? {
+    isH2: false,
+    isH3: false,
+    isBold: false,
+    isItalic: false,
+    isBulletList: false,
+    isOrderedList: false,
+    isBlockquote: false,
+    isLink: false
+  };
 
   // Wire the PropertyCard storage callback so the NodeView's Edit button
   // opens our modal pre-filled. Re-runs if the editor instance changes
@@ -377,7 +405,7 @@ export function BlogEditor({
           type="button"
           disabled={disabled}
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={btn(editor.isActive("heading", { level: 2 }))}
+          className={btn(toolbarState.isH2)}
         >
           H2
         </button>
@@ -385,7 +413,7 @@ export function BlogEditor({
           type="button"
           disabled={disabled}
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={btn(editor.isActive("heading", { level: 3 }))}
+          className={btn(toolbarState.isH3)}
         >
           H3
         </button>
@@ -393,7 +421,7 @@ export function BlogEditor({
           type="button"
           disabled={disabled}
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={btn(editor.isActive("bold")) + " font-bold"}
+          className={btn(toolbarState.isBold) + " font-bold"}
         >
           B
         </button>
@@ -401,7 +429,7 @@ export function BlogEditor({
           type="button"
           disabled={disabled}
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={btn(editor.isActive("italic")) + " italic"}
+          className={btn(toolbarState.isItalic) + " italic"}
         >
           I
         </button>
@@ -410,7 +438,7 @@ export function BlogEditor({
           type="button"
           disabled={disabled}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={btn(editor.isActive("bulletList"))}
+          className={btn(toolbarState.isBulletList)}
         >
           • List
         </button>
@@ -418,7 +446,7 @@ export function BlogEditor({
           type="button"
           disabled={disabled}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={btn(editor.isActive("orderedList"))}
+          className={btn(toolbarState.isOrderedList)}
         >
           1. List
         </button>
@@ -426,7 +454,7 @@ export function BlogEditor({
           type="button"
           disabled={disabled}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={btn(editor.isActive("blockquote"))}
+          className={btn(toolbarState.isBlockquote)}
         >
           Quote
         </button>
@@ -435,7 +463,7 @@ export function BlogEditor({
           type="button"
           disabled={disabled}
           onClick={promptLink}
-          className={btn(editor.isActive("link"))}
+          className={btn(toolbarState.isLink)}
         >
           Link
         </button>
