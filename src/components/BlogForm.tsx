@@ -323,6 +323,14 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
             )}
           </p>
           {slugErr && <p className="mt-1 text-xs text-red-600">{slugErr.message}</p>}
+          {existing?.slug &&
+            slug.trim() !== "" &&
+            slug.trim() !== existing.slug && (
+              <p className="mt-1 text-xs text-amber-700">
+                Changing the slug will create a 308 redirect from the old URL.
+                External links and search rankings will continue to work.
+              </p>
+            )}
         </div>
         <div>
           <label className={labelClass}>Category *</label>

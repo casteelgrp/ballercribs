@@ -354,6 +354,14 @@ export async function createPost(
     data.slug?.trim() || generateBlogSlug(title) || `post-${Date.now()}`;
   const slug = await uniqueSlug(slugCandidate);
 
+  // If the new post is reusing a slug previously retired into the
+  // redirects table, drop that redirect row — otherwise the detail
+  // route's redirect lookup would still fire on a hit that should
+  // resolve to the new post directly. blog_posts.slug wins lookups
+  // (post comes first), so leaving the row would only shadow the
+  // post's own URL once the redirect's target became stale.
+  await sql`DELETE FROM blog_redirects WHERE old_slug = ${slug};`;
+
   const readingTime = computeReadingTimeMinutes(data.bodyJson ?? null);
   const bodyJsonText = data.bodyJson === null || data.bodyJson === undefined
     ? null
@@ -423,6 +431,38 @@ export async function updatePost(
     }
   }
 
+  // Redirect bookkeeping. Runs only when the slug actually changes.
+  // Sequential awaits without an outer transaction match the rest of
+  // updatePost (the unfeature-others UPDATE above runs the same way) —
+  // a crash mid-flow leaves recoverable state, not corruption.
+  //
+  // Order matters:
+  //   1. Loop prevention — if nextSlug is already a retired slug
+  //      pointing somewhere, drop that redirect so we don't create a
+  //      cycle when the new slug starts shadowing it.
+  //   2. Chain flatten — any redirect that previously pointed at
+  //      existing.slug now retargets nextSlug, so /old → /existing →
+  //      /next collapses to /old → /next (one hop, single 308).
+  //   3. Register existing.slug → nextSlug. ON CONFLICT updates the
+  //      target so reverting a slug change overwrites the prior row
+  //      cleanly.
+  if (nextSlug !== existing.slug) {
+    await sql`DELETE FROM blog_redirects WHERE old_slug = ${nextSlug};`;
+    await sql`
+      UPDATE blog_redirects
+      SET new_slug = ${nextSlug}
+      WHERE new_slug = ${existing.slug};
+    `;
+    await sql`
+      INSERT INTO blog_redirects (old_slug, new_slug, blog_post_id)
+      VALUES (${existing.slug}, ${nextSlug}, ${id}::uuid)
+      ON CONFLICT (old_slug)
+      DO UPDATE SET new_slug = EXCLUDED.new_slug,
+                    blog_post_id = EXCLUDED.blog_post_id,
+                    created_at = NOW();
+    `;
+  }
+
   // Featured toggle: if promoting this row, unset any other featured row
   // first. If demoting, no extra work — the single UPDATE handles it.
   if (data.isFeatured === true && !existing.isFeatured) {
@@ -471,6 +511,27 @@ export async function updatePost(
 
 export async function deletePost(id: string): Promise<void> {
   await sql`DELETE FROM blog_posts WHERE id = ${id}::uuid;`;
+}
+
+/**
+ * Resolve a retired slug to its current target. Called from the blog
+ * detail route's miss path — if getPostBySlug returns null, we check
+ * here before falling through to notFound(). Single indexed lookup
+ * (blog_redirects_old_slug_idx).
+ *
+ * Returns the new_slug string or null. Returning the bare string
+ * keeps the detail-route call site short — the only thing it needs
+ * is where to redirect to.
+ */
+export async function getBlogRedirectByOldSlug(
+  oldSlug: string
+): Promise<string | null> {
+  const { rows } = await sql`
+    SELECT new_slug FROM blog_redirects
+    WHERE old_slug = ${oldSlug}
+    LIMIT 1;
+  `;
+  return rows[0]?.new_slug ? String(rows[0].new_slug) : null;
 }
 
 // ─── Status transitions ────────────────────────────────────────────────────

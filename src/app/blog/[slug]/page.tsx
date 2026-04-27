@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { notFound } from "next/navigation";
-import { getCategories, getPostBySlug } from "@/lib/blog-queries";
+import { notFound, permanentRedirect } from "next/navigation";
+import {
+  getBlogRedirectByOldSlug,
+  getCategories,
+  getPostBySlug
+} from "@/lib/blog-queries";
 import { getUserById } from "@/lib/db";
 import { JsonLd, breadcrumbListSchema, faqPageSchema } from "@/lib/jsonld";
 import { formatDisplayDate, getDisplayDate } from "@/lib/blog-dates";
@@ -67,7 +71,21 @@ export default async function BlogDetailPage({
 }) {
   const { slug } = await params;
   const post = await getPostBySlug(slug).catch(() => null);
-  if (!post) notFound();
+  if (!post) {
+    // Slug miss — check if this URL was retired into a redirect
+    // before 404'ing. permanentRedirect emits a 308; Google treats 308
+    // and 301 equivalently for ranking transfer, so external backlinks
+    // and Search index entries pointing at the old URL keep their
+    // signal once the redirect chain resolves to the live post.
+    // (Next.js 15 split the navigation API: redirect() = 307,
+    // permanentRedirect() = 308. RedirectType.push/replace controls
+    // client navigation behavior, not HTTP status — different axis.)
+    const newSlug = await getBlogRedirectByOldSlug(slug).catch(() => null);
+    if (newSlug && newSlug !== slug) {
+      permanentRedirect(`/blog/${newSlug}`);
+    }
+    notFound();
+  }
 
   // getPostBySlug's default includeUnpublished=false means we're always
   // looking at a status='published' row here — the JSON-LD below emits
