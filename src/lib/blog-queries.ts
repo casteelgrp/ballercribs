@@ -35,6 +35,7 @@ function rowToBlogPost(row: any): BlogPost {
     status: row.status as PostStatus,
     submittedAt: row.submitted_at ? new Date(row.submitted_at) : null,
     publishedAt: row.published_at ? new Date(row.published_at) : null,
+    lastUpdatedAt: row.last_updated_at ? new Date(row.last_updated_at) : null,
     reviewedByUserId:
       row.reviewed_by_user_id !== null && row.reviewed_by_user_id !== undefined
         ? Number(row.reviewed_by_user_id)
@@ -66,6 +67,7 @@ function rowToListItem(row: any): BlogPostListItem {
     isFeatured: Boolean(row.is_featured),
     status: row.status as PostStatus,
     publishedAt: row.published_at ? new Date(row.published_at) : null,
+    lastUpdatedAt: row.last_updated_at ? new Date(row.last_updated_at) : null,
     readingTimeMinutes:
       row.reading_time_minutes !== null && row.reading_time_minutes !== undefined
         ? Number(row.reading_time_minutes)
@@ -131,7 +133,7 @@ export async function getPublishedPosts(opts?: {
   if (opts?.category) {
     const { rows } = await sql`
       SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
-             category_slug, is_featured, status, published_at,
+             category_slug, is_featured, status, published_at, last_updated_at,
              reading_time_minutes, author_user_id
       FROM blog_posts
       WHERE status = 'published' AND category_slug = ${opts.category}
@@ -143,7 +145,7 @@ export async function getPublishedPosts(opts?: {
 
   const { rows } = await sql`
     SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
-           category_slug, is_featured, status, published_at,
+           category_slug, is_featured, status, published_at, last_updated_at,
            reading_time_minutes, author_user_id
     FROM blog_posts
     WHERE status = 'published'
@@ -174,7 +176,7 @@ export async function getPublishedPostCount(opts?: {
 export async function getFeaturedPost(): Promise<BlogPostListItem | null> {
   const { rows } = await sql`
     SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
-           category_slug, is_featured, status, published_at,
+           category_slug, is_featured, status, published_at, last_updated_at,
            reading_time_minutes, author_user_id
     FROM blog_posts
     WHERE is_featured = TRUE AND status = 'published'
@@ -213,23 +215,28 @@ export async function getPostById(id: string): Promise<BlogPost | null> {
 }
 
 /**
- * Minimal shape for sitemap.xml generation — slug + updated_at only.
- * Kept separate from getPublishedPosts (which returns the richer list-
- * item shape) so the sitemap walker stays cheap at higher post counts.
- * Drafts / review / archived rows are filtered out at the SQL layer.
+ * Minimal shape for sitemap.xml generation. last_updated_at when set
+ * (editorial refresh signal), else published_at — never the auto-bumped
+ * updated_at column, which fires on every typo fix and would lie to
+ * crawlers about content freshness. Drafts / review / archived rows
+ * are filtered out at the SQL layer.
  */
 export async function getPublishedPostSitemapEntries(): Promise<
-  Array<{ slug: string; updatedAt: Date }>
+  Array<{ slug: string; lastModified: Date }>
 > {
   const { rows } = await sql`
-    SELECT slug, updated_at FROM blog_posts
+    SELECT slug, published_at, last_updated_at FROM blog_posts
     WHERE status = 'published'
-    ORDER BY updated_at DESC;
+    ORDER BY COALESCE(last_updated_at, published_at, updated_at) DESC;
   `;
-  return rows.map((r) => ({
-    slug: r.slug as string,
-    updatedAt: new Date(r.updated_at)
-  }));
+  return rows.map((r) => {
+    const lastUpdated = r.last_updated_at ? new Date(r.last_updated_at) : null;
+    const published = r.published_at ? new Date(r.published_at) : new Date();
+    return {
+      slug: r.slug as string,
+      lastModified: lastUpdated ?? published
+    };
+  });
 }
 
 // ─── Admin reads ───────────────────────────────────────────────────────────
@@ -241,7 +248,7 @@ export async function getAllPostsForAdmin(opts?: {
   if (opts?.status) {
     const { rows } = await sql`
       SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
-             category_slug, is_featured, status, published_at,
+             category_slug, is_featured, status, published_at, last_updated_at,
              reading_time_minutes, author_user_id
       FROM blog_posts
       WHERE status = ${opts.status}
@@ -251,7 +258,7 @@ export async function getAllPostsForAdmin(opts?: {
   }
   const { rows } = await sql`
     SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
-           category_slug, is_featured, status, published_at,
+           category_slug, is_featured, status, published_at, last_updated_at,
            reading_time_minutes, author_user_id
     FROM blog_posts
     ORDER BY updated_at DESC;
@@ -338,7 +345,8 @@ export async function createPost(
       cover_image_url, cover_image_alt, social_cover_url,
       meta_title, meta_description,
       category_slug, is_featured,
-      author_user_id, reading_time_minutes
+      author_user_id, reading_time_minutes,
+      last_updated_at
     ) VALUES (
       ${slug},
       ${title},
@@ -354,7 +362,8 @@ export async function createPost(
       ${data.categorySlug},
       ${Boolean(data.isFeatured)},
       ${userId},
-      ${readingTime}
+      ${readingTime},
+      ${data.lastUpdatedAt ?? null}
     )
     RETURNING *;
   `;
@@ -407,6 +416,13 @@ export async function updatePost(
       meta_description     = ${data.metaDescription === undefined ? existing.metaDescription : data.metaDescription},
       category_slug        = ${data.categorySlug ?? existing.categorySlug},
       is_featured          = ${data.isFeatured === undefined ? existing.isFeatured : Boolean(data.isFeatured)},
+      last_updated_at      = ${
+        data.lastUpdatedAt === undefined
+          ? existing.lastUpdatedAt
+            ? existing.lastUpdatedAt.toISOString()
+            : null
+          : data.lastUpdatedAt
+      },
       reading_time_minutes = ${readingTime},
       updated_at           = NOW()
     WHERE id = ${id}::uuid

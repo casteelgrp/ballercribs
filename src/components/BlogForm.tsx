@@ -29,6 +29,20 @@ function counterTone(len: number, safe: number, warn: number): string {
   return "text-red-600";
 }
 
+/**
+ * Render a UTC Date as the literal value an <input type="datetime-local">
+ * expects ("YYYY-MM-DDTHH:MM"). Browsers display the field in the
+ * viewer's local TZ; we feed it back the date the row was actually
+ * stamped, in local time, so the input doesn't drift on display.
+ */
+function dateToLocalInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
+}
+
 export function BlogForm({ currentUser, categories, existing }: Props) {
   const router = useRouter();
   const owner = isOwner(currentUser);
@@ -47,6 +61,12 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
   const [isFeatured, setIsFeatured] = useState(Boolean(existing?.isFeatured));
   const [metaTitle, setMetaTitle] = useState(existing?.metaTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(existing?.metaDescription ?? "");
+  // Stored as the literal value of <input type="datetime-local"> —
+  // "YYYY-MM-DDTHH:MM" in the viewer's local TZ. Converted to a UTC
+  // ISO string for the API payload on save. Empty string = clear it.
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string>(
+    existing?.lastUpdatedAt ? dateToLocalInput(existing.lastUpdatedAt) : ""
+  );
 
   // Body state — seeded from existing bodyJson and updated on every
   // editor tick. bodyHtml is regenerated alongside so we can ship both.
@@ -95,7 +115,15 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
       metaTitle: metaTitle.trim() || null,
       metaDescription: metaDescription.trim() || null,
       categorySlug,
-      isFeatured
+      isFeatured,
+      // datetime-local input gives us a naive local-TZ string; new
+      // Date(string).toISOString() interprets it as local time and
+      // returns UTC, which is exactly what the DB column expects.
+      // Empty string = clear (server preserves on undefined; explicit
+      // null replaces). Send null when blank so authors can unset.
+      lastUpdatedAt: lastUpdatedAt
+        ? new Date(lastUpdatedAt).toISOString()
+        : null
     };
   }
 
@@ -326,6 +354,47 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
             Saving will unfeature any other post currently marked featured.
           </p>
         )}
+      </div>
+
+      {/* Editorial refresh timestamp. Distinct from the row's auto-
+          bumped updated_at — set this only when the post itself
+          materially changes (refreshed prices, new listings on a
+          roundup, market shifts). Drives the public "Updated <date>"
+          byline + JSON-LD dateModified + sitemap <lastmod>. */}
+      <div>
+        <label className={labelClass} htmlFor="last-updated-at">
+          Last updated
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            id="last-updated-at"
+            type="datetime-local"
+            value={lastUpdatedAt}
+            onChange={(e) => setLastUpdatedAt(e.target.value)}
+            className={inputClass + " max-w-xs"}
+          />
+          <button
+            type="button"
+            onClick={() => setLastUpdatedAt(dateToLocalInput(new Date()))}
+            className="text-xs uppercase tracking-widest border border-black/20 px-3 py-2 hover:border-black/50 transition-colors"
+          >
+            Set to now
+          </button>
+          {lastUpdatedAt && (
+            <button
+              type="button"
+              onClick={() => setLastUpdatedAt("")}
+              className="text-xs text-black/50 hover:text-red-600 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-black/50">
+          Set when you refresh a post (new prices, swapped properties,
+          market changes). Leave blank otherwise — typo fixes and minor
+          edits don&apos;t count.
+        </p>
       </div>
 
       <div>

@@ -72,6 +72,13 @@ export async function POST(req: Request) {
         bodyHtml: sanitizeBlogHtml(body?.bodyHtml) ?? null,
         coverImageUrl: body?.coverImageUrl ?? null,
         coverImageAlt: body?.coverImageAlt ?? null,
+        // Create path rarely sets lastUpdatedAt — a brand-new post
+        // hasn't been refreshed. Plumbed through anyway so seed
+        // imports / future API consumers can stamp it on insert.
+        lastUpdatedAt:
+          typeof body?.lastUpdatedAt === "string"
+            ? body.lastUpdatedAt
+            : null,
         socialCoverUrl: body?.socialCoverUrl ?? null,
         metaTitle: body?.metaTitle ?? null,
         metaDescription: body?.metaDescription ?? null,

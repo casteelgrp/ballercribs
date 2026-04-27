@@ -5,21 +5,11 @@ import { notFound } from "next/navigation";
 import { getCategories, getPostBySlug } from "@/lib/blog-queries";
 import { getUserById } from "@/lib/db";
 import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
+import { formatDisplayDate, getDisplayDate } from "@/lib/blog-dates";
 import { BlogBody } from "@/components/BlogBody";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
 
 export const revalidate = 60;
-
-function formatPublishedAt(d: Date | null): string {
-  if (!d) return "";
-  const iso = d.toISOString();
-  const [y, m, day] = iso.slice(0, 10).split("-").map(Number);
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-  ];
-  return `${months[m - 1]} ${day}, ${y}`;
-}
 
 export async function generateMetadata({
   params
@@ -121,7 +111,19 @@ export default async function BlogDetailPage({
     ...(descriptionForSchema && { description: descriptionForSchema }),
     ...(schemaImage && { image: schemaImage }),
     ...(post.publishedAt && { datePublished: post.publishedAt.toISOString() }),
-    ...(post.updatedAt && { dateModified: post.updatedAt.toISOString() }),
+    // dateModified now reflects editorial refresh (last_updated_at)
+    // when the >24h threshold passes; otherwise mirrors datePublished
+    // — Google prefers the field present even when equal. Auto-bumped
+    // updated_at is intentionally NOT used here, since it fires on
+    // every typo fix and would lie about content freshness.
+    ...(post.publishedAt && {
+      dateModified: (
+        getDisplayDate({
+          publishedAt: post.publishedAt,
+          lastUpdatedAt: post.lastUpdatedAt
+        })?.date ?? post.publishedAt
+      ).toISOString()
+    }),
     ...(author?.name && {
       author: { "@type": "Person", name: author.name }
     }),
@@ -192,7 +194,7 @@ export default async function BlogDetailPage({
         )}
 
         <p className="mt-6 text-xs uppercase tracking-widest text-black/50 flex items-center gap-3 border-b border-black/10 pb-6">
-          <span>{formatPublishedAt(post.publishedAt)}</span>
+          <span>{formatDisplayDate(post)}</span>
           {post.readingTimeMinutes && (
             <>
               <span aria-hidden>·</span>

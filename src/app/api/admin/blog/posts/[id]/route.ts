@@ -33,6 +33,38 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  // Coerce lastUpdatedAt: undefined preserves existing, null clears,
+  // string sets. Anything else is treated as undefined.
+  const rawLastUpdated = body?.lastUpdatedAt;
+  const lastUpdatedAt:
+    | string
+    | null
+    | undefined =
+    typeof rawLastUpdated === "string"
+      ? rawLastUpdated
+      : rawLastUpdated === null
+        ? null
+        : undefined;
+
+  // Validate ordering when both are present and the post is published —
+  // a draft can carry a stray last_updated_at without being misleading,
+  // but a published post claiming refresh predates publish is wrong.
+  if (typeof lastUpdatedAt === "string" && post.publishedAt) {
+    const refresh = new Date(lastUpdatedAt);
+    if (Number.isNaN(refresh.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid lastUpdatedAt value." },
+        { status: 400 }
+      );
+    }
+    if (refresh.getTime() < post.publishedAt.getTime()) {
+      return NextResponse.json(
+        { error: "Last updated must be on or after the publish date." },
+        { status: 400 }
+      );
+    }
+  }
+
   try {
     const updated = await updatePost(
       id,
@@ -49,7 +81,8 @@ export async function PATCH(
         metaTitle: body?.metaTitle,
         metaDescription: body?.metaDescription,
         categorySlug: typeof body?.categorySlug === "string" ? body.categorySlug : undefined,
-        isFeatured: body?.isFeatured
+        isFeatured: body?.isFeatured,
+        lastUpdatedAt
       },
       user.id
     );

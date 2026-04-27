@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { BlogPostListItem } from "@/types/blog";
+import { formatDisplayDate } from "@/lib/blog-dates";
 
 /**
  * Public-facing blog post card. Extracted from the /blog index so the
@@ -9,9 +10,9 @@ import type { BlogPostListItem } from "@/types/blog";
  * returns) plus a human category label — callers resolve the slug →
  * name map once per page, not per card.
  *
- * formatPublishedAt is local on purpose: the helper is duplicated by
- * the /blog detail page byline and the admin search — worth a
- * /lib/format extraction only once a fourth caller needs it.
+ * Date rendering goes through formatDisplayDate so the card honors the
+ * "Updated <date>" rule for editorially-refreshed posts (>24h after
+ * publish) — same treatment as the detail page byline.
  */
 export function BlogCard({
   post,
@@ -50,23 +51,10 @@ export function BlogCard({
           </p>
         )}
         <p className="mt-3 text-xs text-black/45">
-          {formatPublishedAt(post.publishedAt)}
+          {formatDisplayDate(post)}
           {post.readingTimeMinutes ? ` · ${post.readingTimeMinutes} min read` : ""}
         </p>
       </div>
     </Link>
   );
-}
-
-function formatPublishedAt(d: Date | null): string {
-  if (!d) return "";
-  // UTC components so the stamp doesn't drift across TZs — same
-  // approach used by the blog detail page byline.
-  const iso = d.toISOString();
-  const [y, m, day] = iso.slice(0, 10).split("-").map(Number);
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-  ];
-  return `${months[m - 1]} ${day}, ${y}`;
 }

@@ -37,6 +37,13 @@ export type BlogPost = {
   status: PostStatus;
   submittedAt: Date | null;
   publishedAt: Date | null;
+  /**
+   * Editorially-set refresh timestamp. Null = post hasn't been
+   * refreshed since publish. Distinct from updatedAt (auto-bumped on
+   * every save). Drives the "Updated <date>" byline + JSON-LD
+   * dateModified + sitemap lastmod when set + >24h after publish.
+   */
+  lastUpdatedAt: Date | null;
   reviewedByUserId: number | null;
   lastReviewedAt: Date | null;
   authorUserId: number | null;
@@ -58,6 +65,7 @@ export type BlogPostListItem = Pick<
   | "isFeatured"
   | "status"
   | "publishedAt"
+  | "lastUpdatedAt"
   | "readingTimeMinutes"
   | "authorUserId"
 >;
@@ -81,6 +89,8 @@ export type CreatePostInput = {
   metaDescription?: string | null;
   categorySlug: string;
   isFeatured?: boolean;
+  /** ISO timestamp string for editorial refresh; null clears it. */
+  lastUpdatedAt?: string | null;
 };
 
 /**

@@ -26,6 +26,7 @@
     "migrate:016": "tsx --env-file=.env.local scripts/migrate-016-blog-posts.ts",
     "migrate:017": "tsx --env-file=.env.local scripts/migrate-017-search-tsv.ts",
     "migrate:018": "tsx --env-file=.env.local scripts/migrate-018-blog-cover-alt.ts",
+    "migrate:019": "tsx --env-file=.env.local scripts/migrate-019-blog-last-updated.ts",
     "seed:test-user": "tsx --env-file=.env.local scripts/seed-test-user.ts",
     "seed:blog": "tsx --env-file=.env.local scripts/seed-blog-posts.ts",
     "regenerate:blog-slugs": "tsx --env-file=.env.local scripts/regenerate-blog-slugs.ts"
