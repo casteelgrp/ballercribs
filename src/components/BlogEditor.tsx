@@ -86,6 +86,13 @@ export function BlogEditor({
     // emits initial content server-side, which fights Next.js client
     // hydration.
     immediatelyRender: false,
+    // TipTap 3 defaults shouldRerenderOnTransaction to false; without it,
+    // toolbar buttons that read `editor.isActive(...)` paint their state
+    // at mount and never update. Cursor in an H2 wouldn't highlight the
+    // H2 button because the parent doesn't re-render on selection
+    // change. Per-keystroke re-renders are fine on this admin-only
+    // surface — the buttons' className branches are cheap.
+    shouldRerenderOnTransaction: true,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
