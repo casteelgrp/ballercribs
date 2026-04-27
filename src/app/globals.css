@@ -429,6 +429,50 @@ html, body {
   display: block;
 }
 
+/* ─── Table block ──────────────────────────────────────────────────────
+   Comparison-grid tables. The wrapper handles horizontal scroll on
+   narrow viewports — display:block on the <table> itself would lose
+   tabular layout (columns collapsing), so we wrap instead. BlogBody
+   inserts <div class="blog-table-wrap"> around each editor-emitted
+   table at render time.
+
+   Visual treatment is intentionally restrained — borders and a
+   tinted header cell, no zebra striping. Comparison data benefits
+   from clean horizontal lines, not vertical alternation. */
+.blog-prose .blog-table-wrap {
+  margin: 2rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.blog-prose .blog-table {
+  border-collapse: collapse;
+  width: 100%;
+  /* Slightly tighter than body copy — comparison tables are dense by
+     nature and a step-down read better than full-size body text. */
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.blog-prose .blog-table th,
+.blog-prose .blog-table td {
+  border: 1px solid rgba(10, 10, 10, 0.12);
+  padding: 0.55rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+  /* Prevent narrow columns from stretching to one word per line on
+     narrow viewports — the wrapper's overflow-x will pick up the
+     overflow instead. */
+  white-space: normal;
+  min-width: 7rem;
+}
+.blog-prose .blog-table th {
+  background: rgba(10, 10, 10, 0.04);
+  font-weight: 600;
+  color: #0a0a0a;
+}
+.blog-prose .blog-table tr:hover td {
+  background: rgba(184, 147, 90, 0.04);
+}
+
 /* ─── Homepage rhythm — dark rental cards (D6 polish) ──────────────────
    Scoped section-level theme override for the Featured rentals grid.
    The shared ListingCard was built for cream backgrounds — these rules

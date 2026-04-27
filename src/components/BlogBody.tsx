@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GalleryLightbox, type LightboxItem } from "./GalleryLightbox";
 
 type LightboxState = { items: LightboxItem[]; index: number };
@@ -66,6 +66,15 @@ export function BlogBody({ html }: { html: string }) {
     // parent-driven navigation).
   }, [html]);
 
+  // Wrap each <table class="blog-table"> in <div class="blog-table-wrap">
+  // so the wrapper handles horizontal scroll on narrow viewports without
+  // forcing display:block on the <table> itself (which would break its
+  // tabular layout). Memoized on `html` so opening / closing the
+  // gallery lightbox doesn't re-run the regex on each setState.
+  // The transform is presentation-only and runs after sanitization,
+  // so the security boundary stays at sanitize time.
+  const renderedHtml = useMemo(() => wrapTablesForScroll(html), [html]);
+
   return (
     <>
       <div
@@ -73,7 +82,7 @@ export function BlogBody({ html }: { html: string }) {
         className="blog-prose"
         // body_html is sanitized server-side by sanitizeBlogHtml at
         // write time (see /api/admin/blog/posts POST + PATCH).
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
       {lightbox && (
         <GalleryLightbox
@@ -86,5 +95,24 @@ export function BlogBody({ html }: { html: string }) {
         />
       )}
     </>
+  );
+}
+
+/**
+ * Wrap each `<table class="blog-table">` in a scrolling div. Lives
+ * outside sanitization (which is purely a security gate) — this is a
+ * presentation-layer transform.
+ *
+ * Regex matches the literal class="blog-table" attribute that the
+ * editor's Table.configure stamps on every table. Other class shapes
+ * (e.g. an author hand-pastes a <table> with extra classes) won't
+ * pick up the wrapper — acceptable because the sanitizer's class
+ * passthrough preserves whatever was authored, and the wrapper is
+ * specifically scoped to editor-emitted tables.
+ */
+function wrapTablesForScroll(html: string): string {
+  return html.replace(
+    /(<table\b[^>]*\bclass="[^"]*\bblog-table\b[^"]*"[^>]*>[\s\S]*?<\/table>)/g,
+    '<div class="blog-table-wrap">$1</div>'
   );
 }

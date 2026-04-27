@@ -43,7 +43,12 @@ const ALLOWED_TAGS = [
   // Video embed block (D4): <div data-video-embed><iframe …></div>.
   // Iframe src is additionally validated by exclusiveFilter below —
   // only youtube-nocookie and player.vimeo URLs survive.
-  "iframe"
+  "iframe",
+  // Table support — TipTap @tiptap/extension-table emits the standard
+  // tag set. style attribute deliberately not added to ALLOWED_ATTRS;
+  // visual treatment goes through the .blog-table class hook only,
+  // keeping the XSS surface flat.
+  "table", "thead", "tbody", "tr", "th", "td"
 ];
 
 const ALLOWED_ATTRS = [
@@ -57,7 +62,11 @@ const ALLOWED_ATTRS = [
   // extension's parseHTML round-trip; iframe standard attrs for the
   // actual embed. referrerpolicy / sandbox deliberately NOT included.
   "data-video-embed", "data-provider", "data-video-id",
-  "width", "height", "frameborder", "allow", "allowfullscreen"
+  "width", "height", "frameborder", "allow", "allowfullscreen",
+  // Table cell-span attrs — TipTap emits these as standard table
+  // markup. v1 of the editor doesn't expose merge/split, but
+  // hand-pasted markup or future merge support can carry them.
+  "colspan", "rowspan"
 ];
 
 const CONFIG: sanitizeHtml.IOptions = {

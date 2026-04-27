@@ -6,6 +6,16 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
+// TipTap v3 ships all four table primitives from the single
+// @tiptap/extension-table package as named exports. The
+// extension-table-row / -header / -cell packages are thin re-export
+// shims for v2 compatibility — not needed here.
+import {
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow
+} from "@tiptap/extension-table";
 import { BlogImage, type BlogImageAttrs } from "./editor-extensions/BlogImage";
 import { PropertyCard, type PropertyCardAttrs } from "./editor-extensions/PropertyCard";
 import { Gallery, type GalleryAttrs } from "./editor-extensions/Gallery";
@@ -111,7 +121,20 @@ export function BlogEditor({
       Typography,
       PropertyCard,
       Gallery,
-      VideoEmbed
+      VideoEmbed,
+      // Tables — comparison grids on feature posts. resizable: false
+      // keeps the editor surface predictable; we can flip it on later
+      // if a post genuinely needs column resizing. The blog-table
+      // class is the styling hook in globals.css; the public render
+      // wraps each table in <div class="blog-table-wrap"> for
+      // horizontal scroll on narrow viewports.
+      Table.configure({
+        resizable: false,
+        HTMLAttributes: { class: "blog-table" }
+      }),
+      TableRow,
+      TableHeader,
+      TableCell
     ],
     content: initialContent ?? "",
     onUpdate: ({ editor }) => {
@@ -137,7 +160,10 @@ export function BlogEditor({
       isBulletList: editor?.isActive("bulletList") ?? false,
       isOrderedList: editor?.isActive("orderedList") ?? false,
       isBlockquote: editor?.isActive("blockquote") ?? false,
-      isLink: editor?.isActive("link") ?? false
+      isLink: editor?.isActive("link") ?? false,
+      // Drives the contextual table-edit toolbar row that appears
+      // only when the cursor sits inside a table.
+      isTable: editor?.isActive("table") ?? false
     })
   });
   // useEditorState's overload for nullable editor returns T | null —
@@ -151,7 +177,8 @@ export function BlogEditor({
     isBulletList: false,
     isOrderedList: false,
     isBlockquote: false,
-    isLink: false
+    isLink: false,
+    isTable: false
   };
 
   // Wire the PropertyCard storage callback so the NodeView's Edit button
@@ -499,6 +526,21 @@ export function BlogEditor({
         >
           + Video
         </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() =>
+            editor
+              .chain()
+              .focus()
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+              .run()
+          }
+          className={btn(false)}
+          title="Insert table"
+        >
+          + Table
+        </button>
         <span className="w-px bg-black/10 mx-1" aria-hidden="true" />
         <button
           type="button"
@@ -525,6 +567,61 @@ export function BlogEditor({
           Redo
         </button>
       </div>
+
+      {/* Table-context toolbar — only visible when the cursor sits
+          inside a table cell. Same sticky scaffold as the main row so
+          the controls stay reachable as the author scrolls a long
+          comparison grid. The Add Row / Add Column / Delete pills
+          dispatch directly against the active selection; TipTap
+          resolves the target row + column from there. */}
+      {toolbarState.isTable && (
+        <div className="flex flex-wrap gap-1 p-2 border-b border-black/10 bg-paper sticky top-[calc(4rem+44px)] z-20">
+          <span className="text-[10px] uppercase tracking-widest text-black/45 self-center px-1">
+            Table
+          </span>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            className={btn(false)}
+          >
+            + Row
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+            className={btn(false)}
+          >
+            + Column
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => editor.chain().focus().deleteRow().run()}
+            className={btn(false)}
+          >
+            − Row
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+            className={btn(false)}
+          >
+            − Column
+          </button>
+          <span className="w-px bg-black/10 mx-1" aria-hidden="true" />
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => editor.chain().focus().deleteTable().run()}
+            className={btn(false) + " hover:border-red-500 hover:text-red-600"}
+          >
+            Delete table
+          </button>
+        </div>
+      )}
 
       {/* Hidden file input wired to the Image toolbar button. */}
       <input
