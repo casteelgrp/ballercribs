@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow
 } from "@tiptap/extension-table";
+import { MarkdownTablePaste } from "./editor-extensions/MarkdownTablePaste";
 import { BlogImage, type BlogImageAttrs } from "./editor-extensions/BlogImage";
 import { PropertyCard, type PropertyCardAttrs } from "./editor-extensions/PropertyCard";
 import { Gallery, type GalleryAttrs } from "./editor-extensions/Gallery";
@@ -134,7 +135,12 @@ export function BlogEditor({
       }),
       TableRow,
       TableHeader,
-      TableCell
+      TableCell,
+      // Auto-detects pasted markdown tables (pipe + dash syntax) and
+      // inserts them as native table nodes. Without it, a paste from
+      // Notion / chat / docs lands as plain text — pipes get stripped
+      // during paragraph normalization.
+      MarkdownTablePaste
     ],
     content: initialContent ?? "",
     onUpdate: ({ editor }) => {
@@ -344,6 +350,46 @@ export function BlogEditor({
     setVideoModal({ open: true, pos: null, initial: null });
   }
 
+  /**
+   * Insert a 3×3 table with placeholder header text. TipTap's stock
+   * insertTable creates empty header cells, which renders as three
+   * unstyled blank rows until the author types — confusing on first
+   * insert. Building the node tree by hand lets us seed "Column 1 / 2
+   * / 3" so the structure is visible immediately. Body cells stay
+   * empty (per spec — keep it simple, author types into them).
+   *
+   * Authors who want different dimensions use + Row / + Column after
+   * insertion; covers the common case without prompting.
+   */
+  function insertTableWithPlaceholders() {
+    if (!editor) return;
+    const { schema } = editor.state;
+    const { tableHeader, tableCell, tableRow, table, paragraph } = schema.nodes;
+    if (!tableHeader || !tableCell || !tableRow || !table || !paragraph) {
+      // Fallback to TipTap's bare insert if the schema isn't fully
+      // wired (shouldn't happen in practice — defensive).
+      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+      return;
+    }
+    const headerCell = (text: string) =>
+      tableHeader.create(null, paragraph.create(null, schema.text(text)));
+    const emptyCell = () =>
+      tableCell.create(null, paragraph.create(null, schema.text(" ")));
+    const headerRow = tableRow.create(null, [
+      headerCell("Column 1"),
+      headerCell("Column 2"),
+      headerCell("Column 3")
+    ]);
+    const bodyRow = () =>
+      tableRow.create(null, [emptyCell(), emptyCell(), emptyCell()]);
+    const tableNode = table.create(null, [headerRow, bodyRow(), bodyRow()]);
+    editor
+      .chain()
+      .focus()
+      .insertContent(tableNode.toJSON())
+      .run();
+  }
+
   function saveVideo(attrs: VideoEmbedAttrs) {
     if (!editor) return;
     if (videoModal.pos !== null) {
@@ -529,13 +575,7 @@ export function BlogEditor({
         <button
           type="button"
           disabled={disabled}
-          onClick={() =>
-            editor
-              .chain()
-              .focus()
-              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-              .run()
-          }
+          onClick={insertTableWithPlaceholders}
           className={btn(false)}
           title="Insert table"
         >
