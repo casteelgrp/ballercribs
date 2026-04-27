@@ -197,6 +197,11 @@ html, body {
 .blog-prose h2 {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1.875rem;
+  /* Tailwind's preflight resets all heading weights to inherit, so
+     without this H2s render at body weight (400). 700 brings them
+     back to a real heading; H3+ deliberately untouched — the
+     hierarchy reads on size + serif vs. body, not on layered weight. */
+  font-weight: 700;
   line-height: 1.2;
   margin: 2.5rem 0 0.75rem;
   letter-spacing: -0.01em;

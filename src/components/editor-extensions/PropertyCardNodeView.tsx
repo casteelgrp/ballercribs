@@ -2,6 +2,7 @@
 
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import type { PropertyCardAttrs } from "./PropertyCard";
+import { BlockMoveControls } from "./BlockMoveControls";
 
 /**
  * Editor-surface rendering of a property card. Shows the same content
@@ -78,6 +79,7 @@ export function PropertyCardNodeView(props: NodeViewProps) {
         className="absolute top-2 right-2 flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity"
         contentEditable={false}
       >
+        <BlockMoveControls editor={props.editor} getPos={props.getPos} />
         <button
           type="button"
           onClick={requestEdit}

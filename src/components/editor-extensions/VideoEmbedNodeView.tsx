@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import type { VideoEmbedAttrs } from "./VideoEmbed";
+import { BlockMoveControls } from "./BlockMoveControls";
 
 /**
  * Compact editor-surface preview of a video embed — thumbnail + play
@@ -130,6 +131,7 @@ export function VideoEmbedNodeView(props: NodeViewProps) {
         className="absolute top-2 right-2 flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity"
         contentEditable={false}
       >
+        <BlockMoveControls editor={props.editor} getPos={props.getPos} />
         <button
           type="button"
           onClick={requestEdit}

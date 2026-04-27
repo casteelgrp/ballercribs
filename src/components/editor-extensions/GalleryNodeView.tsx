@@ -2,6 +2,7 @@
 
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import type { GalleryAttrs, GalleryItem } from "./Gallery";
+import { BlockMoveControls } from "./BlockMoveControls";
 
 /**
  * Compact in-editor preview of a gallery — up to 4 thumbnails + a
@@ -80,6 +81,7 @@ export function GalleryNodeView(props: NodeViewProps) {
         className="absolute top-2 right-2 flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity"
         contentEditable={false}
       >
+        <BlockMoveControls editor={props.editor} getPos={props.getPos} />
         <button
           type="button"
           onClick={requestEdit}

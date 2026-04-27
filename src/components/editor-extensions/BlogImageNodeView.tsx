@@ -2,6 +2,7 @@
 
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import type { BlogImageAttrs } from "./BlogImage";
+import { BlockMoveControls } from "./BlockMoveControls";
 
 /**
  * Editor-surface rendering for inline images. Mirrors the public output:
@@ -60,6 +61,7 @@ export function BlogImageNodeView(props: NodeViewProps) {
       </figure>
 
       <div className="absolute top-2 right-2 flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+        <BlockMoveControls editor={props.editor} getPos={props.getPos} />
         <button
           type="button"
           onClick={requestEdit}

@@ -14,6 +14,7 @@ import { BlogImageAttrsModal } from "./BlogImageAttrsModal";
 import { BlogPropertyCardModal } from "./BlogPropertyCardModal";
 import { BlogGalleryModal } from "./BlogGalleryModal";
 import { BlogVideoEmbedModal } from "./BlogVideoEmbedModal";
+import { BlogLinkBubbleMenu } from "./BlogLinkBubbleMenu";
 
 type ModalState = {
   open: boolean;
@@ -95,7 +96,15 @@ export function BlogEditor({
       Link.configure({
         openOnClick: false,
         autolink: true,
-        HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" }
+        // Null defaults so per-link `target` lives on the mark rather
+        // than being auto-stamped from a global config. The link
+        // bubble menu's "New window" toggle owns the target value;
+        // existing links round-trip via parseHTML's auto-extraction
+        // of target/rel from saved <a> tags, so no regression to
+        // already-published posts (every existing link has
+        // target="_blank" rel="noopener noreferrer" hardcoded in
+        // body_html — confirmed via curl on prod).
+        HTMLAttributes: { target: null, rel: null }
       }),
       BlogImage,
       Placeholder.configure({ placeholder: "Start writing…" }),
@@ -319,12 +328,19 @@ export function BlogEditor({
   function promptLink() {
     if (!editor) return;
     const prev = (editor.getAttributes("link") as { href?: string })?.href || "";
+    // Toolbar button only handles the initial "add link" path —
+    // editing an existing link's URL + target now flows through the
+    // BlogLinkBubbleMenu inspector that shows on link selection.
     const url = window.prompt("Link URL (empty to remove)", prev);
-    if (url === null) return; // cancelled
+    if (url === null) return;
     if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
+    // New links default to same-tab — historical config auto-stamped
+    // target="_blank" on every link via Link.HTMLAttributes; that
+    // default is now off so the author opts in via the bubble menu's
+    // "New window" toggle for outbound references.
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }
 
@@ -487,6 +503,11 @@ export function BlogEditor({
           e.target.value = "";
         }}
       />
+
+      {/* Link inspector — floats above any link the cursor sits inside.
+          Mounted under the toolbar so its placement context is the
+          editor surface, not the page. */}
+      <BlogLinkBubbleMenu editor={editor} />
 
       {/* Editor surface. Fixed-height pane (h-[70vh] default, persistable
           via the corner grip below) so the page doesn't stretch on long
