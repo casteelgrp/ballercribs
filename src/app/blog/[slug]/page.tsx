@@ -4,9 +4,10 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getCategories, getPostBySlug } from "@/lib/blog-queries";
 import { getUserById } from "@/lib/db";
-import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
+import { JsonLd, breadcrumbListSchema, faqPageSchema } from "@/lib/jsonld";
 import { formatDisplayDate, getDisplayDate } from "@/lib/blog-dates";
 import { BlogBody } from "@/components/BlogBody";
+import { BlogFaqs } from "@/components/BlogFaqs";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
 
 export const revalidate = 60;
@@ -156,6 +157,13 @@ export default async function BlogDetailPage({
           { name: post.title, url: `/blog/${post.slug}` }
         ])}
       />
+      {/* FAQPage schema only emits when the post has structured FAQs.
+          Empty / null leaves the head clean — Google's FAQ rich result
+          requires actual Q+A markup, an empty schema would fail
+          validation. */}
+      {post.faqs && post.faqs.length > 0 && (
+        <JsonLd data={faqPageSchema(post.faqs)} />
+      )}
       {post.coverImageUrl && (
         <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] bg-black/5">
           <Image
@@ -213,6 +221,12 @@ export default async function BlogDetailPage({
             <p className="text-black/50 italic">No content yet.</p>
           )}
         </div>
+
+        {/* Structured FAQ section. Renders nothing when post.faqs is
+            null/empty so the same JSX sits unconditionally; the
+            FAQPage JSON-LD above gates separately so head + body
+            stay in sync. */}
+        <BlogFaqs faqs={post.faqs} />
 
         <div className="mt-12 pt-8 border-t border-black/10 flex items-center justify-between gap-4 flex-wrap">
           <Link

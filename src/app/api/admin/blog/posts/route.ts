@@ -3,11 +3,34 @@ import { requireUser } from "@/lib/auth";
 import { createPost, getAllPostsForAdmin } from "@/lib/blog-queries";
 import { canCreatePost } from "@/lib/blog-permissions";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
-import type { PostStatus } from "@/types/blog";
+import type { BlogFaq, PostStatus } from "@/types/blog";
 
 export const runtime = "nodejs";
 
 const VALID_STATUSES = new Set<PostStatus>(["draft", "review", "published", "archived"]);
+
+/**
+ * Coerce inbound FAQ payload to the canonical `BlogFaq[] | null` shape.
+ * Accepts the array form, drops rows where either field is empty after
+ * trim, and returns null when nothing valid remains — keeps "no FAQs"
+ * stored as NULL (not []) so the public render's existence check
+ * stays a clean `faqs && faqs.length > 0`.
+ */
+function normalizeFaqsInput(raw: unknown): BlogFaq[] | null {
+  if (!Array.isArray(raw)) return null;
+  const cleaned: BlogFaq[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const q = (item as { question?: unknown }).question;
+    const a = (item as { answer?: unknown }).answer;
+    if (typeof q !== "string" || typeof a !== "string") continue;
+    const question = q.trim();
+    const answer = a.trim();
+    if (!question || !answer) continue;
+    cleaned.push({ question, answer });
+  }
+  return cleaned.length > 0 ? cleaned : null;
+}
 
 export async function GET(req: Request) {
   let user;
@@ -79,6 +102,7 @@ export async function POST(req: Request) {
           typeof body?.lastUpdatedAt === "string"
             ? body.lastUpdatedAt
             : null,
+        faqs: normalizeFaqsInput(body?.faqs),
         socialCoverUrl: body?.socialCoverUrl ?? null,
         metaTitle: body?.metaTitle ?? null,
         metaDescription: body?.metaDescription ?? null,

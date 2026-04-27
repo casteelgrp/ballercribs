@@ -10,6 +10,16 @@
 
 export type PostStatus = "draft" | "review" | "published" | "archived";
 
+/**
+ * One Q+A pair. Plain text only in v1 — no rich formatting in answers
+ * (textarea, not editor). Stored as a JSONB array on blog_posts.faqs;
+ * NULL when the post has none.
+ */
+export type BlogFaq = {
+  question: string;
+  answer: string;
+};
+
 export type PostCategory = {
   slug: string;
   name: string;
@@ -48,6 +58,11 @@ export type BlogPost = {
   lastReviewedAt: Date | null;
   authorUserId: number | null;
   readingTimeMinutes: number | null;
+  /**
+   * Optional structured Q+A list. NULL when the post has no FAQ
+   * section. Drives both the public render and the FAQPage JSON-LD.
+   */
+  faqs: BlogFaq[] | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -91,6 +106,8 @@ export type CreatePostInput = {
   isFeatured?: boolean;
   /** ISO timestamp string for editorial refresh; null clears it. */
   lastUpdatedAt?: string | null;
+  /** Structured Q+A list; null clears it (no FAQ section). */
+  faqs?: BlogFaq[] | null;
 };
 
 /**

@@ -1,4 +1,5 @@
 import { SOCIALS } from "@/components/SocialLinks";
+import type { BlogFaq } from "@/types/blog";
 
 /**
  * Shared JSON-LD helpers. Centralized so the homepage Organization /
@@ -81,6 +82,27 @@ export function breadcrumbListSchema(
       position: i + 1,
       name: item.name,
       item: absoluteUrl(item.url)
+    }))
+  };
+}
+
+/**
+ * FAQPage schema for posts with a structured FAQ section. Google uses
+ * this for the FAQ rich result in Search — collapsible Q+A entries
+ * that expand under the post's SERP listing. Caller should gate emission
+ * on `faqs && faqs.length > 0`; the helper itself doesn't.
+ */
+export function faqPageSchema(faqs: BlogFaq[]): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer
+      }
     }))
   };
 }

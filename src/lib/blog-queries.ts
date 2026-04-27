@@ -49,9 +49,36 @@ function rowToBlogPost(row: any): BlogPost {
       row.reading_time_minutes !== null && row.reading_time_minutes !== undefined
         ? Number(row.reading_time_minutes)
         : null,
+    // @vercel/postgres returns JSONB as a parsed value already, but a
+    // legacy or hand-edited row could surface a string — parse
+    // defensively. Anything that doesn't shape-match the array of
+    // {question, answer} pairs collapses to null so the public
+    // existence check (`faqs && faqs.length > 0`) stays one branch.
+    faqs: parseFaqsField(row.faqs),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at)
   };
+}
+
+function parseFaqsField(raw: unknown): BlogPost["faqs"] {
+  if (raw === null || raw === undefined) return null;
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(parsed)) return null;
+  const valid = parsed.filter(
+    (item): item is { question: string; answer: string } =>
+      !!item &&
+      typeof item === "object" &&
+      typeof (item as { question?: unknown }).question === "string" &&
+      typeof (item as { answer?: unknown }).answer === "string"
+  );
+  return valid.length > 0 ? valid : null;
 }
 
 function rowToListItem(row: any): BlogPostListItem {
@@ -346,7 +373,7 @@ export async function createPost(
       meta_title, meta_description,
       category_slug, is_featured,
       author_user_id, reading_time_minutes,
-      last_updated_at
+      last_updated_at, faqs
     ) VALUES (
       ${slug},
       ${title},
@@ -363,7 +390,8 @@ export async function createPost(
       ${Boolean(data.isFeatured)},
       ${userId},
       ${readingTime},
-      ${data.lastUpdatedAt ?? null}
+      ${data.lastUpdatedAt ?? null},
+      ${data.faqs ? JSON.stringify(data.faqs) : null}::jsonb
     )
     RETURNING *;
   `;
@@ -423,6 +451,15 @@ export async function updatePost(
             : null
           : data.lastUpdatedAt
       },
+      faqs                 = ${
+        data.faqs === undefined
+          ? existing.faqs
+            ? JSON.stringify(existing.faqs)
+            : null
+          : data.faqs
+            ? JSON.stringify(data.faqs)
+            : null
+      }::jsonb,
       reading_time_minutes = ${readingTime},
       updated_at           = NOW()
     WHERE id = ${id}::uuid

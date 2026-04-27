@@ -3,8 +3,33 @@ import { requireUser } from "@/lib/auth";
 import { deletePost, getPostById, updatePost } from "@/lib/blog-queries";
 import { canDeletePost, canEditPost } from "@/lib/blog-permissions";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
+import type { BlogFaq } from "@/types/blog";
 
 export const runtime = "nodejs";
+
+/**
+ * PATCH semantics: undefined preserves existing, explicit array sets,
+ * null clears. The form always sends one of those — never a partial
+ * object — so we don't need a deeper diff. Empty rows (missing q or a
+ * after trim) drop on the way through, mirroring the create path.
+ */
+function normalizeFaqsPatch(raw: unknown): BlogFaq[] | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null) return null;
+  if (!Array.isArray(raw)) return undefined;
+  const cleaned: BlogFaq[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const q = (item as { question?: unknown }).question;
+    const a = (item as { answer?: unknown }).answer;
+    if (typeof q !== "string" || typeof a !== "string") continue;
+    const question = q.trim();
+    const answer = a.trim();
+    if (!question || !answer) continue;
+    cleaned.push({ question, answer });
+  }
+  return cleaned.length > 0 ? cleaned : null;
+}
 
 export async function PATCH(
   req: Request,
@@ -82,7 +107,8 @@ export async function PATCH(
         metaDescription: body?.metaDescription,
         categorySlug: typeof body?.categorySlug === "string" ? body.categorySlug : undefined,
         isFeatured: body?.isFeatured,
-        lastUpdatedAt
+        lastUpdatedAt,
+        faqs: normalizeFaqsPatch(body?.faqs)
       },
       user.id
     );

@@ -6,7 +6,7 @@ import { generateBlogSlug, validateSlug } from "@/lib/format";
 import { ImageUpload } from "./ImageUpload";
 import { BlogEditor } from "./BlogEditor";
 import { isOwner } from "@/lib/permissions";
-import type { BlogPost, PostCategory, PostStatus } from "@/types/blog";
+import type { BlogFaq, BlogPost, PostCategory, PostStatus } from "@/types/blog";
 import type { User } from "@/lib/types";
 
 type Props = {
@@ -67,6 +67,11 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string>(
     existing?.lastUpdatedAt ? dateToLocalInput(existing.lastUpdatedAt) : ""
   );
+  // FAQs editor state. Local representation always carries the array
+  // (possibly empty). Save coerces an all-empty array back to null
+  // before serialising — the API layer also defensively normalises,
+  // so a partially-filled row never round-trips into the DB.
+  const [faqs, setFaqs] = useState<BlogFaq[]>(existing?.faqs ?? []);
 
   // Body state — seeded from existing bodyJson and updated on every
   // editor tick. bodyHtml is regenerated alongside so we can ship both.
@@ -98,10 +103,28 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
     if (slug.trim() && validateSlug(slug.trim())) {
       return "Slug is invalid — see the field below the title.";
     }
+    // FAQ rows are all-or-nothing — either both fields filled or both
+    // blank. A row with one half filled is almost always an unfinished
+    // entry the author meant to complete, so we surface it as an
+    // explicit error rather than silently dropping the row at save.
+    for (let i = 0; i < faqs.length; i++) {
+      const f = faqs[i];
+      const q = f.question.trim();
+      const a = f.answer.trim();
+      if ((q && !a) || (!q && a)) {
+        return `FAQ ${i + 1}: fill in both question and answer, or remove the row.`;
+      }
+    }
     return null;
   }
 
   function payload() {
+    // Drop rows with no content; coerce empty array → null so the DB
+    // column stays NULL when there are no FAQs (clean existence check
+    // on the public render side).
+    const cleanedFaqs = faqs
+      .map((f) => ({ question: f.question.trim(), answer: f.answer.trim() }))
+      .filter((f) => f.question && f.answer);
     return {
       title: title.trim(),
       slug: slug.trim() || undefined,
@@ -123,8 +146,30 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
       // null replaces). Send null when blank so authors can unset.
       lastUpdatedAt: lastUpdatedAt
         ? new Date(lastUpdatedAt).toISOString()
-        : null
+        : null,
+      faqs: cleanedFaqs.length > 0 ? cleanedFaqs : null
     };
+  }
+
+  function addFaq() {
+    setFaqs((current) => [...current, { question: "", answer: "" }]);
+  }
+  function removeFaq(idx: number) {
+    setFaqs((current) => current.filter((_, i) => i !== idx));
+  }
+  function updateFaq(idx: number, key: keyof BlogFaq, value: string) {
+    setFaqs((current) =>
+      current.map((f, i) => (i === idx ? { ...f, [key]: value } : f))
+    );
+  }
+  function moveFaq(idx: number, direction: "up" | "down") {
+    setFaqs((current) => {
+      const next = current.slice();
+      const target = direction === "up" ? idx - 1 : idx + 1;
+      if (target < 0 || target >= next.length) return current;
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
   }
 
   async function save(transitionTo?: "submit" | "publish") {
@@ -406,6 +451,101 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
             setBodyHtml(html);
           }}
         />
+      </div>
+
+      {/* FAQs editor. Optional — most posts won't have one. Drives both
+          the public Frequently Asked Questions section and the FAQPage
+          JSON-LD schema. Empty rows save as NULL on the column. */}
+      <div className="border border-black/10 bg-black/[0.02] p-4 space-y-3">
+        <div>
+          <label className={labelClass}>FAQs (optional)</label>
+          <p className="text-xs text-black/55 mt-0.5">
+            Add 3–5 frequently asked questions to earn the FAQ rich result in
+            Google Search and help readers find what they need. Leave empty if
+            the post doesn&apos;t need them.
+          </p>
+        </div>
+
+        {faqs.length === 0 ? (
+          <p className="text-xs text-black/45 italic">No FAQs yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {faqs.map((faq, i) => (
+              <div
+                key={i}
+                className="border border-black/10 bg-white p-3 space-y-2"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[10px] uppercase tracking-widest text-black/45">
+                    FAQ {i + 1}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveFaq(i, "up")}
+                      disabled={i === 0}
+                      aria-label="Move FAQ up"
+                      className="text-[10px] px-2 py-1 border border-black/20 hover:border-black/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveFaq(i, "down")}
+                      disabled={i === faqs.length - 1}
+                      aria-label="Move FAQ down"
+                      className="text-[10px] px-2 py-1 border border-black/20 hover:border-black/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeFaq(i)}
+                      aria-label="Remove FAQ"
+                      className="text-[10px] uppercase tracking-widest px-2 py-1 border border-black/20 hover:border-red-500 hover:text-red-600 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor={`faq-q-${i}`}>
+                    Question
+                  </label>
+                  <input
+                    id={`faq-q-${i}`}
+                    type="text"
+                    value={faq.question}
+                    onChange={(e) => updateFaq(i, "question", e.target.value)}
+                    className={inputClass}
+                    placeholder="What's the most expensive area in Mykonos?"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor={`faq-a-${i}`}>
+                    Answer
+                  </label>
+                  <textarea
+                    id={`faq-a-${i}`}
+                    rows={3}
+                    value={faq.answer}
+                    onChange={(e) => updateFaq(i, "answer", e.target.value)}
+                    className={inputClass}
+                    placeholder="Plain-text answer. Bold / italic / links not supported in v1."
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={addFaq}
+          className="text-xs uppercase tracking-widest border border-black/20 px-3 py-2 hover:border-black/50 transition-colors"
+        >
+          + Add FAQ
+        </button>
       </div>
 
       <details className="border border-black/10 bg-black/[0.02]" open={Boolean(metaTitle || metaDescription || socialCoverUrl)}>
