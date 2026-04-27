@@ -20,8 +20,10 @@ export function SiteFooter() {
       >
         {!minimal && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <p>© {new Date().getFullYear()} BallerCribs. All rights reserved.</p>
-            <div className="flex items-center gap-6 flex-wrap">
+            <p className="text-center sm:text-left">
+              © {new Date().getFullYear()} BallerCribs. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6 flex-wrap justify-center sm:justify-start">
               <Link href="/listings" className="hover:text-accent">
                 Listings
               </Link>
@@ -39,7 +41,7 @@ export function SiteFooter() {
           </div>
         )}
         {!minimal && (
-          <div className="flex items-center gap-6 flex-wrap text-xs text-black/50">
+          <div className="flex items-center gap-6 flex-wrap justify-center sm:justify-start text-xs text-black/50">
             <Link href="/privacy" className="hover:text-accent">
               Privacy
             </Link>
