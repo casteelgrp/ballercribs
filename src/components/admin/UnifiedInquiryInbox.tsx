@@ -30,6 +30,12 @@ export type UnifiedInquiryRow =
 
 export type TypeFilter = "all" | InquiryKind;
 export type StatusFilter = "all" | InquiryStatus;
+/**
+ * Rental-only forwarding filter. "unforwarded" implicitly hides
+ * non-rental rows since the forwarding concept doesn't apply to
+ * buyer/agent inquiries — admin in queue mode wants the rentals.
+ */
+export type ForwardedFilter = "all" | "unforwarded";
 
 const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -44,6 +50,11 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "working", label: "Working" },
   { value: "won", label: "Won" },
   { value: "dead", label: "Dead" }
+];
+
+const FORWARDED_OPTIONS: { value: ForwardedFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "unforwarded", label: "Unforwarded only" }
 ];
 
 // ─── Styling tokens ───────────────────────────────────────────────────────
@@ -97,12 +108,18 @@ export function UnifiedInquiryInbox({
   rows,
   typeFilter,
   statusFilter,
+  forwardedFilter = "all",
+  partnerNameById = {},
   isOwner = false,
   paymentsByInquiry = { agent: {}, rental: {} }
 }: {
   rows: UnifiedInquiryRow[];
   typeFilter: TypeFilter;
   statusFilter: StatusFilter;
+  /** Defaults to "all" — page surfaces this from ?forwarded=… query param. */
+  forwardedFilter?: ForwardedFilter;
+  /** Resolves rental_inquiries.partner_id → partner.name for the column. */
+  partnerNameById?: Record<string, string>;
   isOwner?: boolean;
   /** Pre-grouped per inquiry-type. Buyer payments aren't surfaced today —
    *  the buyer-lead payment flow isn't live yet. */
@@ -121,11 +138,19 @@ export function UnifiedInquiryInbox({
     return rows.filter((r) => {
       if (typeFilter !== "all" && r.kind !== typeFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      // Unforwarded filter is rental-scoped: hides every non-rental
+      // row plus rental rows that already have a forwarded timestamp.
+      // Spec: "implicitly scope to rental rows" — admin in queue mode
+      // is working the rental backlog.
+      if (forwardedFilter === "unforwarded") {
+        if (r.kind !== "rental") return false;
+        if (r.forwarded_to_partner_at !== null) return false;
+      }
       return true;
     });
-  }, [rows, typeFilter, statusFilter]);
+  }, [rows, typeFilter, statusFilter, forwardedFilter]);
 
-  function updateFilter(key: "type" | "status", value: string) {
+  function updateFilter(key: "type" | "status" | "forwarded", value: string) {
     // Preserve any other query params; only mutate the one we clicked.
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     if (value === "all") {
@@ -153,6 +178,12 @@ export function UnifiedInquiryInbox({
           active={statusFilter}
           onSelect={(v) => updateFilter("status", v)}
         />
+        <FilterPillRow
+          label="Forward"
+          options={FORWARDED_OPTIONS}
+          active={forwardedFilter}
+          onSelect={(v) => updateFilter("forwarded", v)}
+        />
       </div>
 
       {filtered.length === 0 ? (
@@ -170,6 +201,7 @@ export function UnifiedInquiryInbox({
                 <th className="text-left px-4 py-3 w-[88px]">Type</th>
                 <th className="text-left px-4 py-3">Name</th>
                 <th className="text-left px-4 py-3">Contact</th>
+                <th className="text-left px-4 py-3 w-[120px]">Partner</th>
                 <th className="text-left px-4 py-3 w-[108px]">Status</th>
                 <th className="text-left px-4 py-3 w-[96px]">Received</th>
                 <th className="text-left px-4 py-3 w-[120px]">Last contact</th>
@@ -187,6 +219,7 @@ export function UnifiedInquiryInbox({
                     onToggle={() => setExpandedKey(isOpen ? null : key)}
                     isOwner={isOwner}
                     payments={lookupPayments(row, paymentsByInquiry)}
+                    partnerName={resolvePartnerName(row, partnerNameById)}
                   />
                 );
               })}
@@ -207,6 +240,7 @@ export function UnifiedInquiryInbox({
                   onToggle={() => setExpandedKey(isOpen ? null : key)}
                   isOwner={isOwner}
                   payments={lookupPayments(row, paymentsByInquiry)}
+                  partnerName={resolvePartnerName(row, partnerNameById)}
                 />
               );
             })}
@@ -267,13 +301,16 @@ function DesktopRow({
   isOpen,
   onToggle,
   isOwner,
-  payments
+  payments,
+  partnerName
 }: {
   row: UnifiedInquiryRow;
   isOpen: boolean;
   onToggle: () => void;
   isOwner: boolean;
   payments: Payment[];
+  /** Resolved partner name for rentals with attribution; null otherwise. */
+  partnerName: string | null;
 }) {
   const borderCls = STATUS_BORDER[row.status];
   return (
@@ -302,6 +339,20 @@ function DesktopRow({
             {row.email}
           </span>
         </td>
+        <td className="px-4 py-3 align-top text-xs text-black/70">
+          {partnerName ? (
+            <span
+              className="truncate inline-block max-w-[14ch]"
+              title={partnerName}
+            >
+              {partnerName}
+            </span>
+          ) : (
+            <span className="text-black/30" aria-label="No partner">
+              —
+            </span>
+          )}
+        </td>
         <td className="px-4 py-3 align-top">
           <StatusBadge status={row.status} />
         </td>
@@ -314,12 +365,13 @@ function DesktopRow({
       </tr>
       {isOpen && (
         <tr className="border-t border-black/10">
-          <td colSpan={6} className="p-0">
+          <td colSpan={7} className="p-0">
             <InquiryDetailPanel
               inquiry={row}
               kind={row.kind}
               isOwner={isOwner}
               payments={payments}
+              partnerName={partnerName}
             />
           </td>
         </tr>
@@ -333,13 +385,15 @@ function MobileRow({
   isOpen,
   onToggle,
   isOwner,
-  payments
+  payments,
+  partnerName
 }: {
   row: UnifiedInquiryRow;
   isOpen: boolean;
   onToggle: () => void;
   isOwner: boolean;
   payments: Payment[];
+  partnerName: string | null;
 }) {
   return (
     <div className={"border-l-4 " + STATUS_BORDER[row.status]}>
@@ -358,6 +412,11 @@ function MobileRow({
         </div>
         <p className="font-medium mt-2 truncate">{row.name}</p>
         <p className="text-xs text-black/60 truncate">{row.email}</p>
+        {partnerName && (
+          <p className="text-[11px] text-black/55 mt-1 truncate">
+            Partner: <span className="text-black/75">{partnerName}</span>
+          </p>
+        )}
       </button>
       {isOpen && (
         <InquiryDetailPanel
@@ -365,6 +424,7 @@ function MobileRow({
           kind={row.kind}
           isOwner={isOwner}
           payments={payments}
+          partnerName={partnerName}
         />
       )}
     </div>
@@ -387,6 +447,22 @@ function lookupPayments(
   if (row.kind === "agent") return byInquiry.agent?.[row.id] ?? [];
   if (row.kind === "rental") return byInquiry.rental?.[row.id] ?? [];
   return [];
+}
+
+/**
+ * Partner name resolution for the Partner column. Only rental rows
+ * with attribution have one — everything else (buyer/agent + organic
+ * rentals where listing_id was null at submit) renders as em-dash.
+ * Falls back to the partner_id literal if the name map doesn't have
+ * an entry, so a deleted partner doesn't print a blank cell.
+ */
+function resolvePartnerName(
+  row: UnifiedInquiryRow,
+  byId: Record<string, string>
+): string | null {
+  if (row.kind !== "rental") return null;
+  if (!row.partner_id) return null;
+  return byId[row.partner_id] ?? row.partner_id;
 }
 
 function TypeBadge({ kind }: { kind: InquiryKind }) {

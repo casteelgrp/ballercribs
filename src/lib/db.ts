@@ -1387,6 +1387,22 @@ export async function unarchiveRentalInquiry(id: number): Promise<boolean> {
   return (rowCount ?? 0) > 0;
 }
 
+/**
+ * Stamp the manual-forwarded timestamp on a rental inquiry. Idempotent
+ * via the WHERE … IS NULL guard — re-clicking the inbox button after
+ * a successful forward leaves the original timestamp intact instead
+ * of overwriting it. Spec calls for no admin-side unmark in v1; if a
+ * mistake needs reversing, do it via the DB.
+ */
+export async function markRentalInquiryForwarded(id: number): Promise<boolean> {
+  const { rowCount } = await sql`
+    UPDATE rental_inquiries
+    SET forwarded_to_partner_at = NOW()
+    WHERE id = ${id} AND forwarded_to_partner_at IS NULL;
+  `;
+  return (rowCount ?? 0) > 0;
+}
+
 export async function deleteRentalInquiry(id: number): Promise<boolean> {
   const { rowCount } = await sql`DELETE FROM rental_inquiries WHERE id = ${id};`;
   return (rowCount ?? 0) > 0;

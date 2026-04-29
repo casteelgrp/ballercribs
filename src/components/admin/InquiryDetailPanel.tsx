@@ -64,6 +64,27 @@ const MONTH_SHORT = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ] as const;
 
+/**
+ * "April 28, 2026 at 2:14 PM" — long-form for the Forwarded:
+ * timestamp readout. Distinct from formatShort/formatDayDate above:
+ * we want a clear human stamp here, not a relative-time abbreviation,
+ * since the admin reads it days/weeks after the action.
+ */
+function formatForwardedAt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const date = d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
+  const time = d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit"
+  });
+  return `${date} at ${time}`;
+}
+
 function formatDayDate(raw: unknown): string {
   if (!raw) return "—";
   if (raw instanceof Date) {
@@ -95,14 +116,57 @@ export function InquiryDetailPanel({
   inquiry,
   kind,
   isOwner = false,
-  payments = []
+  payments = [],
+  partnerName = null
 }: {
   inquiry: AnyInquiry;
   kind: InquiryKind;
   isOwner?: boolean;
   payments?: Payment[];
+  /** Resolved partner name for rental inquiries (null for other kinds). */
+  partnerName?: string | null;
 }) {
   const router = useRouter();
+
+  // Forwarding state mirrors the row's column locally so the Mark
+  // forwarded button can flip optimistically — same pattern as
+  // status/notes below. Only meaningful for rental rows; the helper
+  // below renders the section conditionally on kind === "rental".
+  const initialForwardedAt =
+    kind === "rental"
+      ? (inquiry as RentalInquiry).forwarded_to_partner_at
+      : null;
+  const [forwardedAt, setForwardedAt] = useState<string | null>(
+    initialForwardedAt
+  );
+  const [forwardingPending, setForwardingPending] = useState(false);
+  const [forwardingError, setForwardingError] = useState<string | null>(null);
+
+  async function markForwarded() {
+    if (kind !== "rental") return;
+    setForwardingPending(true);
+    setForwardingError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/rental-inquiries/${inquiry.id}/mark-forwarded`,
+        { method: "PATCH" }
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to mark forwarded");
+      }
+      // Optimistic stamp — the actual DB value is server NOW(), but for
+      // display ISO-now is close enough until the next page refresh.
+      setForwardedAt(new Date().toISOString());
+      router.refresh();
+    } catch (err) {
+      setForwardingError(
+        err instanceof Error ? err.message : "Failed to mark forwarded"
+      );
+    } finally {
+      setForwardingPending(false);
+    }
+  }
 
   const [status, setStatus] = useState<InquiryStatus>(inquiry.status);
   const [notes, setNotes] = useState<string>(inquiry.notes ?? "");
@@ -310,6 +374,52 @@ export function InquiryDetailPanel({
           <p className="mt-2 text-black/80 whitespace-pre-wrap">{inquiry.message}</p>
         )}
       </div>
+
+      {/* Partner attribution + manual-forward action — rental rows only.
+          The button is the actual queue-clearing affordance for the
+          inbox; once stamped, the timestamp replaces the button so a
+          double-action is impossible from the UI alone (server also
+          guards via WHERE forwarded_to_partner_at IS NULL on the
+          UPDATE statement). */}
+      {kind === "rental" && (
+        <div className="border-y border-black/10 py-3">
+          <p className="text-xs uppercase tracking-widest text-black/50 mb-2">
+            Partner
+          </p>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm">
+              {partnerName ? (
+                <span className="font-medium">{partnerName}</span>
+              ) : (
+                <span className="text-black/45">
+                  No partner attached (organic inquiry)
+                </span>
+              )}
+            </p>
+            {partnerName && (
+              <div>
+                {forwardedAt ? (
+                  <p className="text-xs text-emerald-700">
+                    Forwarded: {formatForwardedAt(forwardedAt)}
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={markForwarded}
+                    disabled={forwardingPending}
+                    className="text-xs uppercase tracking-widest border border-black/20 px-3 py-1.5 hover:border-accent hover:text-accent disabled:opacity-50 transition-colors"
+                  >
+                    {forwardingPending ? "Marking…" : "Mark forwarded"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {forwardingError && (
+            <p className="text-xs text-red-700 mt-2">{forwardingError}</p>
+          )}
+        </div>
+      )}
 
       <div>
         <p className="text-xs uppercase tracking-widest text-black/50 mb-2">Status</p>

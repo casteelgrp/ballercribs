@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createRentalInquiry } from "@/lib/db";
+import {
+  createRentalInquiry,
+  getListingByIdAdmin,
+  getPartnerById
+} from "@/lib/db";
 import { sendRentalInquiryNotification } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -117,6 +121,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Message too long." }, { status: 400 });
   }
 
+  // ── Partner attribution + cta_mode gate (D9) ─────────────────────────────
+  //
+  // When listing_id resolves to a real rental, look up its partner. The
+  // form only renders for inquiry_form-mode rentals — outbound_link
+  // rentals route bookings off-site via the partner's tracking URL —
+  // so an inbound submission for an outbound-link listing means a
+  // direct API hit (or stale UI cache after admin flipped a partner's
+  // mode). Reject those instead of capturing a lead the partner
+  // expects to attribute and pay commission on.
+  //
+  // Organic inquiries (no listing_id, no listing_slug — destination
+  // free-text) bypass the gate; partner_id stays NULL.
+  let derivedPartnerId: string | null = null;
+  if (listingId !== null && Number.isFinite(listingId)) {
+    const listing = await getListingByIdAdmin(listingId).catch(() => null);
+    if (listing?.partner_id) {
+      const partner = await getPartnerById(listing.partner_id).catch(() => null);
+      if (partner?.cta_mode === "outbound_link") {
+        return NextResponse.json(
+          {
+            error:
+              "This rental is booked through a partner site, not via inquiry form."
+          },
+          { status: 400 }
+        );
+      }
+      // inquiry_form (or unexpected null partner row) — attribute the lead.
+      derivedPartnerId = listing.partner_id;
+    }
+  }
+
   try {
     const inquiry = await createRentalInquiry({
       name,
@@ -135,7 +170,8 @@ export async function POST(req: Request) {
       // Short-term-only product — every new inquiry lands as short_term
       // regardless of what the client sends. The DB column still admits
       // long_term / not_sure for historical rows.
-      rental_term_preference: "short_term"
+      rental_term_preference: "short_term",
+      partner_id: derivedPartnerId
     });
 
     // Awaited, not fire-and-forget — serverless functions can be torn down

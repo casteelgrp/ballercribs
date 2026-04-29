@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requirePageUser } from "@/lib/auth";
 import {
+  getAllPartners,
   getRecentAgentInquiries,
   getRecentInquiries,
   getRecentRentalInquiries
@@ -10,6 +11,7 @@ import { listPayments } from "@/lib/payments";
 import type { Payment } from "@/lib/payments/types";
 import {
   UnifiedInquiryInbox,
+  type ForwardedFilter,
   type StatusFilter,
   type TypeFilter,
   type UnifiedInquiryRow
@@ -22,6 +24,7 @@ export const metadata: Metadata = { title: "Inquiries — BallerCribs" };
 
 const VALID_TYPES: TypeFilter[] = ["all", "buyer", "agent", "rental"];
 const VALID_STATUSES: StatusFilter[] = ["all", "new", "working", "won", "dead"];
+const VALID_FORWARDED: ForwardedFilter[] = ["all", "unforwarded"];
 
 function normalizeTypeFilter(raw: string | undefined): TypeFilter {
   return raw && (VALID_TYPES as string[]).includes(raw) ? (raw as TypeFilter) : "all";
@@ -33,10 +36,16 @@ function normalizeStatusFilter(raw: string | undefined): StatusFilter {
     : "all";
 }
 
+function normalizeForwardedFilter(raw: string | undefined): ForwardedFilter {
+  return raw && (VALID_FORWARDED as string[]).includes(raw)
+    ? (raw as ForwardedFilter)
+    : "all";
+}
+
 export default async function AdminInquiriesPage({
   searchParams
 }: {
-  searchParams: Promise<{ type?: string; status?: string }>;
+  searchParams: Promise<{ type?: string; status?: string; forwarded?: string }>;
 }) {
   const user = await requirePageUser();
   // Inquiries live on a single notification inbox — only owners see them.
@@ -45,17 +54,21 @@ export default async function AdminInquiriesPage({
   const sp = await searchParams;
   const typeFilter = normalizeTypeFilter(sp.type);
   const statusFilter = normalizeStatusFilter(sp.status);
+  const forwardedFilter = normalizeForwardedFilter(sp.forwarded);
 
   // Fetch all three tables regardless of the type filter so flipping
   // filters doesn't require a round-trip. Archived rows are excluded at
   // the DB layer — unified inbox doesn't surface archived today; it's
-  // still reachable per-row via the Archive/Unarchive action.
-  const [inquiries, agentInquiries, rentalInquiries, allPayments] =
+  // still reachable per-row via the Archive/Unarchive action. Partners
+  // load alongside so the Partner column resolves names without an
+  // N+1 (lookup map keyed by id).
+  const [inquiries, agentInquiries, rentalInquiries, allPayments, partners] =
     await Promise.all([
       getRecentInquiries({ archived: false, limit: 100 }).catch(() => []),
       getRecentAgentInquiries({ archived: false, limit: 100 }).catch(() => []),
       getRecentRentalInquiries({ archived: false, limit: 100 }).catch(() => []),
-      listPayments({ limit: 500 }).catch(() => [])
+      listPayments({ limit: 500 }).catch(() => []),
+      getAllPartners().catch(() => [])
     ]);
 
   const rows = mergeAndSort(inquiries, agentInquiries, rentalInquiries);
@@ -63,6 +76,9 @@ export default async function AdminInquiriesPage({
     agent: groupPayments(allPayments, "agent_feature"),
     rental: groupPayments(allPayments, "rental")
   };
+  const partnerNameById: Record<string, string> = Object.fromEntries(
+    partners.map((p) => [p.id, p.name])
+  );
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
@@ -76,6 +92,8 @@ export default async function AdminInquiriesPage({
         rows={rows}
         typeFilter={typeFilter}
         statusFilter={statusFilter}
+        forwardedFilter={forwardedFilter}
+        partnerNameById={partnerNameById}
         isOwner={true}
         paymentsByInquiry={paymentsByInquiry}
       />
