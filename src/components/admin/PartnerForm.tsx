@@ -57,6 +57,32 @@ export function PartnerForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * Mode-change handler that autofills cta_label with a sensible
+   * default when the field is currently empty. Never overwrites an
+   * existing value — protects edits where the admin has already
+   * authored a custom label.
+   *
+   * Outbound mode prefills "Book on {name}" using the current name
+   * input; if name is still blank (creating a new partner, mode
+   * picked before name typed), falls back to the literal "[Partner]"
+   * placeholder so the field isn't unhelpful. The admin then types a
+   * partner name + manually updates the label, or clears the label
+   * and re-clicks the radio for a fresh autofill once name is set.
+   * Per spec — keep it simple, no continuous follow-along of the
+   * name field.
+   */
+  function handleCtaModeChange(next: PartnerCtaMode) {
+    setCtaMode(next);
+    if (ctaLabel.trim() !== "") return;
+    if (next === "inquiry_form") {
+      setCtaLabel("Inquire about this rental");
+    } else {
+      const trimmedName = name.trim();
+      setCtaLabel(`Book on ${trimmedName || "[Partner]"}`);
+    }
+  }
+
   const slugErr = useMemo(() => {
     const s = slug.trim();
     if (!s) return null;
@@ -229,7 +255,7 @@ export function PartnerForm({
               type="radio"
               name="partner-cta-mode"
               checked={ctaMode === "outbound_link"}
-              onChange={() => setCtaMode("outbound_link")}
+              onChange={() => handleCtaModeChange("outbound_link")}
               className="accent-accent"
             />
             <span>Outbound link</span>
@@ -239,7 +265,7 @@ export function PartnerForm({
               type="radio"
               name="partner-cta-mode"
               checked={ctaMode === "inquiry_form"}
-              onChange={() => setCtaMode("inquiry_form")}
+              onChange={() => handleCtaModeChange("inquiry_form")}
               className="accent-accent"
             />
             <span>Inquiry form</span>
@@ -256,12 +282,30 @@ export function PartnerForm({
           value={ctaLabel}
           onChange={(e) => setCtaLabel(e.target.value)}
           className={inputClass}
-          placeholder="Book on Villanovo"
+          placeholder={
+            ctaMode === "inquiry_form"
+              ? "Inquire about this rental"
+              : "Book on Villanovo"
+          }
         />
-        <p className="mt-1 text-xs text-black/50">
-          What the button says, e.g., &ldquo;Book on Villanovo&rdquo; or
-          &ldquo;Inquire with Aspen Luxury Rentals&rdquo;.
-        </p>
+        {/* Caption diverges by mode: outbound-link partners surface
+            their own name in the CTA (the user is going TO that
+            partner's site); inquiry-form partners stay anonymous to
+            users (we forward behind the scenes), so the label must
+            be generic to avoid leaking the back-office partner
+            name through the button. */}
+        {ctaMode === "inquiry_form" ? (
+          <p className="mt-1 text-xs text-black/50">
+            What the button says. Keep it generic — partner names shouldn&apos;t
+            appear publicly. E.g., &ldquo;Inquire about this rental&rdquo; or
+            &ldquo;Request availability.&rdquo;
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-black/50">
+            What the button says, e.g., &ldquo;Book on Villanovo&rdquo; or
+            &ldquo;Book on Top Villas.&rdquo;
+          </p>
+        )}
       </div>
 
       {/* Logo upload — same component the listing hero + blog cover
