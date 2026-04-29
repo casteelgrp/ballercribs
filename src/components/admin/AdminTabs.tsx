@@ -69,16 +69,12 @@ export function AdminTabs({ isOwner }: { isOwner: boolean }) {
   const [openLabel, setOpenLabel] = useState<string | null>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  // Hover gate: assume hover-capable by default so the SSR pass +
-  // first client render attach handlers immediately. The post-mount
-  // effect then disables them only when the device explicitly reports
-  // (hover: none) — touch devices, kiosks, etc. The earlier
-  // useState(false) default left a one-render gap on desktop where
-  // handlers weren't attached yet; flipping the default closes that
-  // window. On touch the briefly-attached handlers are harmless: a
-  // tap fires mouseenter → mouseleave back-to-back, the 150ms open
-  // timer never resolves, and click takes over as the actual toggle.
-  const [hoverEnabled, setHoverEnabled] = useState(true);
+  // Hover gate: only attach hover handlers on devices that actually
+  // hover. Touch devices report `(hover: none)` and fall through to
+  // click-only — preserves the touch-tap UX without the open-on-tap-
+  // then-immediate-close glitch caused by mouseleave firing right
+  // after a touch.
+  const [hoverEnabled, setHoverEnabled] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(hover: hover)");
