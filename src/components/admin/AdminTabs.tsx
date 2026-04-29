@@ -14,6 +14,7 @@ const TABS: Tab[] = [
   { label: "Blog", href: "/admin/blog", ownerOnly: false, matchExact: false },
   { label: "Payments", href: "/admin/payments", ownerOnly: true, matchExact: false },
   { label: "Hero Photos", href: "/admin/hero-photos", ownerOnly: true, matchExact: false },
+  { label: "Partners", href: "/admin/partners", ownerOnly: true, matchExact: false },
   { label: "Users", href: "/admin/users", ownerOnly: true, matchExact: false },
   { label: "Account", href: "/admin/account", ownerOnly: false, matchExact: false }
 ];
