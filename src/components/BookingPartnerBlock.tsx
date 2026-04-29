@@ -5,24 +5,24 @@ import type { Listing, Partner } from "@/lib/types";
 /**
  * Sidebar booking block on rental detail pages. Shape depends on the
  * partner's cta_mode:
- *   - outbound_link: tracking-URL CTA opens the partner's site in a new
- *     tab. rel="noopener sponsored" per Google's affiliate-link norms +
- *     FTC disclosure conventions.
- *   - inquiry_form: routes to the universal /rentals?property=slug
- *     flow that pre-fills + scrolls to the form anchor (existing behavior).
+ *   - outbound_link: partner identity is up-front. Logo (centered) or
+ *     name header at the top, tracking-URL CTA opens the partner site
+ *     in a new tab with rel="noopener sponsored" per Google + FTC
+ *     conventions, footnote names the fulfilling partner.
+ *   - inquiry_form: partner identity is INTERNAL only. No logo, no
+ *     name surfaced in body copy — users are inquiring with
+ *     BallerCribs and we forward behind the scenes. Naming the
+ *     internal placeholder "Direct" partner publicly creates wrong
+ *     expectations + breaks down for any partner with a back-office
+ *     name not meant for visitors.
  *
- * Logo renders via next/image when partner.logo_url is set; otherwise
- * the partner name appears in heading style. Auto-derived alt text
- * `${partner.name} logo` — admin form deliberately doesn't expose an
- * alt field because the partner's own name is the only honest
- * description for a brand mark. Container is fixed-height +
- * object-contain so logos at any aspect ratio don't stretch.
- *
- * Per-partner disclosure_text renders in small muted text below the
- * CTA when present. Site-wide affiliate disclosure lives at
- * /disclosures (linked from the footer); the per-partner copy here
- * is for partner-specific legal language, not duplicating the site
- * disclosure.
+ * Per-partner disclosure_text (when present on the partner row)
+ * renders as fine print below the CTA — smaller, italic, muted —
+ * distinct from the informational footnote ("Bookings handled
+ * directly by …" or "Typical reply within 48 hours") that sits
+ * above it. Site-wide affiliate disclosure lives at /disclosures
+ * (linked from the footer); per-partner copy here is for partner-
+ * specific legal language, not duplicating the site disclosure.
  */
 export function BookingPartnerBlock({
   listing,
@@ -36,28 +36,18 @@ export function BookingPartnerBlock({
 
   return (
     <div className="lg:sticky lg:top-24 border border-black/10 bg-white p-6">
-      {partner.logo_url ? (
-        <div className="relative w-full h-12 mb-4">
-          <Image
-            src={partner.logo_url}
-            alt={`${partner.name} logo`}
-            fill
-            sizes="(max-width: 1024px) 100vw, 320px"
-            className="object-contain object-left"
-          />
-        </div>
-      ) : (
-        <p className="font-display text-2xl mb-4">{partner.name}</p>
-      )}
-
       {partner.cta_mode === "outbound_link" ? (
         <OutboundCta listing={listing} partner={partner} ctaClass={ctaClass} />
       ) : (
-        <InquiryCta listing={listing} partner={partner} ctaClass={ctaClass} />
+        <InquiryCta listing={listing} ctaLabel={partner.cta_label} ctaClass={ctaClass} />
       )}
 
       {partner.disclosure_text && partner.disclosure_text.trim() && (
-        <p className="text-[11px] text-black/55 mt-4 leading-relaxed">
+        // Fine print: smaller than the informational footnote above
+        // (text-[11px]), muted further, italic for the disclosure
+        // register. Both modes render this block when the partner
+        // row has disclosure_text set.
+        <p className="text-[10px] text-black/40 italic mt-4 leading-relaxed">
           {partner.disclosure_text}
         </p>
       )}
@@ -78,14 +68,37 @@ function OutboundCta({
   // attaches both URLs. If the row somehow lands here without a
   // tracking URL (admin manually nulled the column, legacy data,
   // etc.), we render the inquiry-form fallback — better than a
-  // dead-link CTA.
+  // dead-link CTA. Falls through with a generic CTA label since
+  // partner.cta_label may name the partner ("Book on Villanovo")
+  // which doesn't fit the inquiry-form layout.
   if (!listing.partner_tracking_url) {
-    return <InquiryCta listing={listing} partner={partner} ctaClass={ctaClass} />;
+    return (
+      <InquiryCta
+        listing={listing}
+        ctaLabel="Inquire about this rental"
+        ctaClass={ctaClass}
+      />
+    );
   }
 
   return (
     <>
-      <p className="text-xs uppercase tracking-widest text-black/50 mb-3">
+      {partner.logo_url ? (
+        <div className="relative w-full h-12 mb-4">
+          <Image
+            src={partner.logo_url}
+            alt={`${partner.name} logo`}
+            fill
+            sizes="(max-width: 1024px) 100vw, 320px"
+            // Centered horizontally to match the rest of the
+            // outbound-mode block (CTA + footnote both center-aligned).
+            className="object-contain object-center"
+          />
+        </div>
+      ) : (
+        <p className="font-display text-2xl mb-4 text-center">{partner.name}</p>
+      )}
+      <p className="text-xs uppercase tracking-widest text-black/50 mb-3 text-center">
         Book this rental
       </p>
       <a
@@ -109,25 +122,31 @@ function OutboundCta({
 
 function InquiryCta({
   listing,
-  partner,
+  ctaLabel,
   ctaClass
 }: {
   listing: Listing;
-  partner: Partner;
+  ctaLabel: string;
   ctaClass: string;
 }) {
+  // No partner name surfaced anywhere in this layout — neither logo
+  // nor name header at the top, nor in body copy. The user is
+  // inquiring with BallerCribs; we route to the right partner behind
+  // the scenes. Body copy stays generic regardless of which partner
+  // is attached so the "Direct" placeholder + any future partners
+  // both read consistently.
   return (
     <>
       <h2 className="font-display text-2xl">Interested?</h2>
       <p className="text-sm text-black/60 mt-1 mb-6">
         Tell us when you&apos;re thinking + who&apos;s coming and we&apos;ll
-        connect you with {partner.name}.
+        connect you with the right rental agent.
       </p>
       <Link
         href={`/rentals?property=${encodeURIComponent(listing.slug)}#inquire`}
         className={ctaClass}
       >
-        {partner.cta_label} →
+        {ctaLabel} →
       </Link>
       <p className="text-[11px] text-black/45 mt-4 text-center">
         Typical reply within 48 business hours.
