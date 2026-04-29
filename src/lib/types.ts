@@ -91,6 +91,43 @@ export interface Listing {
   /** Cents of the listing's native currency (matches the currency column). */
   rental_price_cents: number | null;
   rental_price_unit: RentalPriceUnit | null;
+  // Booking-partner linkage — required on rentals, NULL on sales.
+  // partner_property_url + partner_tracking_url are populated only
+  // when the linked partner's cta_mode is 'outbound_link'; both are
+  // NULL for inquiry_form rentals. App-layer enforcement; the DB
+  // schema is permissive so existing sale rows don't fail validation.
+  partner_id: string | null;
+  partner_property_url: string | null;
+  partner_tracking_url: string | null;
+}
+
+// ─── Booking partners (D9) ──────────────────────────────────────────────
+//
+// Affiliate partners (Villanovo, Top Villas) bounce users to a tracking
+// URL on the partner's site. Direct partners (boutique agencies) accept
+// inquiries via our universal /rentals form, which an admin manually
+// forwards. The cta_mode column drives the public booking-block render
+// shape on rental detail pages independently of the type column —
+// partners can in principle change cta_mode without changing type
+// (e.g., a direct partner that later signs an affiliate program).
+
+export type PartnerType = "affiliate" | "direct";
+export type PartnerCtaMode = "outbound_link" | "inquiry_form";
+
+export interface Partner {
+  id: string;
+  name: string;
+  slug: string;
+  type: PartnerType;
+  cta_mode: PartnerCtaMode;
+  cta_label: string;
+  logo_url: string | null;
+  disclosure_text: string | null;
+  /** Required when cta_mode === 'inquiry_form'; admin-set placeholder otherwise. */
+  forward_inquiries_to: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export type AgentInquiryType = "featured" | "referral" | "other";
@@ -180,6 +217,14 @@ export interface RentalInquiry {
    * doesn't surface the picker.
    */
   rental_term_preference: RentalTermPreference | null;
+  // Partner attribution + manual-forwarding stamp (D9). partner_id is
+  // derived server-side from the linked listing's partner_id when the
+  // inquiry references a specific listing; NULL for organic
+  // destination requests submitted via the global /rentals form
+  // without a ?property= context. forwarded_to_partner_at is set by
+  // the inbox's "Mark forwarded" admin action.
+  partner_id: string | null;
+  forwarded_to_partner_at: string | null;
 }
 
 /**

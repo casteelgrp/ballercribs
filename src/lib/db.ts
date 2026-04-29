@@ -9,6 +9,9 @@ import type {
   Listing,
   ListingStatus,
   ListingType,
+  Partner,
+  PartnerCtaMode,
+  PartnerType,
   RentalInquiry,
   RentalPriceUnit,
   RentalTerm,
@@ -65,7 +68,10 @@ function rowToListing(row: any): Listing {
       row.rental_price_cents !== null && row.rental_price_cents !== undefined
         ? Number(row.rental_price_cents)
         : null,
-    rental_price_unit: (row.rental_price_unit ?? null) as RentalPriceUnit | null
+    rental_price_unit: (row.rental_price_unit ?? null) as RentalPriceUnit | null,
+    partner_id: row.partner_id ?? null,
+    partner_property_url: row.partner_property_url ?? null,
+    partner_tracking_url: row.partner_tracking_url ?? null
   };
 }
 
@@ -388,6 +394,9 @@ export interface CreateListingInput {
   rental_term?: RentalTerm | null;
   rental_price_cents?: number | null;
   rental_price_unit?: RentalPriceUnit | null;
+  partner_id?: string | null;
+  partner_property_url?: string | null;
+  partner_tracking_url?: string | null;
 }
 
 export async function createListing(data: CreateListingInput): Promise<Listing> {
@@ -402,7 +411,8 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
       agent_name, agent_brokerage, featured, status,
       submitted_at, published_at, created_by_user_id,
       seo_title, seo_description,
-      listing_type, rental_term, rental_price_cents, rental_price_unit
+      listing_type, rental_term, rental_price_cents, rental_price_unit,
+      partner_id, partner_property_url, partner_tracking_url
     ) VALUES (
       ${data.slug}, ${data.title}, ${data.location}, ${data.price_usd},
       ${data.currency ?? "USD"},
@@ -416,7 +426,10 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
       ${listingType},
       ${data.rental_term ?? null},
       ${data.rental_price_cents ?? null},
-      ${data.rental_price_unit ?? null}
+      ${data.rental_price_unit ?? null},
+      ${data.partner_id ?? null},
+      ${data.partner_property_url ?? null},
+      ${data.partner_tracking_url ?? null}
     )
     RETURNING *;
   `;
@@ -445,6 +458,9 @@ export interface UpdateListingInput {
   rental_term?: RentalTerm | null;
   rental_price_cents?: number | null;
   rental_price_unit?: RentalPriceUnit | null;
+  partner_id?: string | null;
+  partner_property_url?: string | null;
+  partner_tracking_url?: string | null;
 }
 
 export async function updateListing(id: number, data: UpdateListingInput): Promise<Listing | null> {
@@ -478,6 +494,13 @@ export async function updateListing(id: number, data: UpdateListingInput): Promi
       rental_term       = ${data.rental_term === undefined ? null : data.rental_term},
       rental_price_cents = ${data.rental_price_cents === undefined ? null : data.rental_price_cents},
       rental_price_unit = ${data.rental_price_unit === undefined ? null : data.rental_price_unit},
+      -- Partner columns: clobber-on-undefined matches the rental
+      -- field pattern above. Flipping a partner mode (outbound_link
+      -- ↔ inquiry_form) needs to clear the URL fields cleanly,
+      -- which COALESCE wouldn't allow.
+      partner_id            = ${data.partner_id === undefined ? null : data.partner_id},
+      partner_property_url  = ${data.partner_property_url === undefined ? null : data.partner_property_url},
+      partner_tracking_url  = ${data.partner_tracking_url === undefined ? null : data.partner_tracking_url},
       updated_at        = NOW()
     WHERE id = ${id}
     RETURNING *;
@@ -1234,7 +1257,9 @@ function rowToRentalInquiry(row: any): RentalInquiry {
     listing_slug: row.listing_slug ?? null,
     listing_title: row.listing_title ?? null,
     rental_term_preference:
-      (row.rental_term_preference as RentalTermPreference | null) ?? null
+      (row.rental_term_preference as RentalTermPreference | null) ?? null,
+    partner_id: row.partner_id ?? null,
+    forwarded_to_partner_at: row.forwarded_to_partner_at ?? null
   };
 }
 
@@ -1256,6 +1281,13 @@ export interface CreateRentalInquiryInput {
   listing_id?: number | null;
   listing_slug?: string | null;
   rental_term_preference?: RentalTermPreference | null;
+  /**
+   * Set by the POST handler from the linked listing's partner_id when
+   * an inquiry references a specific rental. NULL for organic
+   * destination requests submitted via the global /rentals form
+   * without a ?property= context.
+   */
+  partner_id?: string | null;
 }
 
 export async function createRentalInquiry(
@@ -1266,14 +1298,16 @@ export async function createRentalInquiry(
       name, email, phone, destination,
       start_date, end_date, flexible_dates,
       group_size, budget_range, occasion, message,
-      listing_id, listing_slug, rental_term_preference
+      listing_id, listing_slug, rental_term_preference,
+      partner_id
     )
     VALUES (
       ${data.name}, ${data.email}, ${data.phone}, ${data.destination},
       ${data.start_date}, ${data.end_date}, ${data.flexible_dates},
       ${data.group_size}, ${data.budget_range}, ${data.occasion}, ${data.message},
       ${data.listing_id ?? null}, ${data.listing_slug ?? null},
-      ${data.rental_term_preference ?? null}
+      ${data.rental_term_preference ?? null},
+      ${data.partner_id ?? null}
     )
     RETURNING *;
   `;
@@ -1412,4 +1446,134 @@ export async function getRentalInquiryById(id: number): Promise<RentalInquiry | 
   `;
   return rows[0] ? rowToRentalInquiry(rows[0]) : null;
 }
+
+// ─── Booking partners (D9) ──────────────────────────────────────────────
+//
+// CRUD helpers for the partners table. App-layer validation
+// (cta_mode='inquiry_form' ⇒ forward_inquiries_to required, etc.)
+// lives at the route handler in /admin/partners — these helpers stay
+// dumb so seed scripts and migrations can write rows without going
+// through the validator.
+
+function rowToPartner(row: any): Partner {
+  return {
+    id: String(row.id),
+    name: row.name,
+    slug: row.slug,
+    type: row.type as PartnerType,
+    cta_mode: row.cta_mode as PartnerCtaMode,
+    cta_label: row.cta_label,
+    logo_url: row.logo_url ?? null,
+    disclosure_text: row.disclosure_text ?? null,
+    forward_inquiries_to: row.forward_inquiries_to ?? null,
+    active: Boolean(row.active),
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+}
+
+/** Every partner — used by /admin/partners list. */
+export async function getAllPartners(): Promise<Partner[]> {
+  const { rows } = await sql`
+    SELECT * FROM partners
+    ORDER BY active DESC, name ASC;
+  `;
+  return rows.map(rowToPartner);
+}
+
+/** Active partners — used by the rental form's partner dropdown. */
+export async function getActivePartners(): Promise<Partner[]> {
+  const { rows } = await sql`
+    SELECT * FROM partners
+    WHERE active = TRUE
+    ORDER BY name ASC;
+  `;
+  return rows.map(rowToPartner);
+}
+
+export async function getPartnerById(id: string): Promise<Partner | null> {
+  const { rows } = await sql`SELECT * FROM partners WHERE id = ${id}::uuid LIMIT 1;`;
+  return rows[0] ? rowToPartner(rows[0]) : null;
+}
+
+export async function getPartnerBySlug(slug: string): Promise<Partner | null> {
+  const { rows } = await sql`SELECT * FROM partners WHERE slug = ${slug} LIMIT 1;`;
+  return rows[0] ? rowToPartner(rows[0]) : null;
+}
+
+export interface PartnerInput {
+  name: string;
+  slug: string;
+  type: PartnerType;
+  cta_mode: PartnerCtaMode;
+  cta_label: string;
+  logo_url?: string | null;
+  disclosure_text?: string | null;
+  forward_inquiries_to?: string | null;
+  active?: boolean;
+}
+
+export async function createPartner(data: PartnerInput): Promise<Partner> {
+  const { rows } = await sql`
+    INSERT INTO partners (
+      name, slug, type, cta_mode, cta_label,
+      logo_url, disclosure_text, forward_inquiries_to, active
+    ) VALUES (
+      ${data.name}, ${data.slug}, ${data.type}, ${data.cta_mode}, ${data.cta_label},
+      ${data.logo_url ?? null}, ${data.disclosure_text ?? null},
+      ${data.forward_inquiries_to ?? null},
+      ${data.active ?? true}
+    )
+    RETURNING *;
+  `;
+  return rowToPartner(rows[0]);
+}
+
+export type UpdatePartnerInput = Partial<PartnerInput>;
+
+export async function updatePartner(
+  id: string,
+  data: UpdatePartnerInput
+): Promise<Partner | null> {
+  // COALESCE-on-undefined for the always-set fields, clobber-on-undefined
+  // for nullable ones (logo_url, disclosure_text, forward_inquiries_to)
+  // so an admin clearing a previously-set logo URL actually empties the
+  // column instead of keeping the prior value.
+  const { rows } = await sql`
+    UPDATE partners SET
+      name                  = COALESCE(${data.name ?? null}, name),
+      slug                  = COALESCE(${data.slug ?? null}, slug),
+      type                  = COALESCE(${data.type ?? null}, type),
+      cta_mode              = COALESCE(${data.cta_mode ?? null}, cta_mode),
+      cta_label             = COALESCE(${data.cta_label ?? null}, cta_label),
+      logo_url              = ${data.logo_url === undefined ? null : data.logo_url},
+      disclosure_text       = ${data.disclosure_text === undefined ? null : data.disclosure_text},
+      forward_inquiries_to  = ${data.forward_inquiries_to === undefined ? null : data.forward_inquiries_to},
+      active                = COALESCE(${data.active ?? null}, active),
+      updated_at            = NOW()
+    WHERE id = ${id}::uuid
+    RETURNING *;
+  `;
+  return rows[0] ? rowToPartner(rows[0]) : null;
+}
+
+/**
+ * Per-partner rental count for the /admin/partners list. Returns a
+ * map keyed by partner_id so the page can render counts in a single
+ * pass rather than N queries per row.
+ */
+export async function countListingsByPartner(): Promise<Record<string, number>> {
+  const { rows } = await sql`
+    SELECT partner_id, COUNT(*)::int AS n
+    FROM listings
+    WHERE partner_id IS NOT NULL
+    GROUP BY partner_id;
+  `;
+  const map: Record<string, number> = {};
+  for (const r of rows) {
+    map[String(r.partner_id)] = Number(r.n);
+  }
+  return map;
+}
+
 
