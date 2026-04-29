@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { sql } from "@vercel/postgres";
 import { requirePageUser } from "@/lib/auth";
-import { getListingByIdAdmin } from "@/lib/db";
+import { getActivePartners, getListingByIdAdmin, getPartnerById } from "@/lib/db";
+import type { Partner } from "@/lib/types";
 import { canApprove, canEdit, canViewListing, isOwner } from "@/lib/permissions";
 import { ListingForm } from "@/components/ListingForm";
 import { ReviewActions } from "@/components/ReviewActions";
@@ -36,6 +37,20 @@ export default async function AdminEditListingPage({
   const submitterName = showReviewActions
     ? await fetchSubmitterName(listing.created_by_user_id)
     : null;
+
+  // Active partners for the rental dropdown. If the listing references
+  // a partner that's gone inactive since attachment, fetch + prepend
+  // it so the edit can re-save without dropping its partner pointer.
+  // Only relevant on rentals; the form ignores `partners` for sales.
+  let partners: Partner[] = await getActivePartners().catch(() => []);
+  if (
+    listing.listing_type === "rental" &&
+    listing.partner_id &&
+    !partners.some((p) => p.id === listing.partner_id)
+  ) {
+    const inactive = await getPartnerById(listing.partner_id).catch(() => null);
+    if (inactive) partners = [inactive, ...partners];
+  }
 
   // Status banner copy for non-editors viewing their own non-draft listing.
   const showOwnStatusBanner = !editable && !isOwner(user);
@@ -82,7 +97,12 @@ export default async function AdminEditListingPage({
       )}
 
       <AdminFormCard>
-        <ListingForm currentUser={user} existing={listing} readOnly={!editable} />
+        <ListingForm
+          currentUser={user}
+          existing={listing}
+          readOnly={!editable}
+          partners={partners}
+        />
       </AdminFormCard>
 
       {/* Owner-only secondary actions (archive, delete, etc.) below the form. */}

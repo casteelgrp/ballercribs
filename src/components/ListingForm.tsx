@@ -13,6 +13,7 @@ import type {
   Listing,
   ListingStatus,
   ListingType,
+  Partner,
   RentalPriceUnit,
   User
 } from "@/lib/types";
@@ -24,9 +25,21 @@ type Props = {
   existing?: Listing;
   /** Render all fields disabled, hide save buttons. */
   readOnly?: boolean;
+  /**
+   * Partners available in the rental dropdown. Pages compute this
+   * server-side: getActivePartners() for new listings, plus the
+   * existing listing's partner prepended (even if inactive) so an
+   * edit can always re-save without dropping its partner pointer.
+   */
+  partners?: Partner[];
 };
 
-export function ListingForm({ currentUser, existing, readOnly = false }: Props) {
+export function ListingForm({
+  currentUser,
+  existing,
+  readOnly = false,
+  partners = []
+}: Props) {
   const router = useRouter();
   const isOwner = currentUser.role === "owner";
 
@@ -139,6 +152,19 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       : "night"
   );
 
+  // Partner attribution. partner_id required on rentals. URL fields
+  // surface only when the selected partner's cta_mode is outbound_link;
+  // mode-switch cleanup happens at the wire layer (commonFields), not
+  // by clobbering local state, so a flip-back recovers what was typed.
+  const [partnerId, setPartnerId] = useState<string>(existing?.partner_id ?? "");
+  const [partnerPropertyUrl, setPartnerPropertyUrl] = useState<string>(
+    existing?.partner_property_url ?? ""
+  );
+  const [partnerTrackingUrl, setPartnerTrackingUrl] = useState<string>(
+    existing?.partner_tracking_url ?? ""
+  );
+  const selectedPartner = partners.find((p) => p.id === partnerId) ?? null;
+
   function commonFields() {
     const isRental = listingType === "rental";
     const rentalPriceCents = isRental
@@ -162,14 +188,32 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       hero_image_url: heroUrl.trim(),
       gallery_image_urls: gallery,
       social_cover_url: socialCoverUrl,
-      agent_name: agentName.trim() || null,
-      agent_brokerage: agentBrokerage.trim() || null,
+      // Sales carry the listing agent; rentals strip them on the wire
+      // even if state still has values (mode-flip → flip-back path).
+      agent_name: isRental ? null : agentName.trim() || null,
+      agent_brokerage: isRental ? null : agentBrokerage.trim() || null,
       listing_type: listingType,
       // Always short_term on the write path — long-term rentals are out of
       // scope product-side, enforced in resolveRentalFields too.
       rental_term: isRental ? "short_term" : null,
       rental_price_cents: rentalPriceCents,
       rental_price_unit: isRental ? rentalPriceUnit : null,
+      // Partner shape mirrors server's resolvePartnerFields:
+      //   - sales: everything null (the route strips on its end too)
+      //   - rental + inquiry_form: partner_id only, URLs null
+      //   - rental + outbound_link: partner_id + both trimmed URLs
+      // The mode resolution lives off selectedPartner.cta_mode, which
+      // re-evaluates every render — flipping the partner dropdown
+      // immediately changes what gets shipped without touching state.
+      partner_id: isRental && partnerId ? partnerId : null,
+      partner_property_url:
+        isRental && selectedPartner?.cta_mode === "outbound_link"
+          ? partnerPropertyUrl.trim() || null
+          : null,
+      partner_tracking_url:
+        isRental && selectedPartner?.cta_mode === "outbound_link"
+          ? partnerTrackingUrl.trim() || null
+          : null,
       featured,
       // Empty → null so the DB stores a clean NULL and generateMetadata
       // knows to fall back to the auto-derived title/description.
@@ -194,6 +238,20 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
       }
       if (rentalPriceUnit !== "night" && rentalPriceUnit !== "week") {
         return "Rentals price per night or per week.";
+      }
+      // Partner gates — server enforces these too, but client-side
+      // validation keeps the user on the form for fixable mistakes
+      // instead of round-tripping a 400.
+      if (!partnerId) {
+        return "Pick a booking partner for this rental.";
+      }
+      if (selectedPartner?.cta_mode === "outbound_link") {
+        if (!partnerPropertyUrl.trim()) {
+          return "Partner property URL is required for this partner.";
+        }
+        if (!partnerTrackingUrl.trim()) {
+          return "Partner tracking URL is required for this partner.";
+        }
       }
     }
 
@@ -543,6 +601,99 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
         </div>
       </div>
 
+      {/* Booking partner section — rentals only. Partner choice drives
+          the public booking-block render shape: outbound_link partners
+          get tracking-URL CTAs, inquiry_form partners route through
+          the universal /rentals form. URL fields below render only
+          when the selected partner needs them. */}
+      {listingType === "rental" && (
+        <fieldset className="border border-black/10 bg-black/[0.02] p-4 space-y-4">
+          <legend className="px-2 text-xs uppercase tracking-widest text-black/60">
+            Booking partner
+          </legend>
+
+          <div>
+            <label className={labelClass} htmlFor="listing-partner">
+              Partner *
+            </label>
+            <select
+              id="listing-partner"
+              value={partnerId}
+              onChange={(e) => setPartnerId(e.target.value)}
+              disabled={disabled}
+              className={inputClass + " pr-8"}
+            >
+              <option value="">— Select partner —</option>
+              {partners.map((p) => {
+                const typeLabel = p.type === "affiliate" ? "affiliate" : "direct";
+                const modeLabel =
+                  p.cta_mode === "outbound_link" ? "outbound" : "inquiry";
+                const inactiveTag = p.active ? "" : " · inactive";
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({typeLabel}, {modeLabel}
+                    {inactiveTag})
+                  </option>
+                );
+              })}
+            </select>
+            {partners.length === 0 && (
+              <p className="mt-1 text-xs text-amber-700">
+                No active partners. Create one at /admin/partners before
+                attaching a rental.
+              </p>
+            )}
+          </div>
+
+          {/* Conditional URL fields — appear only when the selected
+              partner emits an outbound link. inquiry_form partners
+              don't surface them; the universal inquiry form covers
+              the routing. URL state stays mounted across mode flips
+              so hopping back to outbound_link recovers what was typed. */}
+          {selectedPartner?.cta_mode === "outbound_link" && (
+            <>
+              <div>
+                <label className={labelClass} htmlFor="partner-property-url">
+                  Partner property URL *
+                </label>
+                <input
+                  id="partner-property-url"
+                  type="url"
+                  value={partnerPropertyUrl}
+                  onChange={(e) => setPartnerPropertyUrl(e.target.value)}
+                  disabled={disabled}
+                  className={inputClass}
+                  placeholder="https://www.villanovo.com/villas/villa-mandalay"
+                />
+                <p className="mt-1 text-xs text-black/55">
+                  The URL of this property on the partner&apos;s site.
+                </p>
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="partner-tracking-url">
+                  Partner tracking URL *
+                </label>
+                <input
+                  id="partner-tracking-url"
+                  type="url"
+                  value={partnerTrackingUrl}
+                  onChange={(e) => setPartnerTrackingUrl(e.target.value)}
+                  disabled={disabled}
+                  className={inputClass}
+                  placeholder="https://…?aff=ballercribs&utm_source=…"
+                />
+                <p className="mt-1 text-xs text-black/55">
+                  Paste the full tracking link for this property from the
+                  partner&apos;s affiliate dashboard. We&apos;ll use this for
+                  the &ldquo;{selectedPartner.cta_label || "Book on …"}&rdquo;
+                  button.
+                </p>
+              </div>
+            </>
+          )}
+        </fieldset>
+      )}
+
       {listingType === "rental" && (
         <fieldset className="border border-black/10 bg-black/[0.02] p-4 space-y-4">
           <legend className="px-2 text-xs uppercase tracking-widest text-black/60">
@@ -648,26 +799,32 @@ export function ListingForm({ currentUser, existing, readOnly = false }: Props) 
         />
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Agent name</label>
-          <input
-            value={agentName}
-            onChange={(e) => setAgentName(e.target.value)}
-            disabled={disabled}
-            className={inputClass}
-          />
+      {/* Agent fields — sales only. Rentals don't have a listing
+          agent in our model; the partner block above carries the
+          fulfillment context instead. State stays mounted on a sale
+          → rental flip so flipping back doesn't lose what was typed. */}
+      {listingType === "sale" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Agent name</label>
+            <input
+              value={agentName}
+              onChange={(e) => setAgentName(e.target.value)}
+              disabled={disabled}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Agent brokerage</label>
+            <input
+              value={agentBrokerage}
+              onChange={(e) => setAgentBrokerage(e.target.value)}
+              disabled={disabled}
+              className={inputClass}
+            />
+          </div>
         </div>
-        <div>
-          <label className={labelClass}>Agent brokerage</label>
-          <input
-            value={agentBrokerage}
-            onChange={(e) => setAgentBrokerage(e.target.value)}
-            disabled={disabled}
-            className={inputClass}
-          />
-        </div>
-      </div>
+      )}
 
       <label
         className={

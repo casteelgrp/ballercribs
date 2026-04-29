@@ -1,4 +1,4 @@
-import type { ListingType, RentalPriceUnit, RentalTerm } from "./types";
+import type { ListingType, Partner, RentalPriceUnit, RentalTerm } from "./types";
 
 /**
  * Resolved rental-vs-sale field shape for a listing write. Callers in
@@ -81,6 +81,122 @@ export function resolveRentalFields(
       rental_price_cents: priceCents,
       rental_price_unit,
       sale_price_override: 0
+    }
+  };
+}
+
+/**
+ * Cross-field partner validation for listing writes (D9). Sale listings
+ * forbid partner linkage; rentals require it. The partner's cta_mode
+ * drives whether URLs are required (outbound_link) or must be NULL
+ * (inquiry_form) — admin can't ship URL fields against an inquiry-form
+ * partner because the public booking block wouldn't surface them.
+ *
+ * Caller responsibility:
+ *   - Pass the resolved listing_type from resolveRentalFields.
+ *   - Look up `partner` from the DB by the body's partner_id BEFORE
+ *     calling this; pass null when partner_id is missing or unknown.
+ *
+ * Returns the sanitized fields ready for createListing/updateListing.
+ * URLs come back null on inquiry_form partners regardless of what the
+ * client sent — defensive cleanup so a mode-switch from outbound_link →
+ * inquiry_form doesn't leave orphan partner_property_url /
+ * partner_tracking_url values in the DB.
+ */
+export type PartnerFieldResolution = {
+  partner_id: string | null;
+  partner_property_url: string | null;
+  partner_tracking_url: string | null;
+};
+
+export function resolvePartnerFields(
+  body: unknown,
+  listing_type: ListingType,
+  partner: Partner | null
+):
+  | { ok: true; data: PartnerFieldResolution }
+  | { ok: false; error: string } {
+  const b = body as Record<string, unknown>;
+
+  if (listing_type === "sale") {
+    // Sale listings keep partner state out — the form might still send
+    // a stray partner_id from a flip mid-edit, but we always strip it.
+    return {
+      ok: true,
+      data: {
+        partner_id: null,
+        partner_property_url: null,
+        partner_tracking_url: null
+      }
+    };
+  }
+
+  // Rental: must have a partner.
+  if (!partner) {
+    return {
+      ok: false,
+      error:
+        "Rentals require a booking partner. Pick one from the partner dropdown."
+    };
+  }
+  if (!partner.active) {
+    // Editing an existing rental whose partner has since gone inactive
+    // is allowed (the dropdown surfaces the inactive partner specifically
+    // so saves don't fail). New attachments to inactive partners are
+    // not — the dropdown only renders active rows for unattached
+    // listings, but the route stays defensive.
+    // We don't flag here; caller decides via attachedPartnerId comparison.
+  }
+
+  if (partner.cta_mode === "inquiry_form") {
+    // Always NULL the URLs on inquiry-form rentals, regardless of
+    // what the client sent. Mode-switch from outbound_link →
+    // inquiry_form is the canonical case — the URL state on the form
+    // becomes invalid the moment the partner changes, and the server
+    // is the last gate.
+    return {
+      ok: true,
+      data: {
+        partner_id: partner.id,
+        partner_property_url: null,
+        partner_tracking_url: null
+      }
+    };
+  }
+
+  // outbound_link: both URLs required.
+  const propertyUrlRaw = b?.partner_property_url;
+  const trackingUrlRaw = b?.partner_tracking_url;
+  const propertyUrl =
+    typeof propertyUrlRaw === "string" ? propertyUrlRaw.trim() : "";
+  const trackingUrl =
+    typeof trackingUrlRaw === "string" ? trackingUrlRaw.trim() : "";
+
+  if (!propertyUrl) {
+    return {
+      ok: false,
+      error: "Partner property URL is required for outbound-link partners."
+    };
+  }
+  if (!trackingUrl) {
+    return {
+      ok: false,
+      error: "Partner tracking URL is required for outbound-link partners."
+    };
+  }
+  if (!/^https?:\/\//i.test(propertyUrl)) {
+    return { ok: false, error: "Partner property URL must be http(s)." };
+  }
+  if (!/^https?:\/\//i.test(trackingUrl)) {
+    return { ok: false, error: "Partner tracking URL must be http(s)." };
+  }
+
+  return {
+    ok: true,
+    data: {
+      partner_id: partner.id,
+      partner_property_url: propertyUrl,
+      partner_tracking_url: trackingUrl
     }
   };
 }

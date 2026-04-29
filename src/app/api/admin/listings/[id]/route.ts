@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   deleteListing,
   getListingByIdAdmin,
+  getPartnerById,
   transitionListingStatus,
   updateListing
 } from "@/lib/db";
@@ -19,7 +20,7 @@ import {
 import { validateSlug } from "@/lib/format";
 import { isCurrencyCode } from "@/lib/currency";
 import { revalidateListingSurfaces } from "@/lib/revalidate-listings";
-import { resolveRentalFields } from "@/lib/listing-validation";
+import { resolvePartnerFields, resolveRentalFields } from "@/lib/listing-validation";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -186,6 +187,37 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (rental.listing_type === "rental") {
         updates.price_usd = 0;
       }
+
+      // Partner attribution rides on the same listing_type branch —
+      // the rental form always sends partner_id when it sends
+      // listing_type. Validation reads cta_mode from the live partner
+      // row; URLs come back null on inquiry_form regardless of what
+      // the client sent (mode-switch cleanup).
+      const partnerIdRaw =
+        typeof fields.partner_id === "string" && fields.partner_id.trim()
+          ? fields.partner_id.trim()
+          : null;
+      const partner =
+        rental.listing_type === "rental" && partnerIdRaw
+          ? await getPartnerById(partnerIdRaw).catch(() => null)
+          : null;
+      if (rental.listing_type === "rental" && partnerIdRaw && !partner) {
+        return NextResponse.json({ error: "Partner not found." }, { status: 400 });
+      }
+      const partnerResolution = resolvePartnerFields(
+        fields,
+        rental.listing_type,
+        partner
+      );
+      if (!partnerResolution.ok) {
+        return NextResponse.json(
+          { error: partnerResolution.error },
+          { status: 400 }
+        );
+      }
+      updates.partner_id = partnerResolution.data.partner_id;
+      updates.partner_property_url = partnerResolution.data.partner_property_url;
+      updates.partner_tracking_url = partnerResolution.data.partner_tracking_url;
     }
 
     let updated;

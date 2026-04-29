@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { createListingWithUniqueSlug } from "@/lib/db";
+import { createListingWithUniqueSlug, getPartnerById } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { generateSlug, validateSlug } from "@/lib/format";
 import { DEFAULT_CURRENCY, isCurrencyCode } from "@/lib/currency";
 import { revalidateListingSurfaces } from "@/lib/revalidate-listings";
 import type { GalleryItem, ListingStatus } from "@/lib/types";
 import { isOwner } from "@/lib/permissions";
-import { resolveRentalFields } from "@/lib/listing-validation";
+import { resolvePartnerFields, resolveRentalFields } from "@/lib/listing-validation";
 
 export const runtime = "nodejs";
 
@@ -70,6 +70,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: rentalResolution.error }, { status: 400 });
   }
   const rental = rentalResolution.data;
+
+  // Partner attribution. Sales reject any partner_id; rentals require
+  // one + URL fields conditional on cta_mode. Looking up the partner
+  // before resolvePartnerFields so the validator can read cta_mode.
+  const partnerIdRaw =
+    typeof body?.partner_id === "string" && body.partner_id.trim()
+      ? body.partner_id.trim()
+      : null;
+  const partner =
+    rental.listing_type === "rental" && partnerIdRaw
+      ? await getPartnerById(partnerIdRaw).catch(() => null)
+      : null;
+  if (rental.listing_type === "rental" && partnerIdRaw && !partner) {
+    return NextResponse.json({ error: "Partner not found." }, { status: 400 });
+  }
+  const partnerResolution = resolvePartnerFields(body, rental.listing_type, partner);
+  if (!partnerResolution.ok) {
+    return NextResponse.json({ error: partnerResolution.error }, { status: 400 });
+  }
+  const partnerFields = partnerResolution.data;
 
   // Sale price is only required when listing_type === 'sale'. Rentals
   // store 0 on price_usd so Math.round behaves on a known value — the
@@ -146,7 +166,10 @@ export async function POST(req: Request) {
       listing_type: rental.listing_type,
       rental_term: rental.rental_term,
       rental_price_cents: rental.rental_price_cents,
-      rental_price_unit: rental.rental_price_unit
+      rental_price_unit: rental.rental_price_unit,
+      partner_id: partnerFields.partner_id,
+      partner_property_url: partnerFields.partner_property_url,
+      partner_tracking_url: partnerFields.partner_tracking_url
     });
     // Only published creations affect public surfaces; drafts and
     // review-queue rows aren't visible yet, so skip the invalidation.
