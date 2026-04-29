@@ -59,9 +59,6 @@ export function SiteFooter() {
             <Link href="/terms" className="hover:text-accent">
               Terms
             </Link>
-            <Link href="/referral-disclosure" className="hover:text-accent">
-              Referral Disclosure
-            </Link>
             <Link href="/disclosures" className="hover:text-accent">
               Disclosures
             </Link>

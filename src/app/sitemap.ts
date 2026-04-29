@@ -89,7 +89,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.3
     },
     {
-      url: `${baseUrl}/referral-disclosure`,
+      url: `${baseUrl}/disclosures`,
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3

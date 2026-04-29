@@ -70,7 +70,7 @@ export default function PrivacyPage() {
         <li>
           Route qualified buyer inquiries to partner real estate agents licensed in
           your market (see our{" "}
-          <a href="/referral-disclosure">Referral Disclosure</a> for details).
+          <a href="/disclosures">Disclosures</a> for details).
         </li>
         <li>Send the BallerCribs newsletter and related editorial content you opted into.</li>
         <li>

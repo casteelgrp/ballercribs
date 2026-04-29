@@ -61,7 +61,7 @@ html, body {
 }
 
 /* ─── Legal page typography ──────────────────────────────────────────────────
-   Scoped to .legal-prose so /privacy, /terms, /referral-disclosure share
+   Scoped to .legal-prose so /privacy, /terms, /disclosures share
    consistent readable formatting without pulling in @tailwindcss/typography.
    Headings use the editorial display font to match the site; body copy
    favors legibility (16–17px, relaxed leading) over visual density. */

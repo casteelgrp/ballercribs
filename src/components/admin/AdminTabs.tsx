@@ -27,9 +27,6 @@ const DASHBOARD: Item = {
 
 const ACCOUNT: Item = { label: "Account", href: "/admin/account", ownerOnly: false };
 
-// Content: editorial / public-facing surfaces. Listings + Blog open
-// to non-owners (per-action permissions gate publish/archive); Hero
-// Photos stays owner-only because it edits site-wide chrome.
 const GROUPS: Group[] = [
   {
     label: "Content",
@@ -58,6 +55,9 @@ const GROUPS: Group[] = [
   }
 ];
 
+const HOVER_OPEN_MS = 150;
+const HOVER_CLOSE_MS = 200;
+
 function isItemActive(pathname: string, item: Item): boolean {
   return item.matchExact ? pathname === item.href : pathname.startsWith(item.href);
 }
@@ -65,24 +65,80 @@ function isItemActive(pathname: string, item: Item): boolean {
 export function AdminTabs({ isOwner }: { isOwner: boolean }) {
   const pathname = usePathname() ?? "/admin";
 
-  // Single-open dropdown — opening one closes any other. Tracking the
-  // open group's label as a string keeps state minimal and serializable.
+  // Single-open dropdown — opening one closes any other.
   const [openLabel, setOpenLabel] = useState<string | null>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  // Outside-click + Esc close. Bound at the nav root so a click on
-  // the trigger of another dropdown counts as inside (its onClick
-  // toggles open state directly).
+  // Hover gate: only attach hover handlers on devices that actually
+  // hover. Touch devices report `(hover: none)` and fall through to
+  // click-only — preserves the touch-tap UX without the open-on-tap-
+  // then-immediate-close glitch caused by mouseleave firing right
+  // after a touch.
+  const [hoverEnabled, setHoverEnabled] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(hover: hover)");
+    setHoverEnabled(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setHoverEnabled(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // Hover delay timers. One pair per nav: opening or closing cancels
+  // the opposite pending timer so a quick re-enter after leave doesn't
+  // dispatch a stale close.
+  const openTimerRef = useRef<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
+
+  const clearOpenTimer = () => {
+    if (openTimerRef.current !== null) {
+      window.clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+  };
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  function scheduleOpen(label: string) {
+    clearCloseTimer();
+    if (openLabel === label) return;
+    clearOpenTimer();
+    openTimerRef.current = window.setTimeout(() => {
+      setOpenLabel(label);
+      openTimerRef.current = null;
+    }, HOVER_OPEN_MS);
+  }
+  function scheduleClose() {
+    clearOpenTimer();
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpenLabel(null);
+      closeTimerRef.current = null;
+    }, HOVER_CLOSE_MS);
+  }
+
+  // Outside-click + Esc close — both bypass the hover-delay timers
+  // for a snappy close on intentional dismissal.
   useEffect(() => {
     if (openLabel === null) return;
     function onPointer(e: MouseEvent | TouchEvent) {
       if (!navRef.current) return;
       if (!navRef.current.contains(e.target as Node)) {
+        clearOpenTimer();
+        clearCloseTimer();
         setOpenLabel(null);
       }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpenLabel(null);
+      if (e.key === "Escape") {
+        clearOpenTimer();
+        clearCloseTimer();
+        setOpenLabel(null);
+      }
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -92,12 +148,22 @@ export function AdminTabs({ isOwner }: { isOwner: boolean }) {
     };
   }, [openLabel]);
 
-  // Close the dropdown when the route changes — clicking a link
-  // inside a dropdown triggers a Next.js client navigation, the
-  // pathname changes, and the menu collapses on its own.
+  // Route change closes any open dropdown immediately. clearOpenTimer/
+  // clearCloseTimer are stable closures so React lint doesn't need them
+  // in deps; pathname is the only effective dependency.
   useEffect(() => {
+    clearOpenTimer();
+    clearCloseTimer();
     setOpenLabel(null);
   }, [pathname]);
+
+  // Cleanup any pending timers on unmount.
+  useEffect(() => {
+    return () => {
+      clearOpenTimer();
+      clearCloseTimer();
+    };
+  }, []);
 
   const visibleGroups = GROUPS.filter((g) => {
     if (g.ownerOnly && !isOwner) return false;
@@ -105,9 +171,13 @@ export function AdminTabs({ isOwner }: { isOwner: boolean }) {
   });
 
   return (
+    // overflow-x-auto on the nav root was clipping the dropdown panel
+    // (CSS forces orthogonal overflow-y to clip when one axis is auto).
+    // flex-wrap handles narrow viewports by stacking trigger rows
+    // instead of horizontal scrolling — admin surface, not public.
     <nav
       ref={navRef}
-      className="flex gap-1 overflow-x-auto -mb-px relative"
+      className="flex gap-1 -mb-px relative flex-wrap"
       aria-label="Admin sections"
     >
       <TabLink item={DASHBOARD} pathname={pathname} />
@@ -120,11 +190,30 @@ export function AdminTabs({ isOwner }: { isOwner: boolean }) {
           isItemActive(pathname, item)
         );
         const isOpen = openLabel === group.label;
+
+        // Hover handlers only attached when the device supports hover.
+        // Touch devices fall through to onClick which toggles immediately.
+        const hoverHandlers = hoverEnabled
+          ? {
+              onMouseEnter: () => scheduleOpen(group.label),
+              onMouseLeave: () => scheduleClose()
+            }
+          : {};
+
         return (
-          <div key={group.label} className="relative whitespace-nowrap">
+          <div
+            key={group.label}
+            className="relative whitespace-nowrap"
+            {...hoverHandlers}
+          >
             <button
               type="button"
-              onClick={() => setOpenLabel(isOpen ? null : group.label)}
+              onClick={() => {
+                // Click bypasses the hover delay — toggling is instant.
+                clearOpenTimer();
+                clearCloseTimer();
+                setOpenLabel(isOpen ? null : group.label);
+              }}
               aria-haspopup="menu"
               aria-expanded={isOpen}
               className={
@@ -135,9 +224,6 @@ export function AdminTabs({ isOwner }: { isOwner: boolean }) {
               }
             >
               <span>{group.label}</span>
-              {/* Inline chevron — rotates 180° when open. Inline SVG to
-                  match the project convention of avoiding icon deps for
-                  one or two glyphs. */}
               <svg
                 width="10"
                 height="10"
@@ -187,10 +273,6 @@ export function AdminTabs({ isOwner }: { isOwner: boolean }) {
         );
       })}
 
-      {/* Account pinned right via ml-auto so the dropdowns left-align
-          and the user-tied link sits in the conventional position.
-          On a horizontally-scrolling mobile nav, ml-auto behaves like
-          a regular last-flex-child since there's no free width. */}
       <div className="ml-auto">
         <TabLink item={ACCOUNT} pathname={pathname} />
       </div>

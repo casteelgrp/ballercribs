@@ -1,4 +1,4 @@
-// Shared chrome for /privacy, /terms, /referral-disclosure. Keeps their
+// Shared chrome for /privacy, /terms, /disclosures. Keeps their
 // typography consistent without pulling in @tailwindcss/typography — the
 // set of rendered elements is small (h1/h2/h3/p/ul/li/strong/em/a) so
 // hand-styling each keeps the editorial aesthetic aligned with the rest

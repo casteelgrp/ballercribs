@@ -68,8 +68,7 @@ export default function TermsPage() {
         Partner agents pay BallerCribs a referral fee if a transaction results
         from the introduction. Referral fees are typically 25%–35% of the partner
         agent&apos;s earned commission. Buyers never pay BallerCribs directly.
-        See our <a href="/referral-disclosure">Referral Disclosure</a> for
-        additional detail.
+        See our <a href="/disclosures">Disclosures</a> for additional detail.
       </p>
 
       <h2>Paid features for agents</h2>
