@@ -495,7 +495,14 @@ export function InquiryDetailPanel({
           inquiryName={inquiry.name}
           inquiryType={kind === "agent" ? "agent_feature" : "rental"}
           payments={payments}
-          canGenerate={isOwner && status === "working"}
+          // Generate Payment Link is agent-only — agent feature buys
+          // are the only direct BallerCribs ↔ customer transaction.
+          // Rentals route bookings through partners (no money flows
+          // through us); buyers' transactions happen with the
+          // licensed partner agent. Historical payment rows on
+          // rentals still render in the list below; only the
+          // generate-new button hides.
+          canGenerate={isOwner && status === "working" && kind === "agent"}
           canMarkPaid={isOwner}
           defaultDescription={
             agent?.brokerage
