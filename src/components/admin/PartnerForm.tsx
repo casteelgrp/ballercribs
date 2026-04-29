@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ImageUpload } from "@/components/ImageUpload";
 import type { Partner, PartnerCtaMode, PartnerType } from "@/lib/types";
 
 /**
@@ -263,22 +264,17 @@ export function PartnerForm({
         </p>
       </div>
 
-      <div>
-        <label className={labelClass} htmlFor="partner-logo-url">
-          Logo URL
-        </label>
-        <input
-          id="partner-logo-url"
-          type="url"
-          value={logoUrl}
-          onChange={(e) => setLogoUrl(e.target.value)}
-          className={inputClass}
-          placeholder="https://…/villanovo-logo.svg"
-        />
-        <p className="mt-1 text-xs text-black/50">
-          External URL to partner logo. Leave blank if no logo.
-        </p>
-      </div>
+      {/* Logo upload — same component the listing hero + blog cover
+          use, including the "or paste a URL" fallback for SVG logos
+          hosted elsewhere. Public render gets alt text auto-derived
+          as `${partner.name} logo` — no separate alt field on the
+          form because the partner's own name is the only honest
+          description. */}
+      <ImageUpload label="Logo" value={logoUrl} onChange={setLogoUrl} />
+      <p className="-mt-2 text-xs text-black/50">
+        Optional. Rendered on every rental detail page from this partner;
+        leave blank to fall back to the partner name in heading style.
+      </p>
 
       <div>
         <label className={labelClass} htmlFor="partner-disclosure">
