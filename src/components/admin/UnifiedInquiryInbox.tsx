@@ -138,12 +138,15 @@ export function UnifiedInquiryInbox({
     return rows.filter((r) => {
       if (typeFilter !== "all" && r.kind !== typeFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
-      // Unforwarded filter is rental-scoped: hides every non-rental
-      // row plus rental rows that already have a forwarded timestamp.
-      // Spec: "implicitly scope to rental rows" — admin in queue mode
-      // is working the rental backlog.
+      // Unforwarded filter is partner-scoped: hides every non-rental
+      // row, plus rental rows that already have a forwarded timestamp,
+      // plus organic rentals (no partner attached) — there's nothing
+      // to forward those to. Admin works organic leads through the
+      // status pipeline (new → working → won/dead), not the partner-
+      // forwarding stamp. Including them in queue mode would be noise.
       if (forwardedFilter === "unforwarded") {
         if (r.kind !== "rental") return false;
+        if (!r.partner_id) return false;
         if (r.forwarded_to_partner_at !== null) return false;
       }
       return true;
