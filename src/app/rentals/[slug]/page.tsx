@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getListingBySlug } from "@/lib/db";
+import { getListingBySlug, getPartnerById } from "@/lib/db";
 import { formatPrice } from "@/lib/currency";
 import { formatSqft } from "@/lib/format";
 import { stripMarkdown } from "@/lib/markdown";
 import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
 import { ListingDescription } from "@/components/ListingDescription";
+import { BookingPartnerBlock } from "@/components/BookingPartnerBlock";
 import { NewsletterCTA } from "@/components/NewsletterCTA";
 import {
   ListingGalleryGrid,
@@ -85,6 +86,14 @@ export default async function RentalDetailPage({
   const { slug } = await params;
   const listing = await getListingBySlug(slug, "rental").catch(() => null);
   if (!listing) notFound();
+
+  // Partner row drives the booking-block render shape (D9). All
+  // rentals are now backfilled with a partner_id, but the lookup is
+  // tolerant — a NULL partner_id (unexpected) falls through to the
+  // pre-D9 inquiry-form behavior via getPartnerById's null return.
+  const partner = listing.partner_id
+    ? await getPartnerById(listing.partner_id).catch(() => null)
+    : null;
 
   const galleryItems = listing.gallery_image_urls;
   const priceLine = rentalPriceText(listing);
@@ -220,38 +229,39 @@ export default async function RentalDetailPage({
               </div>
             )}
 
-            {listing.agent_name && (
-              <div className="mt-12 border-t border-black/10 pt-6">
-                <p className="text-xs uppercase tracking-widest text-black/50">Listed by</p>
-                <p className="mt-2 font-medium">{listing.agent_name}</p>
-                {listing.agent_brokerage && (
-                  <p className="text-sm text-black/60">{listing.agent_brokerage}</p>
-                )}
-              </div>
-            )}
+            {/* "Listed by agent / brokerage" deliberately removed in D9 —
+                rentals don't have listing agents in our model. The
+                BookingPartnerBlock sidebar carries the fulfillment
+                relationship explicitly. */}
           </div>
 
-          {/* Sidebar — Inquire CTA routes to /rentals?property=slug#inquire
-              so the main form pre-fills and the user lands on the scroll
-              anchor. Keeps the one-form principle: rentals doesn't
-              duplicate the form on every detail page. */}
+          {/* Sidebar — booking partner block. Render shape (logo / CTA /
+              disclosure) depends on partner.cta_mode; outbound_link
+              partners get a tracking-URL CTA, inquiry_form partners
+              keep the existing /rentals?property= flow. Falls back to
+              the inquiry-form layout when partner is null (defensive
+              against any rental that somehow loses its partner_id). */}
           <aside className="lg:col-span-1">
-            <div className="lg:sticky lg:top-24 border border-black/10 bg-white p-6">
-              <h2 className="font-display text-2xl">Interested?</h2>
-              <p className="text-sm text-black/60 mt-1 mb-6">
-                Tell us when you&apos;re thinking + who&apos;s coming and we&apos;ll
-                connect you with the right rental agent.
-              </p>
-              <Link
-                href={`/rentals?property=${encodeURIComponent(listing.slug)}#inquire`}
-                className="inline-block bg-ink text-paper px-5 py-3 text-xs uppercase tracking-widest hover:bg-accent transition-colors w-full text-center"
-              >
-                Inquire about this rental →
-              </Link>
-              <p className="text-[11px] text-black/45 mt-4 text-center">
-                Typical reply within 48 business hours.
-              </p>
-            </div>
+            {partner ? (
+              <BookingPartnerBlock listing={listing} partner={partner} />
+            ) : (
+              <div className="lg:sticky lg:top-24 border border-black/10 bg-white p-6">
+                <h2 className="font-display text-2xl">Interested?</h2>
+                <p className="text-sm text-black/60 mt-1 mb-6">
+                  Tell us when you&apos;re thinking + who&apos;s coming and
+                  we&apos;ll connect you with the right rental agent.
+                </p>
+                <Link
+                  href={`/rentals?property=${encodeURIComponent(listing.slug)}#inquire`}
+                  className="inline-block bg-ink text-paper px-5 py-3 text-xs uppercase tracking-widest hover:bg-accent transition-colors w-full text-center"
+                >
+                  Inquire about this rental →
+                </Link>
+                <p className="text-[11px] text-black/45 mt-4 text-center">
+                  Typical reply within 48 business hours.
+                </p>
+              </div>
+            )}
           </aside>
         </div>
 

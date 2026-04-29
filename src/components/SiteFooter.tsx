@@ -62,6 +62,9 @@ export function SiteFooter() {
             <Link href="/referral-disclosure" className="hover:text-accent">
               Referral Disclosure
             </Link>
+            <Link href="/disclosures" className="hover:text-accent">
+              Disclosures
+            </Link>
           </div>
         )}
         {minimal && (
