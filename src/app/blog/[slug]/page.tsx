@@ -184,13 +184,17 @@ export default async function BlogDetailPage({
       )}
       {post.coverImageUrl && (
         <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] bg-black/5">
+          {/* object-[center_65%] matches the listing/rental hero
+              treatment — landscape covers commonly have the subject
+              in the lower third, default center-center was burying
+              architecture below the crop. */}
           <Image
             src={post.coverImageUrl}
             alt={post.coverImageAlt || post.title}
             fill
             sizes="100vw"
             priority
-            className="object-cover"
+            className="object-cover object-[center_65%]"
           />
         </div>
       )}

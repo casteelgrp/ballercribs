@@ -90,7 +90,19 @@ export function ListingHeroImage({
       aria-label={`View ${alt} fullscreen`}
       className="relative w-full aspect-[16/9] sm:aspect-[21/9] bg-black/5 cursor-zoom-in block overflow-hidden"
     >
-      <Image src={src} alt={alt} fill priority sizes="100vw" className="object-cover" />
+      {/* object-position center 65% shifts the focal point down so
+          landscape aerials (subject usually in the lower third)
+          survive the wide/short hero crop. Default center-center
+          was burying the house on aerial-shot listings like
+          /listings/lake-arrowhead-vt-modern-farmhouse-estate. */}
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover object-[center_65%]"
+      />
       {soldLabel && (
         <span className="pointer-events-none absolute top-4 right-4 sm:top-6 sm:right-6 bg-red-600 text-white text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] px-4 py-2 shadow-lg">
           {soldLabel}
