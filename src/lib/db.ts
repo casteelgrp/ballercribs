@@ -73,7 +73,11 @@ function rowToListing(row: any): Listing {
     rental_price_unit: (row.rental_price_unit ?? null) as RentalPriceUnit | null,
     partner_id: row.partner_id ?? null,
     partner_property_url: row.partner_property_url ?? null,
-    partner_tracking_url: row.partner_tracking_url ?? null
+    partner_tracking_url: row.partner_tracking_url ?? null,
+    destination_id:
+      row.destination_id !== null && row.destination_id !== undefined
+        ? Number(row.destination_id)
+        : null
   };
 }
 
@@ -399,6 +403,7 @@ export interface CreateListingInput {
   partner_id?: string | null;
   partner_property_url?: string | null;
   partner_tracking_url?: string | null;
+  destination_id?: number | null;
 }
 
 export async function createListing(data: CreateListingInput): Promise<Listing> {
@@ -414,7 +419,8 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
       submitted_at, published_at, created_by_user_id,
       seo_title, seo_description,
       listing_type, rental_term, rental_price_cents, rental_price_unit,
-      partner_id, partner_property_url, partner_tracking_url
+      partner_id, partner_property_url, partner_tracking_url,
+      destination_id
     ) VALUES (
       ${data.slug}, ${data.title}, ${data.location}, ${data.price_usd},
       ${data.currency ?? "USD"},
@@ -431,7 +437,8 @@ export async function createListing(data: CreateListingInput): Promise<Listing> 
       ${data.rental_price_unit ?? null},
       ${data.partner_id ?? null},
       ${data.partner_property_url ?? null},
-      ${data.partner_tracking_url ?? null}
+      ${data.partner_tracking_url ?? null},
+      ${data.destination_id ?? null}
     )
     RETURNING *;
   `;
@@ -463,6 +470,7 @@ export interface UpdateListingInput {
   partner_id?: string | null;
   partner_property_url?: string | null;
   partner_tracking_url?: string | null;
+  destination_id?: number | null;
 }
 
 export async function updateListing(id: number, data: UpdateListingInput): Promise<Listing | null> {
@@ -503,6 +511,9 @@ export async function updateListing(id: number, data: UpdateListingInput): Promi
       partner_id            = ${data.partner_id === undefined ? null : data.partner_id},
       partner_property_url  = ${data.partner_property_url === undefined ? null : data.partner_property_url},
       partner_tracking_url  = ${data.partner_tracking_url === undefined ? null : data.partner_tracking_url},
+      -- Destination tag — clobber-on-undefined so an explicit null
+      -- (form clearing the selection) actually empties the column.
+      destination_id        = ${data.destination_id === undefined ? null : data.destination_id},
       updated_at        = NOW()
     WHERE id = ${id}
     RETURNING *;
@@ -1622,6 +1633,22 @@ function rowToDestination(row: any): Destination {
 export async function getAllDestinations(): Promise<Destination[]> {
   const { rows } = await sql`
     SELECT * FROM destinations
+    ORDER BY name ASC;
+  `;
+  return rows.map(rowToDestination);
+}
+
+/**
+ * Published destinations — used by the listing + blog admin form
+ * dropdowns. Mirrors the `getActivePartners()` pattern from D9: pages
+ * fetch this set, then if the row being edited references a draft
+ * destination not in the list, prepend it via getDestinationById so
+ * the existing tag survives a re-save.
+ */
+export async function getPublishedDestinations(): Promise<Destination[]> {
+  const { rows } = await sql`
+    SELECT * FROM destinations
+    WHERE published = TRUE
     ORDER BY name ASC;
   `;
   return rows.map(rowToDestination);

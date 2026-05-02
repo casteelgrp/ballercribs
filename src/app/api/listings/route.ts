@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createListingWithUniqueSlug, getPartnerById } from "@/lib/db";
+import {
+  createListingWithUniqueSlug,
+  getDestinationById,
+  getPartnerById
+} from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { generateSlug, validateSlug } from "@/lib/format";
 import { DEFAULT_CURRENCY, isCurrencyCode } from "@/lib/currency";
@@ -115,6 +119,28 @@ export async function POST(req: Request) {
 
   const gallery = normalizeGalleryInput(body?.gallery_image_urls);
 
+  // Destination tag (D10). Optional — null when not provided. Pre-
+  // verify the id resolves to a real row so we surface a 400 instead
+  // of a generic 23503 from the FK on insert.
+  let destinationId: number | null = null;
+  if (body?.destination_id !== undefined && body?.destination_id !== null) {
+    const n = Number(body.destination_id);
+    if (!Number.isInteger(n) || n <= 0) {
+      return NextResponse.json(
+        { error: "Invalid destination_id." },
+        { status: 400 }
+      );
+    }
+    const dest = await getDestinationById(n).catch(() => null);
+    if (!dest) {
+      return NextResponse.json(
+        { error: "Destination not found." },
+        { status: 400 }
+      );
+    }
+    destinationId = n;
+  }
+
   // Status: clamp to what the user is allowed to set on creation.
   // Owners can pick any status; non-owners can only create as draft or submit for review.
   const requested = String(body?.status || "draft") as ListingStatus;
@@ -169,7 +195,8 @@ export async function POST(req: Request) {
       rental_price_unit: rental.rental_price_unit,
       partner_id: partnerFields.partner_id,
       partner_property_url: partnerFields.partner_property_url,
-      partner_tracking_url: partnerFields.partner_tracking_url
+      partner_tracking_url: partnerFields.partner_tracking_url,
+      destination_id: destinationId
     });
     // Only published creations affect public surfaces; drafts and
     // review-queue rows aren't visible yet, so skip the invalidation.

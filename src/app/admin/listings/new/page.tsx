@@ -3,7 +3,7 @@ import { requirePageUser } from "@/lib/auth";
 import { ListingForm } from "@/components/ListingForm";
 import { isOwner } from "@/lib/permissions";
 import { AdminFormCard, AdminFormShell } from "@/components/admin/AdminFormShell";
-import { getActivePartners } from "@/lib/db";
+import { getActivePartners, getPublishedDestinations } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,12 @@ export default async function AdminNewListingPage() {
   // Active partners feed the rental partner dropdown. New listings
   // never need to surface inactive partners — only edits do (so an
   // existing rental whose partner went inactive can still be saved).
-  const partners = await getActivePartners().catch(() => []);
+  // Same shape applies to destinations: published-only is fine here
+  // since there's nothing existing to preserve.
+  const [partners, destinations] = await Promise.all([
+    getActivePartners().catch(() => []),
+    getPublishedDestinations().catch(() => [])
+  ]);
   return (
     <AdminFormShell>
       <section>
@@ -25,7 +30,11 @@ export default async function AdminNewListingPage() {
             : "Save as draft to keep editing, or submit for review when it's ready."}
         </p>
         <AdminFormCard>
-          <ListingForm currentUser={user} partners={partners} />
+          <ListingForm
+            currentUser={user}
+            partners={partners}
+            destinations={destinations}
+          />
         </AdminFormCard>
       </section>
     </AdminFormShell>

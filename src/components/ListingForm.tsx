@@ -6,9 +6,11 @@ import { DescriptionEditor } from "./DescriptionEditor";
 import { ImageUpload } from "./ImageUpload";
 import { GalleryEditor } from "./GalleryEditor";
 import { ListingDescription } from "./ListingDescription";
+import { DestinationSelect } from "./admin/DestinationSelect";
 import { generateSlug, validateSlug } from "@/lib/format";
 import { CURRENCIES, CURRENCY_CODES, DEFAULT_CURRENCY, formatPrice } from "@/lib/currency";
 import type {
+  Destination,
   GalleryItem,
   Listing,
   ListingStatus,
@@ -32,13 +34,22 @@ type Props = {
    * edit can always re-save without dropping its partner pointer.
    */
   partners?: Partner[];
+  /**
+   * Destinations for the optional Destination tag dropdown. Same
+   * pinning shape as `partners`: published destinations alphabetical,
+   * with the existing listing's destination prepended (suffixed
+   * "(unpublished)" by DestinationSelect) when it's a draft not in
+   * the published set.
+   */
+  destinations?: Destination[];
 };
 
 export function ListingForm({
   currentUser,
   existing,
   readOnly = false,
-  partners = []
+  partners = [],
+  destinations = []
 }: Props) {
   const router = useRouter();
   const isOwner = currentUser.role === "owner";
@@ -165,6 +176,15 @@ export function ListingForm({
   );
   const selectedPartner = partners.find((p) => p.id === partnerId) ?? null;
 
+  // Destination tag — optional. Stored as a stringified id so the
+  // <select> binds cleanly; empty string === "no destination". Wire
+  // payload in commonFields() coerces back to number | null.
+  const [destinationId, setDestinationId] = useState<string>(
+    existing?.destination_id !== null && existing?.destination_id !== undefined
+      ? String(existing.destination_id)
+      : ""
+  );
+
   function commonFields() {
     const isRental = listingType === "rental";
     const rentalPriceCents = isRental
@@ -218,7 +238,10 @@ export function ListingForm({
       // Empty → null so the DB stores a clean NULL and generateMetadata
       // knows to fall back to the auto-derived title/description.
       seo_title: seoTitle.trim() || null,
-      seo_description: seoDescription.trim() || null
+      seo_description: seoDescription.trim() || null,
+      // Destination tag (D10). "" → null (none); otherwise parse to
+      // int. Server validates the id resolves to a real row.
+      destination_id: destinationId ? Number(destinationId) : null
     };
   }
 
@@ -512,6 +535,28 @@ export function ListingForm({
           {slugError && (
             <p className="mt-1 text-xs text-red-600">{slugError.message}</p>
           )}
+        </div>
+        {/* Destination tag (D10). Optional — drives the public
+            /destinations/[slug] page's Listings/Rentals sections and
+            the chip rows on the index pages. Sits above Location so
+            the wayfinding label is set before the freeform city
+            string. */}
+        <div>
+          <label className={labelClass} htmlFor="listing-destination">
+            Destination
+          </label>
+          <DestinationSelect
+            id="listing-destination"
+            value={destinationId}
+            onChange={setDestinationId}
+            destinations={destinations}
+            disabled={disabled}
+            className={inputClass + " pr-8"}
+          />
+          <p className="mt-1 text-xs text-black/50">
+            Optional. Tags this listing to a destination page. Leave as
+            &ldquo;— None —&rdquo; to skip.
+          </p>
         </div>
         <div>
           <label className={labelClass}>Location *</label>

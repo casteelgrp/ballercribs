@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   deleteListing,
+  getDestinationById,
   getListingByIdAdmin,
   getPartnerById,
   transitionListingStatus,
@@ -165,6 +166,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         typeof fields.seo_description === "string" && fields.seo_description.trim()
           ? fields.seo_description.trim()
           : null;
+    }
+
+    // Destination tag (D10). Optional. null clears, missing key
+    // preserves. Pre-verify the id resolves to a real row so a stale
+    // dropdown doesn't surface as a generic 23503 from the FK.
+    if ("destination_id" in fields) {
+      const raw = fields.destination_id;
+      if (raw === null || raw === "") {
+        updates.destination_id = null;
+      } else {
+        const n = Number(raw);
+        if (!Number.isInteger(n) || n <= 0) {
+          return NextResponse.json(
+            { error: "Invalid destination_id." },
+            { status: 400 }
+          );
+        }
+        const dest = await getDestinationById(n).catch(() => null);
+        if (!dest) {
+          return NextResponse.json(
+            { error: "Destination not found." },
+            { status: 400 }
+          );
+        }
+        updates.destination_id = n;
+      }
     }
 
     // Listing type + rental fields. The form always sends the full rental

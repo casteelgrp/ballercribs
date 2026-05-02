@@ -63,6 +63,13 @@ export type BlogPost = {
    * section. Drives both the public render and the FAQPage JSON-LD.
    */
   faqs: BlogFaq[] | null;
+  /**
+   * Optional destination tag (D10). Only meaningful for posts in the
+   * 'destinations' category — server clears this column to NULL on
+   * save when category_slug !== 'destinations', regardless of what
+   * the form sent.
+   */
+  destinationId: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -108,6 +115,11 @@ export type CreatePostInput = {
   lastUpdatedAt?: string | null;
   /** Structured Q+A list; null clears it (no FAQ section). */
   faqs?: BlogFaq[] | null;
+  /**
+   * Destination tag (D10). Server force-clears to null on save when
+   * the next categorySlug isn't 'destinations'.
+   */
+  destinationId?: number | null;
 };
 
 /**

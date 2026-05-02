@@ -99,6 +99,12 @@ export interface Listing {
   partner_id: string | null;
   partner_property_url: string | null;
   partner_tracking_url: string | null;
+  /**
+   * Optional destination tag (D10). Wayfinding label — drives the public
+   * /destinations/[slug] page and the chip rows on /listings + /rentals.
+   * Nullable; existing rows pass through untagged.
+   */
+  destination_id: number | null;
 }
 
 // ─── Booking partners (D9) ──────────────────────────────────────────────

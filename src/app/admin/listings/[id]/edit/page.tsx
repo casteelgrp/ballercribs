@@ -2,8 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { sql } from "@vercel/postgres";
 import { requirePageUser } from "@/lib/auth";
-import { getActivePartners, getListingByIdAdmin, getPartnerById } from "@/lib/db";
-import type { Partner } from "@/lib/types";
+import {
+  getActivePartners,
+  getDestinationById,
+  getListingByIdAdmin,
+  getPartnerById,
+  getPublishedDestinations
+} from "@/lib/db";
+import type { Destination, Partner } from "@/lib/types";
 import { canApprove, canEdit, canViewListing, isOwner } from "@/lib/permissions";
 import { ListingForm } from "@/components/ListingForm";
 import { ReviewActions } from "@/components/ReviewActions";
@@ -50,6 +56,18 @@ export default async function AdminEditListingPage({
   ) {
     const inactive = await getPartnerById(listing.partner_id).catch(() => null);
     if (inactive) partners = [inactive, ...partners];
+  }
+
+  // Destinations for the optional tag dropdown. Same pinning shape as
+  // partners: published-only by default, prepend the existing draft
+  // destination (if any) so the tag survives a re-save.
+  let destinations: Destination[] = await getPublishedDestinations().catch(() => []);
+  if (
+    listing.destination_id !== null &&
+    !destinations.some((d) => d.id === listing.destination_id)
+  ) {
+    const draft = await getDestinationById(listing.destination_id).catch(() => null);
+    if (draft) destinations = [draft, ...destinations];
   }
 
   // Status banner copy for non-editors viewing their own non-draft listing.
@@ -102,6 +120,7 @@ export default async function AdminEditListingPage({
           existing={listing}
           readOnly={!editable}
           partners={partners}
+          destinations={destinations}
         />
       </AdminFormCard>
 

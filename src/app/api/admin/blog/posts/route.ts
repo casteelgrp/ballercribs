@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { createPost, getAllPostsForAdmin } from "@/lib/blog-queries";
 import { canCreatePost } from "@/lib/blog-permissions";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
+import { getDestinationById } from "@/lib/db";
 import type { BlogFaq, PostStatus } from "@/types/blog";
 
 export const runtime = "nodejs";
@@ -83,6 +84,28 @@ export async function POST(req: Request) {
   if (!title) return NextResponse.json({ error: "Title is required." }, { status: 400 });
   if (!categorySlug) return NextResponse.json({ error: "Category is required." }, { status: 400 });
 
+  // Destination tag (D10). Optional. createPost itself force-clears
+  // when categorySlug !== 'destinations', so this branch only needs
+  // to validate id shape + existence when the caller sent one.
+  let destinationId: number | null = null;
+  if (body?.destinationId !== undefined && body?.destinationId !== null) {
+    const n = Number(body.destinationId);
+    if (!Number.isInteger(n) || n <= 0) {
+      return NextResponse.json(
+        { error: "Invalid destinationId." },
+        { status: 400 }
+      );
+    }
+    const dest = await getDestinationById(n).catch(() => null);
+    if (!dest) {
+      return NextResponse.json(
+        { error: "Destination not found." },
+        { status: 400 }
+      );
+    }
+    destinationId = n;
+  }
+
   try {
     const post = await createPost(
       {
@@ -107,7 +130,8 @@ export async function POST(req: Request) {
         metaTitle: body?.metaTitle ?? null,
         metaDescription: body?.metaDescription ?? null,
         categorySlug,
-        isFeatured: Boolean(body?.isFeatured)
+        isFeatured: Boolean(body?.isFeatured),
+        destinationId
       },
       user.id
     );

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requirePageUser } from "@/lib/auth";
 import { getCategories } from "@/lib/blog-queries";
+import { getPublishedDestinations } from "@/lib/db";
 import { isOwner } from "@/lib/permissions";
 import { BlogForm } from "@/components/BlogForm";
 import { AdminFormCard, AdminFormShell } from "@/components/admin/AdminFormShell";
@@ -11,7 +12,14 @@ export const metadata: Metadata = { title: "New post — BallerCribs" };
 
 export default async function NewBlogPostPage() {
   const user = await requirePageUser();
-  const categories = await getCategories().catch(() => []);
+  // Destinations only matter when category is 'destinations', but we
+  // fetch unconditionally so flipping into that category mid-edit
+  // doesn't require a refetch. New posts have no draft destination
+  // to pin — published-only is enough.
+  const [categories, destinations] = await Promise.all([
+    getCategories().catch(() => []),
+    getPublishedDestinations().catch(() => [])
+  ]);
 
   return (
     <AdminFormShell>
@@ -23,7 +31,11 @@ export default async function NewBlogPostPage() {
             : "Save as draft to keep editing, or submit for review when it's ready."}
         </p>
         <AdminFormCard>
-          <BlogForm currentUser={user} categories={categories} />
+          <BlogForm
+            currentUser={user}
+            categories={categories}
+            destinations={destinations}
+          />
         </AdminFormCard>
       </section>
     </AdminFormShell>

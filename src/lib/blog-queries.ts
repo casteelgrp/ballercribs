@@ -55,6 +55,10 @@ function rowToBlogPost(row: any): BlogPost {
     // {question, answer} pairs collapses to null so the public
     // existence check (`faqs && faqs.length > 0`) stays one branch.
     faqs: parseFaqsField(row.faqs),
+    destinationId:
+      row.destination_id !== null && row.destination_id !== undefined
+        ? Number(row.destination_id)
+        : null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at)
   };
@@ -373,6 +377,12 @@ export async function createPost(
     await sql`UPDATE blog_posts SET is_featured = FALSE WHERE is_featured = TRUE;`;
   }
 
+  // Server-of-truth: destination tag only persists on Destinations-
+  // category posts. Force null otherwise even if the caller sent an
+  // id — keeps the column honest regardless of form state.
+  const destinationId =
+    data.categorySlug === "destinations" ? data.destinationId ?? null : null;
+
   const { rows } = await sql`
     INSERT INTO blog_posts (
       slug, title, subtitle, excerpt,
@@ -381,7 +391,8 @@ export async function createPost(
       meta_title, meta_description,
       category_slug, is_featured,
       author_user_id, reading_time_minutes,
-      last_updated_at, faqs
+      last_updated_at, faqs,
+      destination_id
     ) VALUES (
       ${slug},
       ${title},
@@ -399,7 +410,8 @@ export async function createPost(
       ${userId},
       ${readingTime},
       ${data.lastUpdatedAt ?? null},
-      ${data.faqs ? JSON.stringify(data.faqs) : null}::jsonb
+      ${data.faqs ? JSON.stringify(data.faqs) : null}::jsonb,
+      ${destinationId}
     )
     RETURNING *;
   `;
@@ -469,6 +481,18 @@ export async function updatePost(
     await sql`UPDATE blog_posts SET is_featured = FALSE WHERE is_featured = TRUE AND id != ${id}::uuid;`;
   }
 
+  // Server-of-truth for destination_id: tag only valid when the post's
+  // (next) category is 'destinations'. If the category is changing
+  // away or already isn't 'destinations', force the column to null
+  // regardless of what the caller sent — the route layer can compare
+  // existing.destinationId vs the result to surface a "tag removed"
+  // notice in the admin UI.
+  const nextCategorySlug = data.categorySlug ?? existing.categorySlug;
+  const requestedDestinationId =
+    data.destinationId === undefined ? existing.destinationId : data.destinationId;
+  const nextDestinationId =
+    nextCategorySlug === "destinations" ? requestedDestinationId : null;
+
   const { rows } = await sql`
     UPDATE blog_posts SET
       slug                 = ${nextSlug},
@@ -482,7 +506,7 @@ export async function updatePost(
       social_cover_url     = ${data.socialCoverUrl === undefined ? existing.socialCoverUrl : data.socialCoverUrl},
       meta_title           = ${data.metaTitle === undefined ? existing.metaTitle : data.metaTitle},
       meta_description     = ${data.metaDescription === undefined ? existing.metaDescription : data.metaDescription},
-      category_slug        = ${data.categorySlug ?? existing.categorySlug},
+      category_slug        = ${nextCategorySlug},
       is_featured          = ${data.isFeatured === undefined ? existing.isFeatured : Boolean(data.isFeatured)},
       last_updated_at      = ${
         data.lastUpdatedAt === undefined
@@ -500,6 +524,7 @@ export async function updatePost(
             ? JSON.stringify(data.faqs)
             : null
       }::jsonb,
+      destination_id       = ${nextDestinationId},
       reading_time_minutes = ${readingTime},
       updated_at           = NOW()
     WHERE id = ${id}::uuid

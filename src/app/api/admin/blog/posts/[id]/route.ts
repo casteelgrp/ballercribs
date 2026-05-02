@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { deletePost, getPostById, updatePost } from "@/lib/blog-queries";
 import { canDeletePost, canEditPost } from "@/lib/blog-permissions";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
+import { getDestinationById } from "@/lib/db";
 import type { BlogFaq } from "@/types/blog";
 
 export const runtime = "nodejs";
@@ -71,6 +72,36 @@ export async function PATCH(
         ? null
         : undefined;
 
+  // Destination tag (D10). undefined preserves, null clears, integer
+  // sets. updatePost force-clears the column whenever the next
+  // categorySlug !== 'destinations', so a stray id on a category
+  // change is silently nulled — but we still validate id shape +
+  // existence here so the caller gets a clean 400 rather than a
+  // confusing "looked saved but no tag" surprise.
+  let destinationIdPatch: number | null | undefined = undefined;
+  if ("destinationId" in body) {
+    const raw = body.destinationId;
+    if (raw === null || raw === "") {
+      destinationIdPatch = null;
+    } else {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n <= 0) {
+        return NextResponse.json(
+          { error: "Invalid destinationId." },
+          { status: 400 }
+        );
+      }
+      const dest = await getDestinationById(n).catch(() => null);
+      if (!dest) {
+        return NextResponse.json(
+          { error: "Destination not found." },
+          { status: 400 }
+        );
+      }
+      destinationIdPatch = n;
+    }
+  }
+
   // Validate ordering when both are present and the post is published —
   // a draft can carry a stray last_updated_at without being misleading,
   // but a published post claiming refresh predates publish is wrong.
@@ -108,7 +139,8 @@ export async function PATCH(
         categorySlug: typeof body?.categorySlug === "string" ? body.categorySlug : undefined,
         isFeatured: body?.isFeatured,
         lastUpdatedAt,
-        faqs: normalizeFaqsPatch(body?.faqs)
+        faqs: normalizeFaqsPatch(body?.faqs),
+        destinationId: destinationIdPatch
       },
       user.id
     );

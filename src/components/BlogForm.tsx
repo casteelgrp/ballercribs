@@ -5,15 +5,23 @@ import { useRouter } from "next/navigation";
 import { generateBlogSlug, validateSlug } from "@/lib/format";
 import { ImageUpload } from "./ImageUpload";
 import { BlogEditor } from "./BlogEditor";
+import { DestinationSelect } from "./admin/DestinationSelect";
 import { isOwner } from "@/lib/permissions";
 import type { BlogFaq, BlogPost, PostCategory, PostStatus } from "@/types/blog";
-import type { User } from "@/lib/types";
+import type { Destination, User } from "@/lib/types";
 
 type Props = {
   currentUser: User;
   categories: PostCategory[];
   /** When provided, the form opens in edit mode (PATCH). Absent → create (POST). */
   existing?: BlogPost;
+  /**
+   * Destinations for the optional tag dropdown — surfaces only when
+   * category_slug === 'destinations'. Caller fetches with
+   * getPublishedDestinations() and prepends the existing draft (if
+   * any) for the partner-style pinning shape.
+   */
+  destinations?: Destination[];
 };
 
 // Title/description character thresholds match the listings SEO overrides
@@ -43,7 +51,12 @@ function dateToLocalInput(d: Date): string {
   );
 }
 
-export function BlogForm({ currentUser, categories, existing }: Props) {
+export function BlogForm({
+  currentUser,
+  categories,
+  existing,
+  destinations = []
+}: Props) {
   const router = useRouter();
   const owner = isOwner(currentUser);
 
@@ -54,6 +67,19 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
   const [categorySlug, setCategorySlug] = useState(
     existing?.categorySlug ?? categories[0]?.slug ?? "guides"
   );
+  // Destination tag (D10). Visible only when category_slug ===
+  // 'destinations' (see render below). Stored as a stringified id so
+  // <select> binds cleanly; "" === no tag. Server force-clears the
+  // column to NULL when the saved category isn't 'destinations',
+  // regardless of what the wire payload carried.
+  const [destinationId, setDestinationId] = useState<string>(
+    existing?.destinationId !== null && existing?.destinationId !== undefined
+      ? String(existing.destinationId)
+      : ""
+  );
+  // One-shot notice surfaced after a save where the server cleared
+  // destination_id because the category moved away from 'destinations'.
+  const [destinationClearedNotice, setDestinationClearedNotice] = useState(false);
   const [excerpt, setExcerpt] = useState(existing?.excerpt ?? "");
   const [coverImageUrl, setCoverImageUrl] = useState(existing?.coverImageUrl ?? "");
   const [coverImageAlt, setCoverImageAlt] = useState(existing?.coverImageAlt ?? "");
@@ -147,7 +173,13 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
       lastUpdatedAt: lastUpdatedAt
         ? new Date(lastUpdatedAt).toISOString()
         : null,
-      faqs: cleanedFaqs.length > 0 ? cleanedFaqs : null
+      faqs: cleanedFaqs.length > 0 ? cleanedFaqs : null,
+      // Destination tag. Send the id as a number, or null when no
+      // tag is selected. Server clears the column unconditionally
+      // when categorySlug !== 'destinations' even if a value comes
+      // through, so we don't pre-clear here — keeps the form input
+      // simple and the server in charge of the invariant.
+      destinationId: destinationId ? Number(destinationId) : null
     };
   }
 
@@ -175,11 +207,20 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
   async function save(transitionTo?: "submit" | "publish") {
     if (inFlightRef.current) return;
     setError("");
+    setDestinationClearedNotice(false);
     const v = validate();
     if (v) {
       setError(v);
       return;
     }
+    // Capture pre-save state for the post-save notice. The server
+    // clears destination_id when category isn't 'destinations'; we
+    // surface a tiny "tag removed" hint when that clearing actually
+    // affected this save (had a tag + leaving the category).
+    const hadDestinationTag =
+      existing?.destinationId !== null && existing?.destinationId !== undefined;
+    const willClearDestination =
+      hadDestinationTag && categorySlug !== "destinations";
     inFlightRef.current = true;
     setSubmitting(true);
     try {
@@ -222,6 +263,12 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
       }
 
       setSavedAt(Date.now());
+      if (willClearDestination) {
+        // Sync local state to what the server just persisted, so the
+        // dropdown value matches reality if the form sticks around.
+        setDestinationId("");
+        setDestinationClearedNotice(true);
+      }
       if (transitionTo) {
         // Transitions land the user on the list view — scrolling to top
         // is expected here (different surface entirely).
@@ -347,6 +394,28 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
             ))}
           </select>
         </div>
+        {/* Destination tag (D10) — only meaningful for posts in the
+            Destinations category, so the dropdown only renders for
+            that case. Server force-clears destination_id on save when
+            category isn't 'destinations', regardless of form state. */}
+        {categorySlug === "destinations" && (
+          <div>
+            <label className={labelClass} htmlFor="post-destination">
+              Destination
+            </label>
+            <DestinationSelect
+              id="post-destination"
+              value={destinationId}
+              onChange={setDestinationId}
+              destinations={destinations}
+              className={inputClass + " pr-8"}
+            />
+            <p className="mt-1 text-xs text-black/50">
+              Optional. Tags this post to a destination page&apos;s Stories
+              section.
+            </p>
+          </div>
+        )}
         <div className="sm:col-span-2">
           <label className={labelClass}>Excerpt</label>
           <textarea
@@ -606,6 +675,12 @@ export function BlogForm({ currentUser, categories, existing }: Props) {
       </details>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {destinationClearedNotice && (
+        <p className="text-sm text-amber-700 border border-amber-200 bg-amber-50 px-3 py-2">
+          Destination tag removed because category changed.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button
