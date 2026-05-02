@@ -19,9 +19,8 @@ export default async function AdminDestinationsPage() {
         <div>
           <h2 className="font-display text-2xl">Destinations</h2>
           <p className="text-sm text-black/55 mt-1 max-w-xl">
-            Wayfinding labels for listings, rentals, and Destinations-
-            category blog posts. Each destination gets a public page at
-            /destinations/[slug] that surfaces everything tagged to it.
+            Group listings, rentals, and stories by place. Each
+            destination gets its own public page.
           </p>
         </div>
         <Link

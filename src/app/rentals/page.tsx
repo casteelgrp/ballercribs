@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { getListingBySlug, getRentalListings } from "@/lib/db";
+import {
+  getListingBySlug,
+  getPublicDestinationCountsMap,
+  getPublishedDestinations,
+  getRentalListings
+} from "@/lib/db";
 import { getRentalHeroImages } from "@/lib/rentals";
 import { HeroMosaic } from "@/components/HeroMosaic";
 import { ListingCard } from "@/components/ListingCard";
 import { RentalInquiryForm } from "@/components/RentalInquiryForm";
+import { DestinationChips } from "@/components/DestinationChips";
 
 export const revalidate = 60;
 
@@ -47,11 +53,21 @@ export default async function RentalsPage({
     ? await getListingBySlug(propertySlug, "rental").catch(() => null)
     : null;
 
-  const [listings, heroImages] = await Promise.all([
+  const [listings, heroImages, destinations, destinationCounts] = await Promise.all([
     getRentalListings().catch(() => []),
-    getRentalHeroImages().catch(() => [])
+    getRentalHeroImages().catch(() => []),
+    getPublishedDestinations().catch(() => []),
+    getPublicDestinationCountsMap().catch(
+      () => ({}) as Record<number, { listings: number; rentals: number; blog_posts: number }>
+    )
   ]);
   const hasMosaic = heroImages.length >= 3;
+
+  // Chip row: only destinations with rental inventory. Component
+  // hides itself when fewer than 3 chips would render.
+  const chipDestinations = destinations.filter(
+    (d) => (destinationCounts[d.id]?.rentals ?? 0) > 0
+  );
 
   return (
     <article>
@@ -100,20 +116,22 @@ export default async function RentalsPage({
 
       {/* Listings grid */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-        <div className="mb-6">
+        <div>
           <p className="text-xs uppercase tracking-widest text-black/50">Featured rentals</p>
           <h2 className="font-display text-2xl sm:text-3xl mt-2">Available now</h2>
         </div>
 
+        <DestinationChips destinations={chipDestinations} />
+
         {listings.length === 0 ? (
-          <div className="border border-dashed border-black/15 py-20 text-center text-black/50">
+          <div className="border border-dashed border-black/15 py-20 text-center text-black/50 mt-6">
             <p>No rentals featured yet.</p>
             <p className="text-xs mt-2">
               Tell us what you&apos;re looking for below — we&apos;ll find it.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-6">
             {listings.map((listing) => (
               <ListingCard key={listing.id} listing={listing} />
             ))}

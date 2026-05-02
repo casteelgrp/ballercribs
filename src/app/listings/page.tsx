@@ -3,10 +3,13 @@ import type { Metadata } from "next";
 import {
   countPublishedListingsBySoldState,
   getListings,
+  getPublicDestinationCountsMap,
+  getPublishedDestinations,
   type PublicListingStatusFilter
 } from "@/lib/db";
 import { ListingCard } from "@/components/ListingCard";
 import { ForAgentsBand } from "@/components/ForAgentsBand";
+import { DestinationChips } from "@/components/DestinationChips";
 
 const VALID_STATUSES: PublicListingStatusFilter[] = ["active", "sold", "all"];
 
@@ -86,10 +89,21 @@ export default async function ListingsPage({
   const { status: rawStatus } = await searchParams;
   const status = resolveStatus(rawStatus);
 
-  const [listings, counts] = await Promise.all([
+  const [listings, counts, destinations, destinationCounts] = await Promise.all([
     getListings(status).catch(() => []),
-    countPublishedListingsBySoldState().catch(() => ({ active: 0, sold: 0, all: 0 }))
+    countPublishedListingsBySoldState().catch(() => ({ active: 0, sold: 0, all: 0 })),
+    getPublishedDestinations().catch(() => []),
+    getPublicDestinationCountsMap().catch(
+      () => ({}) as Record<number, { listings: number; rentals: number; blog_posts: number }>
+    )
   ]);
+
+  // Chip row surfaces only destinations with active sale inventory —
+  // matches what /listings actually shows on the active tab. Component
+  // hides itself when fewer than 3 chips would render.
+  const chipDestinations = destinations.filter(
+    (d) => (destinationCounts[d.id]?.listings ?? 0) > 0
+  );
 
   return (
     <>
@@ -116,6 +130,8 @@ export default async function ListingsPage({
         </div>
 
         <StatusTabs current={status} counts={counts} />
+
+        <DestinationChips destinations={chipDestinations} />
 
         {listings.length === 0 ? (
           <div className="border border-dashed border-black/20 py-24 text-center text-black/50 mt-6">

@@ -1778,3 +1778,93 @@ export async function getDestinationCounts(id: number): Promise<DestinationCount
   const map = await getDestinationCountsMap();
   return map[id] ?? { listings: 0, rentals: 0, blog_posts: 0 };
 }
+
+/**
+ * Public-surface counts. Mirrors the public Listings/Rentals/Stories
+ * filters exactly so the /destinations index can hide destinations
+ * that wouldn't have anything to render on their detail page:
+ *   - listings: published sales, NOT sold
+ *   - rentals:  published rentals
+ *   - blog:     published, destination_id-tagged (any category)
+ *
+ * Same grouped-scan shape as getDestinationCountsMap — three queries,
+ * merged into a Record. Used by the public index and chip-row
+ * filters.
+ */
+export async function getPublicDestinationCountsMap(): Promise<Record<number, DestinationCounts>> {
+  const map: Record<number, DestinationCounts> = {};
+  const ensure = (id: number): DestinationCounts => {
+    if (!map[id]) map[id] = { listings: 0, rentals: 0, blog_posts: 0 };
+    return map[id];
+  };
+
+  const salesRes = await sql`
+    SELECT destination_id, COUNT(*)::int AS n
+    FROM listings
+    WHERE destination_id IS NOT NULL
+      AND status = 'published'
+      AND sold_at IS NULL
+      AND listing_type = 'sale'
+    GROUP BY destination_id;
+  `;
+  for (const r of salesRes.rows) {
+    ensure(Number(r.destination_id)).listings = Number(r.n);
+  }
+
+  const rentalsRes = await sql`
+    SELECT destination_id, COUNT(*)::int AS n
+    FROM listings
+    WHERE destination_id IS NOT NULL
+      AND status = 'published'
+      AND listing_type = 'rental'
+    GROUP BY destination_id;
+  `;
+  for (const r of rentalsRes.rows) {
+    ensure(Number(r.destination_id)).rentals = Number(r.n);
+  }
+
+  const postsRes = await sql`
+    SELECT destination_id, COUNT(*)::int AS n
+    FROM blog_posts
+    WHERE destination_id IS NOT NULL
+      AND status = 'published'
+    GROUP BY destination_id;
+  `;
+  for (const r of postsRes.rows) {
+    ensure(Number(r.destination_id)).blog_posts = Number(r.n);
+  }
+
+  return map;
+}
+
+/**
+ * Listings (sales OR rentals) tagged to a destination, for the
+ * /destinations/[slug] page sections. Filter shape matches the
+ * matching /listings or /rentals public surface so a listing visible
+ * on /listings (active sale) or /rentals (rental) is the same set
+ * that surfaces here.
+ */
+export async function getListingsByDestination(
+  destinationId: number,
+  listingType: ListingType
+): Promise<Listing[]> {
+  if (listingType === "sale") {
+    const { rows } = await sql`
+      SELECT * FROM listings
+      WHERE destination_id = ${destinationId}
+        AND status = 'published'
+        AND sold_at IS NULL
+        AND listing_type = 'sale'
+      ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
+    `;
+    return rows.map(rowToListing);
+  }
+  const { rows } = await sql`
+    SELECT * FROM listings
+    WHERE destination_id = ${destinationId}
+      AND status = 'published'
+      AND listing_type = 'rental'
+    ORDER BY featured DESC, COALESCE(published_at, created_at) DESC;
+  `;
+  return rows.map(rowToListing);
+}

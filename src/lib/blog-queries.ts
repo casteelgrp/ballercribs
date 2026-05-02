@@ -186,6 +186,27 @@ export async function getPublishedPosts(opts?: {
   return rows.map(rowToListItem);
 }
 
+/**
+ * Published posts tagged to a destination, for the /destinations/[slug]
+ * Stories section. No category filter — destination is independent of
+ * category since db4c4a0. Sort matches the D7 freshness logic:
+ * COALESCE(last_updated_at, published_at) DESC.
+ */
+export async function getPostsByDestination(
+  destinationId: number
+): Promise<BlogPostListItem[]> {
+  const { rows } = await sql`
+    SELECT id, slug, title, subtitle, excerpt, cover_image_url, cover_image_alt,
+           category_slug, is_featured, status, published_at, last_updated_at,
+           reading_time_minutes, author_user_id
+    FROM blog_posts
+    WHERE destination_id = ${destinationId}
+      AND status = 'published'
+    ORDER BY COALESCE(last_updated_at, published_at, created_at) DESC;
+  `;
+  return rows.map(rowToListItem);
+}
+
 /** Total count of published posts, honoring the same optional category filter. */
 export async function getPublishedPostCount(opts?: {
   category?: string;
