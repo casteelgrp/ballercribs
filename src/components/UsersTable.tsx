@@ -57,6 +57,29 @@ export function UsersTable({ users, currentUserId }: { users: User[]; currentUse
     router.refresh();
   }
 
+  async function deleteUser(user: User) {
+    if (user.id === currentUserId) {
+      window.alert("You can't delete your own account.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Delete user ${user.email}? This cannot be undone.`
+      )
+    )
+      return;
+    setBusyId(user.id);
+    const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+    setBusyId(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      // Last-owner / self-delete server errors surface here verbatim.
+      window.alert(data?.error || "Failed to delete user.");
+      return;
+    }
+    router.refresh();
+  }
+
   if (users.length === 0) {
     return <p className="text-sm text-black/50">No users yet.</p>;
   }
@@ -89,7 +112,7 @@ export function UsersTable({ users, currentUserId }: { users: User[]; currentUse
                 : "Never logged in"}
             </p>
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 flex-wrap justify-end">
             <button
               onClick={() => resetPassword(u)}
               disabled={busyId === u.id}
@@ -100,9 +123,21 @@ export function UsersTable({ users, currentUserId }: { users: User[]; currentUse
             <button
               onClick={() => toggleActive(u)}
               disabled={busyId === u.id || u.id === currentUserId}
-              className="text-xs uppercase tracking-widest border border-black/20 px-3 py-2 hover:border-red-500 hover:text-red-600 disabled:opacity-30"
+              className="text-xs uppercase tracking-widest border border-black/20 px-3 py-2 hover:border-black/50 disabled:opacity-30"
             >
               {u.is_active ? "Deactivate" : "Reactivate"}
+            </button>
+            {/* Self-delete guard mirrors the deactivate pattern —
+                disabled state on the row prevents an owner from
+                accidentally deleting their own account. Server-side
+                guard in /api/admin/users/[id] DELETE catches it
+                regardless if the button is somehow re-enabled. */}
+            <button
+              onClick={() => deleteUser(u)}
+              disabled={busyId === u.id || u.id === currentUserId}
+              className="text-xs uppercase tracking-widest border border-black/20 px-3 py-2 hover:border-red-500 hover:text-red-600 disabled:opacity-30"
+            >
+              Delete
             </button>
           </div>
         </div>

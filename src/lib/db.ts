@@ -986,6 +986,32 @@ export async function listUsers(): Promise<User[]> {
   return rows.map(rowToUser);
 }
 
+/**
+ * Hard-delete a user. All FKs from other tables (listings.created_by_user_id,
+ * blog_posts.author_user_id, payments.created_by_user_id, the various
+ * inquiry status_updated_by columns) use ON DELETE SET NULL — content
+ * stays put with attribution dropped to NULL. Returns true if the row
+ * existed and was removed, false if the id missed.
+ */
+export async function deleteUser(userId: number): Promise<boolean> {
+  const { rowCount } = await sql`DELETE FROM users WHERE id = ${userId};`;
+  return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Count of owner-role users. Used by the delete API to enforce the
+ * last-owner guard — refusing to delete a row that would leave the
+ * project without any owner. Counts active + inactive owners; an
+ * inactive owner is still an owner the moment they're reactivated,
+ * so they keep the project from being orphaned.
+ */
+export async function countOwners(): Promise<number> {
+  const { rows } = await sql`
+    SELECT COUNT(*)::int AS n FROM users WHERE role = 'owner';
+  `;
+  return Number(rows[0]?.n ?? 0);
+}
+
 // ─── Hero photos ────────────────────────────────────────────────────────────
 
 function rowToHeroPhoto(row: any): HeroPhoto {

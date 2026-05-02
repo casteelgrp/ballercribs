@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { getUserById, setUserActive, updateUserPassword } from "@/lib/db";
+import {
+  countOwners,
+  deleteUser,
+  getUserById,
+  setUserActive,
+  updateUserPassword
+} from "@/lib/db";
 import { hashPassword, requireOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -58,4 +64,62 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   return NextResponse.json({ error: "Unknown action." }, { status: 400 });
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  let currentUser;
+  try {
+    currentUser = await requireOwner();
+  } catch (res) {
+    return res as Response;
+  }
+
+  const { id: idStr } = await params;
+  const targetId = Number(idStr);
+  if (!Number.isFinite(targetId)) {
+    return NextResponse.json({ error: "Invalid user id." }, { status: 400 });
+  }
+
+  const target = await getUserById(targetId);
+  if (!target) {
+    return NextResponse.json({ error: "User not found." }, { status: 404 });
+  }
+
+  // Self-delete guard. The PATCH "set_active" path enforces the same
+  // rule for deactivation; delete is the harder destructive form, so
+  // it gets the same gate.
+  if (target.id === currentUser.id) {
+    return NextResponse.json(
+      { error: "You can't delete your own account." },
+      { status: 400 }
+    );
+  }
+
+  // Last-owner guard. Deleting the only owner would leave the project
+  // unmanageable — no one can promote the next user, no one can flip
+  // permissions. countOwners is pre-delete; we check that the *post-
+  // delete* count would still be ≥ 1 when the target is an owner.
+  if (target.role === "owner") {
+    const owners = await countOwners();
+    if (owners <= 1) {
+      return NextResponse.json(
+        { error: "Can't delete the last owner. Promote another user first." },
+        { status: 400 }
+      );
+    }
+  }
+
+  try {
+    const ok = await deleteUser(targetId);
+    if (!ok) {
+      return NextResponse.json({ error: "Delete failed." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to delete user:", err);
+    return NextResponse.json({ error: "Failed to delete user." }, { status: 500 });
+  }
 }
