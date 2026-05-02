@@ -152,9 +152,16 @@ export default async function DestinationDetailPage({
         </section>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 space-y-16">
-        {sales.length > 0 && (
-          <section>
+      {/* Section rhythm mirrors the homepage: cream listings → dark
+          rentals (with the dark-rental-card wrapper that re-skins
+          ListingCard for the ink surface) → bg-white blog. Each
+          section sits in its own <section> with its own bg + top
+          border, so the visual separation is structural rather than
+          a decorative <hr>. */}
+
+      {sales.length > 0 && (
+        <section className="border-t border-black/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
             <h2 className="font-display text-2xl sm:text-3xl mb-6">
               Listings in {destination.name}
             </h2>
@@ -163,27 +170,29 @@ export default async function DestinationDetailPage({
                 <ListingCard key={listing.id} listing={listing} />
               ))}
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {rentals.length > 0 && (
-          <section>
-            <h2 className="font-display text-2xl sm:text-3xl mb-6">
+      {rentals.length > 0 && (
+        <section className="bg-ink text-paper">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+            <h2 className="font-display text-2xl sm:text-3xl mb-6 text-paper">
               Rentals in {destination.name}
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="dark-rental-card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {rentals.map((listing) => (
                 <ListingCard key={listing.id} listing={listing} />
               ))}
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {stories.length > 0 && (
-          <section>
-            <h2 className="font-display text-2xl sm:text-3xl mb-6">
-              Stories from {destination.name}
-            </h2>
+      {stories.length > 0 && (
+        <section className="bg-white border-t border-black/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+            <h2 className="font-display text-2xl sm:text-3xl mb-6">From the Blog</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
               {stories.map((post) => (
                 <BlogCard
@@ -193,32 +202,36 @@ export default async function DestinationDetailPage({
                 />
               ))}
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {isEmpty && (
-          <section className="border border-dashed border-black/15 py-16 px-6 text-center">
-            <p className="text-black/70 max-w-xl mx-auto">
-              We&apos;re working on coverage for {destination.name}. In the
-              meantime, browse all listings or all rentals.
-            </p>
-            <div className="mt-6 flex items-center justify-center gap-3 flex-wrap">
-              <Link
-                href="/listings"
-                className="bg-ink text-paper px-5 py-2 text-xs uppercase tracking-widest hover:bg-accent hover:text-ink transition-colors"
-              >
-                Browse listings
-              </Link>
-              <Link
-                href="/rentals"
-                className="border border-black/20 px-5 py-2 text-xs uppercase tracking-widest hover:border-black/50 transition-colors"
-              >
-                Browse rentals
-              </Link>
+      {isEmpty && (
+        <section className="border-t border-black/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+            <div className="border border-dashed border-black/15 py-16 px-6 text-center">
+              <p className="text-black/70 max-w-xl mx-auto">
+                We&apos;re working on coverage for {destination.name}. In the
+                meantime, browse all listings or all rentals.
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-3 flex-wrap">
+                <Link
+                  href="/listings"
+                  className="bg-ink text-paper px-5 py-2 text-xs uppercase tracking-widest hover:bg-accent hover:text-ink transition-colors"
+                >
+                  Browse listings
+                </Link>
+                <Link
+                  href="/rentals"
+                  className="border border-black/20 px-5 py-2 text-xs uppercase tracking-widest hover:border-black/50 transition-colors"
+                >
+                  Browse rentals
+                </Link>
+              </div>
             </div>
-          </section>
-        )}
-      </div>
+          </div>
+        </section>
+      )}
     </article>
   );
 }

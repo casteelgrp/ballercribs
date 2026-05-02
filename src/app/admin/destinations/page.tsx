@@ -58,7 +58,12 @@ export default async function AdminDestinationsPage() {
                 return (
                   <tr key={d.id}>
                     <td className="p-3">
-                      <p className="font-medium">{d.name}</p>
+                      <Link
+                        href={`/admin/destinations/${d.id}/edit`}
+                        className="font-medium hover:text-accent transition-colors"
+                      >
+                        {d.name}
+                      </Link>
                       <p className="text-xs text-black/45 mt-0.5">{d.slug}</p>
                     </td>
                     <td className="p-3 text-black/70">{d.region ?? "—"}</td>

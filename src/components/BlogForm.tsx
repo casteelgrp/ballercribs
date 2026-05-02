@@ -329,7 +329,9 @@ export function BlogForm({
             placeholder="Optional deck line"
           />
         </div>
-        <div>
+        {/* Slug elevated to its own full-width row — paired better
+            with the URL preview hint than squeezed alongside Category. */}
+        <div className="sm:col-span-2">
           <label className={labelClass}>Slug</label>
           <input
             value={slug}
@@ -357,6 +359,9 @@ export function BlogForm({
               </p>
             )}
         </div>
+        {/* Category + Destination as a paired tagging row. Both are
+            categorization fields, so they read more naturally side-
+            by-side than spread across the form. */}
         <div>
           <label className={labelClass}>Category *</label>
           <select
@@ -436,62 +441,68 @@ export function BlogForm({
         </p>
       </div>
 
-      <div>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isFeatured}
-            onChange={(e) => setIsFeatured(e.target.checked)}
-            className="accent-accent"
-          />
-          <span>Featured post</span>
-        </label>
-        {isFeatured && !existing?.isFeatured && (
-          <p className="mt-1 text-xs text-amber-700">
-            Saving will unfeature any other post currently marked featured.
-          </p>
-        )}
-      </div>
-
-      {/* Editorial refresh timestamp. Distinct from the row's auto-
-          bumped updated_at — set this only when the post itself
-          materially changes (refreshed prices, new listings on a
-          roundup, market shifts). Drives the public "Updated <date>"
-          byline + JSON-LD dateModified + sitemap <lastmod>. */}
-      <div>
-        <label className={labelClass} htmlFor="last-updated-at">
-          Last updated
-        </label>
-        <div className="flex items-center gap-2">
-          <input
-            id="last-updated-at"
-            type="datetime-local"
-            value={lastUpdatedAt}
-            onChange={(e) => setLastUpdatedAt(e.target.value)}
-            className={inputClass + " max-w-xs"}
-          />
-          <button
-            type="button"
-            onClick={() => setLastUpdatedAt(dateToLocalInput(new Date()))}
-            className="text-xs uppercase tracking-widest border border-black/20 px-3 py-2 hover:border-black/50 transition-colors"
-          >
-            Set to now
-          </button>
-          {lastUpdatedAt && (
-            <button
-              type="button"
-              onClick={() => setLastUpdatedAt("")}
-              className="text-xs text-black/50 hover:text-red-600 transition-colors"
-            >
-              Clear
-            </button>
+      {/* Featured + Last updated paired as the post's metadata
+          controls — both gate publication state in some way, so the
+          editor sees them together rather than scattered. Stacks on
+          mobile, two columns on sm+. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+        <div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isFeatured}
+              onChange={(e) => setIsFeatured(e.target.checked)}
+              className="accent-accent"
+            />
+            <span>Featured post</span>
+          </label>
+          {isFeatured && !existing?.isFeatured && (
+            <p className="mt-1 text-xs text-amber-700">
+              Saving will unfeature any other post currently marked featured.
+            </p>
           )}
         </div>
-        <p className="mt-1 text-xs text-black/50">
-          Set when you refresh a post (new prices, swapped properties,
-          market changes). Leave blank otherwise — typo fixes and minor
-          edits don&apos;t count.
-        </p>
+
+        {/* Editorial refresh timestamp. Distinct from the row's auto-
+            bumped updated_at — set this only when the post itself
+            materially changes (refreshed prices, new listings on a
+            roundup, market shifts). Drives the public "Updated <date>"
+            byline + JSON-LD dateModified + sitemap <lastmod>. */}
+        <div>
+          <label className={labelClass} htmlFor="last-updated-at">
+            Last updated
+          </label>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              id="last-updated-at"
+              type="datetime-local"
+              value={lastUpdatedAt}
+              onChange={(e) => setLastUpdatedAt(e.target.value)}
+              className={inputClass + " flex-1 min-w-[10rem]"}
+            />
+            <button
+              type="button"
+              onClick={() => setLastUpdatedAt(dateToLocalInput(new Date()))}
+              className="text-xs uppercase tracking-widest border border-black/20 px-3 py-2 hover:border-black/50 transition-colors"
+            >
+              Set to now
+            </button>
+            {lastUpdatedAt && (
+              <button
+                type="button"
+                onClick={() => setLastUpdatedAt("")}
+                className="text-xs text-black/50 hover:text-red-600 transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-black/50">
+            Set when you refresh a post (new prices, swapped properties,
+            market changes). Leave blank otherwise — typo fixes and minor
+            edits don&apos;t count.
+          </p>
+        </div>
       </div>
 
       <div>
