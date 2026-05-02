@@ -109,7 +109,7 @@ export default async function DestinationDetailPage({
           than a raw text block. */}
       {destination.hero_image_url ? (
         <section className="relative">
-          <div className="relative aspect-[16/7] sm:aspect-[16/6] min-h-[22rem] sm:min-h-0 bg-black/10 overflow-hidden">
+          <div className="relative min-h-[22rem] sm:min-h-0 sm:aspect-[16/6] bg-black/10 overflow-hidden">
             <Image
               src={destination.hero_image_url}
               alt={destination.hero_image_alt || destination.display_name}
@@ -124,7 +124,7 @@ export default async function DestinationDetailPage({
                 <p className="text-xs uppercase tracking-widest text-paper/70">
                   Destination
                 </p>
-                <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl mt-2 leading-[1.05]">
+                <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl mt-2 leading-[1.05]">
                   {destination.display_name}
                 </h1>
                 {destination.blurb && (
@@ -140,7 +140,7 @@ export default async function DestinationDetailPage({
         <section className="bg-ink text-paper">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
             <p className="text-xs uppercase tracking-widest text-accent">Destination</p>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl mt-2 leading-[1.05]">
+            <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl mt-2 leading-[1.05]">
               {destination.display_name}
             </h1>
             {destination.blurb && (
