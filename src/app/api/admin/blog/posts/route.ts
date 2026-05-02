@@ -84,9 +84,9 @@ export async function POST(req: Request) {
   if (!title) return NextResponse.json({ error: "Title is required." }, { status: 400 });
   if (!categorySlug) return NextResponse.json({ error: "Category is required." }, { status: 400 });
 
-  // Destination tag (D10). Optional. createPost itself force-clears
-  // when categorySlug !== 'destinations', so this branch only needs
-  // to validate id shape + existence when the caller sent one.
+  // Destination tag (D10). Optional, independent of category. This
+  // branch validates id shape + existence; createPost takes the
+  // value through verbatim.
   let destinationId: number | null = null;
   if (body?.destinationId !== undefined && body?.destinationId !== null) {
     const n = Number(body.destinationId);

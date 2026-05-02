@@ -73,11 +73,9 @@ export async function PATCH(
         : undefined;
 
   // Destination tag (D10). undefined preserves, null clears, integer
-  // sets. updatePost force-clears the column whenever the next
-  // categorySlug !== 'destinations', so a stray id on a category
-  // change is silently nulled — but we still validate id shape +
-  // existence here so the caller gets a clean 400 rather than a
-  // confusing "looked saved but no tag" surprise.
+  // sets. Independent of category; updatePost takes the value
+  // through verbatim. Validate id shape + existence so a bogus id
+  // surfaces as a clean 400 rather than a 23503 from the FK.
   let destinationIdPatch: number | null | undefined = undefined;
   if ("destinationId" in body) {
     const raw = body.destinationId;

@@ -12,10 +12,9 @@ export const metadata: Metadata = { title: "New post — BallerCribs" };
 
 export default async function NewBlogPostPage() {
   const user = await requirePageUser();
-  // Destinations only matter when category is 'destinations', but we
-  // fetch unconditionally so flipping into that category mid-edit
-  // doesn't require a refetch. New posts have no draft destination
-  // to pin — published-only is enough.
+  // Destination is an independent tag available on every post — Rentals,
+  // Case Studies, and News posts about specific places all use it. New
+  // posts have no draft destination to pin, so published-only is enough.
   const [categories, destinations] = await Promise.all([
     getCategories().catch(() => []),
     getPublishedDestinations().catch(() => [])

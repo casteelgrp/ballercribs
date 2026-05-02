@@ -377,11 +377,10 @@ export async function createPost(
     await sql`UPDATE blog_posts SET is_featured = FALSE WHERE is_featured = TRUE;`;
   }
 
-  // Server-of-truth: destination tag only persists on Destinations-
-  // category posts. Force null otherwise even if the caller sent an
-  // id — keeps the column honest regardless of form state.
-  const destinationId =
-    data.categorySlug === "destinations" ? data.destinationId ?? null : null;
+  // Destination tag is independent of category — Rentals, Case
+  // Studies, and News posts about a specific place all use it.
+  // Coerce undefined/null to null; route layer pre-validated id shape.
+  const destinationId = data.destinationId ?? null;
 
   const { rows } = await sql`
     INSERT INTO blog_posts (
@@ -481,17 +480,10 @@ export async function updatePost(
     await sql`UPDATE blog_posts SET is_featured = FALSE WHERE is_featured = TRUE AND id != ${id}::uuid;`;
   }
 
-  // Server-of-truth for destination_id: tag only valid when the post's
-  // (next) category is 'destinations'. If the category is changing
-  // away or already isn't 'destinations', force the column to null
-  // regardless of what the caller sent — the route layer can compare
-  // existing.destinationId vs the result to surface a "tag removed"
-  // notice in the admin UI.
-  const nextCategorySlug = data.categorySlug ?? existing.categorySlug;
-  const requestedDestinationId =
-    data.destinationId === undefined ? existing.destinationId : data.destinationId;
+  // Destination tag is independent of category — undefined preserves
+  // the existing value, explicit null clears, integer sets.
   const nextDestinationId =
-    nextCategorySlug === "destinations" ? requestedDestinationId : null;
+    data.destinationId === undefined ? existing.destinationId : data.destinationId;
 
   const { rows } = await sql`
     UPDATE blog_posts SET
@@ -506,7 +498,7 @@ export async function updatePost(
       social_cover_url     = ${data.socialCoverUrl === undefined ? existing.socialCoverUrl : data.socialCoverUrl},
       meta_title           = ${data.metaTitle === undefined ? existing.metaTitle : data.metaTitle},
       meta_description     = ${data.metaDescription === undefined ? existing.metaDescription : data.metaDescription},
-      category_slug        = ${nextCategorySlug},
+      category_slug        = ${data.categorySlug ?? existing.categorySlug},
       is_featured          = ${data.isFeatured === undefined ? existing.isFeatured : Boolean(data.isFeatured)},
       last_updated_at      = ${
         data.lastUpdatedAt === undefined

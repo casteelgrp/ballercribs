@@ -1756,13 +1756,13 @@ export async function getDestinationCountsMap(): Promise<Record<number, Destinat
     else counts.listings = Number(r.n);
   }
 
-  // Only Destinations-category blog posts count toward the badge —
-  // matches the public Stories section filter.
+  // Every destination-tagged blog post counts, regardless of category
+  // — Rentals/Case Studies/News posts about specific places all carry
+  // the tag, and the public Stories section uses the same filter.
   const postsRes = await sql`
     SELECT destination_id, COUNT(*)::int AS n
     FROM blog_posts
     WHERE destination_id IS NOT NULL
-      AND category_slug = 'destinations'
     GROUP BY destination_id;
   `;
   for (const r of postsRes.rows) {
