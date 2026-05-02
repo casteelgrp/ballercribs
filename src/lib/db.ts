@@ -987,15 +987,61 @@ export async function listUsers(): Promise<User[]> {
 }
 
 /**
- * Hard-delete a user. All FKs from other tables (listings.created_by_user_id,
- * blog_posts.author_user_id, payments.created_by_user_id, the various
- * inquiry status_updated_by columns) use ON DELETE SET NULL — content
- * stays put with attribution dropped to NULL. Returns true if the row
+ * Hard-delete a user. Author/creator FKs (listings.created_by_user_id,
+ * blog_posts.author_user_id, payments.created_by_user_id) should be
+ * reattributed via reattributeUserContent BEFORE this runs, so the
+ * authored rows survive with a real owner instead of nulling out.
+ * Audit-trail FKs (reviewed_by_user_id columns, the inquiry
+ * status_updated_by columns) stay on ON DELETE SET NULL — those
+ * record historical actions, not ownership. Returns true if the row
  * existed and was removed, false if the id missed.
  */
 export async function deleteUser(userId: number): Promise<boolean> {
   const { rowCount } = await sql`DELETE FROM users WHERE id = ${userId};`;
   return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Move author/creator FKs from one user to another. Used by the user-
+ * delete flow to reattribute content to the deleting admin so a row
+ * never ends up unowned.
+ *
+ * Three independent UPDATEs, run sequentially. No transaction — the
+ * codebase's other multi-statement flows (createPost slug-redirect
+ * bookkeeping, updatePost feature-toggle) follow the same shape, and
+ * partial failure here is recoverable: a row that gets reattributed
+ * but never deleted just keeps the new owner, which is the same end
+ * state we'd want anyway. The follow-up DELETE only fails on hard
+ * errors (network, etc.), which the caller surfaces.
+ *
+ * Returns counts per-table so the route handler can log what moved —
+ * useful when an admin later asks "what did I inherit when X was
+ * deleted?".
+ */
+export async function reattributeUserContent(
+  fromUserId: number,
+  toUserId: number
+): Promise<{ listings: number; blog_posts: number; payments: number }> {
+  const listingsRes = await sql`
+    UPDATE listings
+    SET created_by_user_id = ${toUserId}
+    WHERE created_by_user_id = ${fromUserId};
+  `;
+  const postsRes = await sql`
+    UPDATE blog_posts
+    SET author_user_id = ${toUserId}
+    WHERE author_user_id = ${fromUserId};
+  `;
+  const paymentsRes = await sql`
+    UPDATE payments
+    SET created_by_user_id = ${toUserId}
+    WHERE created_by_user_id = ${fromUserId};
+  `;
+  return {
+    listings: listingsRes.rowCount ?? 0,
+    blog_posts: postsRes.rowCount ?? 0,
+    payments: paymentsRes.rowCount ?? 0
+  };
 }
 
 /**

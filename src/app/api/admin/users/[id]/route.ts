@@ -3,6 +3,7 @@ import {
   countOwners,
   deleteUser,
   getUserById,
+  reattributeUserContent,
   setUserActive,
   updateUserPassword
 } from "@/lib/db";
@@ -113,11 +114,22 @@ export async function DELETE(
   }
 
   try {
+    // Reattribute author/creator content to the deleting admin BEFORE
+    // the DELETE fires so authored rows keep an owner. Audit-trail
+    // columns (reviewed_by_user_id, status_updated_by) ride the
+    // existing ON DELETE SET NULL — those are historical events, not
+    // ownership claims, and rewriting them would falsify the record.
+    const reattributed = await reattributeUserContent(targetId, currentUser.id);
+    console.info(
+      `[users:delete] reattributed from ${target.email} to ${currentUser.email}:`,
+      reattributed
+    );
+
     const ok = await deleteUser(targetId);
     if (!ok) {
       return NextResponse.json({ error: "Delete failed." }, { status: 500 });
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, reattributed });
   } catch (err) {
     console.error("Failed to delete user:", err);
     return NextResponse.json({ error: "Failed to delete user." }, { status: 500 });

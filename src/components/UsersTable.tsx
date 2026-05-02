@@ -62,9 +62,14 @@ export function UsersTable({ users, currentUserId }: { users: User[]; currentUse
       window.alert("You can't delete your own account.");
       return;
     }
+    // Spell out the reattribution so admins aren't surprised when a
+    // deleted user's listings / blog posts / payments suddenly show
+    // up under their own attribution. Audit-trail rows (review and
+    // pipeline events) still null out — that's historical fact, not
+    // ownership.
     if (
       !window.confirm(
-        `Delete user ${user.email}? This cannot be undone.`
+        `Delete user ${user.email}? Their listings, blog posts, and payments will be reattributed to you. This cannot be undone.`
       )
     )
       return;
