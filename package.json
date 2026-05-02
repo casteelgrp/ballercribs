@@ -33,7 +33,8 @@
     "migrate:023": "tsx --env-file=.env.local scripts/migrate-023-destinations.ts",
     "seed:test-user": "tsx --env-file=.env.local scripts/seed-test-user.ts",
     "seed:blog": "tsx --env-file=.env.local scripts/seed-blog-posts.ts",
-    "regenerate:blog-slugs": "tsx --env-file=.env.local scripts/regenerate-blog-slugs.ts"
+    "regenerate:blog-slugs": "tsx --env-file=.env.local scripts/regenerate-blog-slugs.ts",
+    "reattribute:orphaned": "tsx --env-file=.env.local scripts/reattribute-orphaned-content.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
