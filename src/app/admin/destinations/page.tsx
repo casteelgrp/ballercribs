@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requirePageUser } from "@/lib/auth";
 import { getAllDestinations, getDestinationCountsMap } from "@/lib/db";
+import { DestinationRowActions } from "@/components/admin/DestinationRowActions";
 
 export const dynamic = "force-dynamic";
 
@@ -77,12 +78,7 @@ export default async function AdminDestinationsPage() {
                       )}
                     </td>
                     <td className="p-3 text-right">
-                      <Link
-                        href={`/admin/destinations/${d.id}/edit`}
-                        className="text-xs uppercase tracking-widest hover:text-accent"
-                      >
-                        Edit →
-                      </Link>
+                      <DestinationRowActions destination={d} counts={c} />
                     </td>
                   </tr>
                 );
