@@ -1,17 +1,23 @@
 import type { MetadataRoute } from "next";
-import { getListings, getRentalListings } from "@/lib/db";
+import {
+  getListings,
+  getPublishedDestinations,
+  getRentalListings
+} from "@/lib/db";
 import { getPublishedPostSitemapEntries } from "@/lib/blog-queries";
+import { getSiteUrl } from "@/lib/site";
 
 // Next.js auto-exposes this as /sitemap.xml. Rebuilt on every request
 // unless we add a revalidate — leaving dynamic so a newly-published
 // listing shows up immediately without waiting on ISR.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
+  const baseUrl = getSiteUrl();
 
-  const [saleListings, rentalListings, blogPosts] = await Promise.all([
+  const [saleListings, rentalListings, blogPosts, destinations] = await Promise.all([
     getListings("all").catch(() => []),
     getRentalListings().catch(() => []),
-    getPublishedPostSitemapEntries().catch(() => [])
+    getPublishedPostSitemapEntries().catch(() => []),
+    getPublishedDestinations().catch(() => [])
   ]);
 
   const listingRoutes: MetadataRoute.Sitemap = saleListings.map((l) => ({
@@ -35,6 +41,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // see getPublishedPostSitemapEntries for the no-typo-fix-bump
     // rationale.
     lastModified: p.lastModified,
+    changeFrequency: "monthly",
+    priority: 0.6
+  }));
+
+  // Per-destination pages — same priority/changefreq as blog post
+  // entries (the destination detail page is a curated index of
+  // tagged content, not a high-velocity merchandising surface).
+  // lastModified honors the destination row's updated_at; admin
+  // edits to blurb/SEO/hero bump it implicitly through the
+  // updateDestination NOW() stamp.
+  const destinationRoutes: MetadataRoute.Sitemap = destinations.map((d) => ({
+    url: `${baseUrl}/destinations/${d.slug}`,
+    lastModified: new Date(d.updated_at || d.created_at),
     changeFrequency: "monthly",
     priority: 0.6
   }));
@@ -73,6 +92,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.7
     },
+    // Destinations index — same crawl-entry-point shape as the blog
+    // index, so it gets matching priority/changefreq.
+    {
+      url: `${baseUrl}/destinations`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7
+    },
     // Legal pages — indexable for trust + search compliance, but low
     // priority since they're supporting content, not the site's reason to
     // exist. Updated only when we revise the policy text itself.
@@ -96,5 +123,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   ];
 
-  return [...staticRoutes, ...listingRoutes, ...rentalRoutes, ...blogRoutes];
+  return [
+    ...staticRoutes,
+    ...listingRoutes,
+    ...rentalRoutes,
+    ...blogRoutes,
+    ...destinationRoutes
+  ];
 }

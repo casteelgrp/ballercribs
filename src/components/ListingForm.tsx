@@ -9,6 +9,7 @@ import { ListingDescription } from "./ListingDescription";
 import { DestinationSelect } from "./admin/DestinationSelect";
 import { generateSlug, validateSlug } from "@/lib/format";
 import { CURRENCIES, CURRENCY_CODES, DEFAULT_CURRENCY, formatPrice } from "@/lib/currency";
+import { getSiteUrl } from "@/lib/site";
 import type {
   Destination,
   GalleryItem,
@@ -103,7 +104,7 @@ export function ListingForm({
   }, [title, location, slugManuallyEdited]);
 
   const slugError = slug.trim() ? validateSlug(slug.trim()) : null;
-  const siteHost = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ballercribs.vercel.app")
+  const siteHost = getSiteUrl()
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "");
   const [priceUsd, setPriceUsd] = useState<string>(existing ? String(existing.price_usd) : "");

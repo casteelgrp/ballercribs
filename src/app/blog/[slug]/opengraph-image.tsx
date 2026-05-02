@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getCategories, getPostBySlug } from "@/lib/blog-queries";
+import { getSiteUrl } from "@/lib/site";
 
 // Node runtime (not edge): satori can't decode WebP, and blog cover
 // images flow through the same upload pipeline that emits .webp. We
@@ -12,8 +13,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const revalidate = false;
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
-const LOGO_URL = `${SITE_URL}/logo-white.png`;
+const LOGO_URL = `${getSiteUrl()}/logo-white.png`;
 const LOGO_WATERMARK_WIDTH = 200;
 const LOGO_WATERMARK_HEIGHT = 132;
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createUser, getUserByEmailWithHash, listUsers } from "@/lib/db";
 import { hashPassword, requireOwner } from "@/lib/auth";
 import { sendInviteEmail } from "@/lib/email";
+import { getSiteUrl } from "@/lib/site";
 
 export const runtime = "nodejs";
 
@@ -64,9 +65,7 @@ export async function POST(req: Request) {
 
   // Best-effort invite email. We always report success on user-creation; email
   // result is communicated separately so the UI can show "share manually" fallback.
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
-  const loginUrl = `${siteUrl.replace(/\/$/, "")}/admin/login`;
+  const loginUrl = `${getSiteUrl().replace(/\/$/, "")}/admin/login`;
   const emailResult = await sendInviteEmail({
     toEmail: email,
     toName: name,

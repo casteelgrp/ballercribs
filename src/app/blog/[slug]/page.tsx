@@ -8,6 +8,7 @@ import {
   getPostBySlug
 } from "@/lib/blog-queries";
 import { getUserById } from "@/lib/db";
+import { getSiteUrl } from "@/lib/site";
 import { JsonLd, breadcrumbListSchema, faqPageSchema } from "@/lib/jsonld";
 import { formatDisplayDate, getDisplayDate } from "@/lib/blog-dates";
 import { BlogBody } from "@/components/BlogBody";
@@ -108,8 +109,7 @@ export default async function BlogDetailPage({
   // parsers treat distinctly from news articles — more specific match
   // without widening the field set. Spread-if-present pattern keeps
   // nulls out of the final JSON so schema validators stay happy.
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
+  const siteUrl = getSiteUrl();
   const descriptionForSchema =
     post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
   const imageForSchema = post.socialCoverUrl || post.coverImageUrl || undefined;

@@ -5,6 +5,7 @@ import { getListingBySlug, getPartnerById } from "@/lib/db";
 import { formatPrice } from "@/lib/currency";
 import { formatSqft } from "@/lib/format";
 import { stripMarkdown } from "@/lib/markdown";
+import { getSiteUrl } from "@/lib/site";
 import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
 import { ListingDescription } from "@/components/ListingDescription";
 import { BookingPartnerBlock } from "@/components/BookingPartnerBlock";
@@ -104,7 +105,7 @@ export default async function RentalDetailPage({
   // actually have — skipping the more specific LodgingBusiness since it
   // pulls in a lot of business-context fields (hours, photos of staff)
   // that don't apply to an individual rental listing.
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
+  const siteUrl = getSiteUrl();
   const locationParts = listing.location.split(",").map((s) => s.trim());
   const structuredData: Record<string, unknown> = {
     "@context": "https://schema.org",

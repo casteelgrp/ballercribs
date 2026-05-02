@@ -4,6 +4,7 @@ import { getListingBySlug } from "@/lib/db";
 import { formatSqft } from "@/lib/format";
 import { formatPrice } from "@/lib/currency";
 import { stripMarkdown } from "@/lib/markdown";
+import { getSiteUrl } from "@/lib/site";
 import { JsonLd, breadcrumbListSchema } from "@/lib/jsonld";
 import { InquireForm } from "@/components/InquireForm";
 import { ListingDescription } from "@/components/ListingDescription";
@@ -91,7 +92,7 @@ export default async function ListingPage({
   // reference; it's broader than SingleFamilyResidence (covers condos, PHs,
   // etc) which matches our listing mix. Hardcoded addressCountry='US' — most
   // listings are US-based; can be made dynamic if international volume grows.
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
+  const siteUrl = getSiteUrl();
   const locationParts = listing.location.split(",").map((s) => s.trim());
   // Strip markdown before handing the description to Google — structured
   // data wants plain text, never `## Heading` or `**bold**`.
