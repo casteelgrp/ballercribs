@@ -109,7 +109,7 @@ export default async function DestinationDetailPage({
           than a raw text block. */}
       {destination.hero_image_url ? (
         <section className="relative">
-          <div className="relative aspect-[16/7] sm:aspect-[16/6] bg-black/10 overflow-hidden">
+          <div className="relative aspect-[16/7] sm:aspect-[16/6] min-h-[22rem] sm:min-h-0 bg-black/10 overflow-hidden">
             <Image
               src={destination.hero_image_url}
               alt={destination.hero_image_alt || destination.display_name}
