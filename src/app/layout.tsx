@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { getSiteUrl } from "@/lib/site";
 import "./globals.css";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
+const SITE_URL = getSiteUrl();
 
 export const metadata: Metadata = {
   // metadataBase resolves the relative URLs Next.js builds for OG + canonical

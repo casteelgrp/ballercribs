@@ -34,6 +34,7 @@ const GROUPS: Group[] = [
     items: [
       { label: "Listings", href: "/admin/listings", ownerOnly: false },
       { label: "Blog", href: "/admin/blog", ownerOnly: false },
+      { label: "Destinations", href: "/admin/destinations", ownerOnly: false },
       { label: "Hero Photos", href: "/admin/hero-photos", ownerOnly: true }
     ]
   },

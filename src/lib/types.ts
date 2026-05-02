@@ -130,6 +130,35 @@ export interface Partner {
   updated_at: string;
 }
 
+/**
+ * Destination — wayfinding label for listings, rentals, and Destinations-
+ * category blog posts. Flat namespace (no country/state hierarchy);
+ * `region` is a free-text grouping label used only by the public
+ * /destinations index page.
+ */
+export interface Destination {
+  id: number;
+  slug: string;
+  name: string;
+  display_name: string;
+  region: string | null;
+  blurb: string | null;
+  hero_image_url: string | null;
+  hero_image_alt: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Counts of attached content for a destination — used by the admin list. */
+export interface DestinationCounts {
+  listings: number;
+  rentals: number;
+  blog_posts: number;
+}
+
 export type AgentInquiryType = "featured" | "referral" | "other";
 
 /**

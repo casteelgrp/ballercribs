@@ -30,6 +30,7 @@
     "migrate:020": "tsx --env-file=.env.local scripts/migrate-020-blog-faqs.ts",
     "migrate:021": "tsx --env-file=.env.local scripts/migrate-021-blog-redirects.ts",
     "migrate:022": "tsx --env-file=.env.local scripts/migrate-022-rental-partners.ts",
+    "migrate:023": "tsx --env-file=.env.local scripts/migrate-023-destinations.ts",
     "seed:test-user": "tsx --env-file=.env.local scripts/seed-test-user.ts",
     "seed:blog": "tsx --env-file=.env.local scripts/seed-blog-posts.ts",
     "regenerate:blog-slugs": "tsx --env-file=.env.local scripts/regenerate-blog-slugs.ts"

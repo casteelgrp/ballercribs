@@ -1,4 +1,5 @@
 import { SOCIALS } from "@/components/SocialLinks";
+import { getSiteUrl } from "@/lib/site";
 import type { BlogFaq } from "@/types/blog";
 
 /**
@@ -15,13 +16,10 @@ import type { BlogFaq } from "@/types/blog";
  * that already validate.
  */
 
-export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://ballercribs.vercel.app";
-
 /** Resolve a relative path to an absolute URL. Passes absolute URLs through. */
 export function absoluteUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
-  const base = SITE_URL.replace(/\/$/, "");
+  const base = getSiteUrl().replace(/\/$/, "");
   const rel = path.startsWith("/") ? path : `/${path}`;
   return `${base}${rel}`;
 }
@@ -36,7 +34,7 @@ export function organizationSchema(): Record<string, unknown> {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "BallerCribs",
-    url: SITE_URL,
+    url: getSiteUrl(),
     logo: absoluteUrl("/logo-black.png"),
     sameAs: SOCIALS.map((s) => s.href)
   };
@@ -49,16 +47,17 @@ export function organizationSchema(): Record<string, unknown> {
  * against — don't stylize it.
  */
 export function websiteSchema(): Record<string, unknown> {
+  const siteUrl = getSiteUrl();
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "BallerCribs",
-    url: SITE_URL,
+    url: siteUrl,
     potentialAction: {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: `${SITE_URL.replace(/\/$/, "")}/search?q={search_term_string}`
+        urlTemplate: `${siteUrl.replace(/\/$/, "")}/search?q={search_term_string}`
       },
       "query-input": "required name=search_term_string"
     }

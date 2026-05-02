@@ -2,6 +2,8 @@ import { sql } from "@vercel/postgres";
 import type {
   AgentInquiry,
   AgentInquiryType,
+  Destination,
+  DestinationCounts,
   GalleryItem,
   HeroPhoto,
   Inquiry,
@@ -1592,4 +1594,160 @@ export async function countListingsByPartner(): Promise<Record<string, number>> 
   return map;
 }
 
+// ─── Destinations (D10) ─────────────────────────────────────────────────
+//
+// Admin CRUD + count helpers for the destinations table. Public list
+// and detail surfaces have their own dedicated read helpers — these
+// stay admin-shaped (full set, including unpublished).
 
+function rowToDestination(row: any): Destination {
+  return {
+    id: Number(row.id),
+    slug: row.slug,
+    name: row.name,
+    display_name: row.display_name,
+    region: row.region ?? null,
+    blurb: row.blurb ?? null,
+    hero_image_url: row.hero_image_url ?? null,
+    hero_image_alt: row.hero_image_alt ?? null,
+    seo_title: row.seo_title ?? null,
+    seo_description: row.seo_description ?? null,
+    published: Boolean(row.published),
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+}
+
+/** Every destination — used by /admin/destinations list. */
+export async function getAllDestinations(): Promise<Destination[]> {
+  const { rows } = await sql`
+    SELECT * FROM destinations
+    ORDER BY name ASC;
+  `;
+  return rows.map(rowToDestination);
+}
+
+export async function getDestinationById(id: number): Promise<Destination | null> {
+  const { rows } = await sql`SELECT * FROM destinations WHERE id = ${id} LIMIT 1;`;
+  return rows[0] ? rowToDestination(rows[0]) : null;
+}
+
+export async function getDestinationBySlug(slug: string): Promise<Destination | null> {
+  const { rows } = await sql`SELECT * FROM destinations WHERE slug = ${slug} LIMIT 1;`;
+  return rows[0] ? rowToDestination(rows[0]) : null;
+}
+
+export interface DestinationInput {
+  slug: string;
+  name: string;
+  display_name: string;
+  region?: string | null;
+  blurb?: string | null;
+  hero_image_url?: string | null;
+  hero_image_alt?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  published?: boolean;
+}
+
+export async function createDestination(data: DestinationInput): Promise<Destination> {
+  const { rows } = await sql`
+    INSERT INTO destinations (
+      slug, name, display_name, region, blurb,
+      hero_image_url, hero_image_alt,
+      seo_title, seo_description, published
+    ) VALUES (
+      ${data.slug}, ${data.name}, ${data.display_name},
+      ${data.region ?? null}, ${data.blurb ?? null},
+      ${data.hero_image_url ?? null}, ${data.hero_image_alt ?? null},
+      ${data.seo_title ?? null}, ${data.seo_description ?? null},
+      ${data.published ?? false}
+    )
+    RETURNING *;
+  `;
+  return rowToDestination(rows[0]);
+}
+
+export type UpdateDestinationInput = Partial<DestinationInput>;
+
+export async function updateDestination(
+  id: number,
+  data: UpdateDestinationInput
+): Promise<Destination | null> {
+  // COALESCE-on-undefined for required text columns; clobber-on-undefined
+  // for nullable ones so admins clearing an SEO override or blurb
+  // actually empty the column instead of keeping the prior value.
+  const { rows } = await sql`
+    UPDATE destinations SET
+      slug             = COALESCE(${data.slug ?? null}, slug),
+      name             = COALESCE(${data.name ?? null}, name),
+      display_name     = COALESCE(${data.display_name ?? null}, display_name),
+      region           = ${data.region === undefined ? null : data.region},
+      blurb            = ${data.blurb === undefined ? null : data.blurb},
+      hero_image_url   = ${data.hero_image_url === undefined ? null : data.hero_image_url},
+      hero_image_alt   = ${data.hero_image_alt === undefined ? null : data.hero_image_alt},
+      seo_title        = ${data.seo_title === undefined ? null : data.seo_title},
+      seo_description  = ${data.seo_description === undefined ? null : data.seo_description},
+      published        = COALESCE(${data.published ?? null}, published),
+      updated_at       = NOW()
+    WHERE id = ${id}
+    RETURNING *;
+  `;
+  return rows[0] ? rowToDestination(rows[0]) : null;
+}
+
+export async function deleteDestination(id: number): Promise<boolean> {
+  // FKs on listings/blog_posts are ON DELETE SET NULL, so this just
+  // untags content rather than cascading.
+  const { rowCount } = await sql`DELETE FROM destinations WHERE id = ${id};`;
+  return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Counts (sales listings, rentals, destination-category blog posts)
+ * keyed by destination_id. One pass per source table — three queries
+ * total — then merged into a map. Fine at admin volume.
+ */
+export async function getDestinationCountsMap(): Promise<Record<number, DestinationCounts>> {
+  const map: Record<number, DestinationCounts> = {};
+  const ensure = (id: number): DestinationCounts => {
+    if (!map[id]) map[id] = { listings: 0, rentals: 0, blog_posts: 0 };
+    return map[id];
+  };
+
+  // listings split sale-vs-rental in one grouped scan.
+  const listingsRes = await sql`
+    SELECT destination_id, listing_type, COUNT(*)::int AS n
+    FROM listings
+    WHERE destination_id IS NOT NULL
+    GROUP BY destination_id, listing_type;
+  `;
+  for (const r of listingsRes.rows) {
+    const id = Number(r.destination_id);
+    const counts = ensure(id);
+    if (r.listing_type === "rental") counts.rentals = Number(r.n);
+    else counts.listings = Number(r.n);
+  }
+
+  // Only Destinations-category blog posts count toward the badge —
+  // matches the public Stories section filter.
+  const postsRes = await sql`
+    SELECT destination_id, COUNT(*)::int AS n
+    FROM blog_posts
+    WHERE destination_id IS NOT NULL
+      AND category_slug = 'destinations'
+    GROUP BY destination_id;
+  `;
+  for (const r of postsRes.rows) {
+    const id = Number(r.destination_id);
+    ensure(id).blog_posts = Number(r.n);
+  }
+
+  return map;
+}
+
+/** Single-destination counts — used by the edit page for the delete warning. */
+export async function getDestinationCounts(id: number): Promise<DestinationCounts> {
+  const map = await getDestinationCountsMap();
+  return map[id] ?? { listings: 0, rentals: 0, blog_posts: 0 };
+}
