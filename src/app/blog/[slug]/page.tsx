@@ -31,17 +31,15 @@ export async function generateMetadata({
   const title = post.metaTitle?.trim() || post.title;
   const description =
     post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
-  // OG image source: socialCoverUrl wins (purpose-built 1200x630), then
-  // coverImageUrl, else nothing. Alt only emits when coverImageAlt is
-  // explicitly set — title already lives in og:title, so falling back
-  // there would render as duplicate noise to a screen-reader user
-  // landing on a Facebook/LinkedIn share preview.
-  const imageUrl = post.socialCoverUrl || post.coverImageUrl || null;
-  const ogImages = imageUrl
-    ? post.coverImageAlt?.trim()
-      ? [{ url: imageUrl, alt: post.coverImageAlt.trim() }]
-      : [imageUrl]
-    : [];
+
+  // og:image is intentionally NOT set here. Next.js's file-convention
+  // `opengraph-image.tsx` route in this segment auto-fills both
+  // openGraph.images and twitter.images with a fully-composited
+  // BallerCribs OG card (cover + gradient + watermark + title
+  // overlay). Setting `images` explicitly would override the file
+  // convention and ship the raw cover .webp as og:image, losing the
+  // watermark + branded composition. Listing + rental pages follow
+  // the same omit-images pattern for the same reason.
 
   return {
     // absolute → no "| BallerCribs" suffix so the article title owns the
@@ -52,14 +50,12 @@ export async function generateMetadata({
       title,
       description,
       type: "article",
-      publishedTime: post.publishedAt?.toISOString(),
-      images: ogImages
+      publishedTime: post.publishedAt?.toISOString()
     },
     twitter: {
       card: "summary_large_image",
       title,
-      description,
-      images: ogImages
+      description
     },
     alternates: { canonical: `/blog/${post.slug}` }
   };
