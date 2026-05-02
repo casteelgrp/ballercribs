@@ -54,39 +54,48 @@ export default async function OpengraphImage({
         >
           {/* Cover as full-bleed backdrop when present; falls back to a
               flat dark canvas so the title-first layout still reads
-              cleanly for cover-less posts. */}
+              cleanly for cover-less posts.
+
+              Cover + gradient are rendered as two separate conditional
+              siblings (no shared fragment) so satori sees them as
+              direct children of the root container, identical in
+              shape to the listing/rental OG structures. The previous
+              `{cond && <>cover gradient</>}` form caused the watermark
+              `<img>` below to silently drop in production satori
+              renders — fragment-hoisting pushes a sibling that
+              follows it out of the paint chain. */}
           {coverDataUri && (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
-              <img
-                src={coverDataUri}
-                width={1200}
-                height={630}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover"
-                }}
-              />
-              {/* Heavier darken than the listing/rental OG — blog titles
-                  run longer, and article cards are read, not glanced at.
-                  Contrast wins over picture fidelity here. */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  background:
-                    "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.5) 100%)",
-                  display: "flex"
-                }}
-              />
-            </>
+            /* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */
+            <img
+              src={coverDataUri}
+              width={1200}
+              height={630}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover"
+              }}
+            />
+          )}
+          {coverDataUri && (
+            /* Heavier darken than the listing/rental OG — blog titles
+               run longer, and article cards are read, not glanced at.
+               Contrast wins over picture fidelity here. */
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                background:
+                  "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.5) 100%)",
+                display: "flex"
+              }}
+            />
           )}
 
           {/* Logo watermark, top-left, matches the listings/rentals OG. */}
