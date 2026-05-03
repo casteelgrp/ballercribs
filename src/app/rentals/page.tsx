@@ -185,15 +185,19 @@ export default async function RentalsPage({
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
           <div className="mb-10">
             <p className="text-xs uppercase tracking-widest text-accent">
-              Tell us what you need
+              Plan your stay
             </p>
             <h2 className="font-display text-3xl sm:text-4xl mt-3 leading-tight">
               {prefill
                 ? `Inquire about ${prefill.title}`
-                : "Request a rental — we'll match you with the right home."}
+                : "Tell us what you're planning."}
             </h2>
-            {prefill && (
+            {prefill ? (
               <p className="mt-3 text-paper/60 text-sm">{prefill.location}</p>
+            ) : (
+              <p className="mt-4 text-paper/75 text-base sm:text-lg leading-relaxed">
+                Dates, group size, and we&apos;ll match you with the right home.
+              </p>
             )}
           </div>
           <RentalInquiryForm

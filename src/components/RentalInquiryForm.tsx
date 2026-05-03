@@ -293,7 +293,7 @@ export function RentalInquiryForm({
         disabled={status === "submitting"}
         className="w-full sm:w-auto bg-accent text-ink px-8 py-3 text-sm uppercase tracking-widest hover:bg-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {status === "submitting" ? "Sending..." : "Request a rental"}
+        {status === "submitting" ? "Sending..." : "Request a stay"}
       </button>
       <p className="text-xs text-paper/50">
         We respond within 48 hours on business days.
