@@ -140,7 +140,7 @@ function InquiryCta({
       <h2 className="font-display text-2xl">Interested?</h2>
       <p className="text-sm text-black/60 mt-1 mb-6">
         Tell us when you&apos;re thinking + who&apos;s coming and we&apos;ll
-        connect you with the right rental agent.
+        connect you with the right booking partner.
       </p>
       <Link
         href={`/rentals?property=${encodeURIComponent(listing.slug)}#inquire`}

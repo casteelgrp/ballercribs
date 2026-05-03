@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   getListingBySlug,
   getPublicDestinationCountsMap,
@@ -13,23 +14,23 @@ import { DestinationChips } from "@/components/DestinationChips";
 
 export const revalidate = 60;
 
+const META_DESCRIPTION =
+  "Luxury villas and private estates worldwide — handpicked for vacations, private events, and group getaways. Weekly stays, French Riviera to the Hamptons.";
+
 export const metadata: Metadata = {
-  title: "Rent a Mega-Mansion",
-  description:
-    "Short-term luxury mansion rentals — weddings, family trips, corporate retreats. Browse featured homes or tell us what you need.",
+  title: "Luxury Villas & Private Estates",
+  description: META_DESCRIPTION,
   openGraph: {
     type: "website",
     url: "/rentals",
-    title: "Rent a Mega-Mansion | BallerCribs",
-    description:
-      "Short-term luxury rentals — estates, architectural icons, and resort-scale homes. Browse or tell us what you're looking for.",
+    title: "Luxury Villas & Private Estates | BallerCribs",
+    description: META_DESCRIPTION,
     images: ["/opengraph-image"]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Rent a Mega-Mansion | BallerCribs",
-    description:
-      "Short-term luxury rentals — estates, architectural icons, and resort-scale homes.",
+    title: "Luxury Villas & Private Estates | BallerCribs",
+    description: META_DESCRIPTION,
     images: ["/opengraph-image"]
   },
   alternates: {
@@ -91,17 +92,12 @@ export default async function RentalsPage({
             }
           >
             <div>
-              <p className="text-xs uppercase tracking-widest text-accent">
-                BallerCribs Rentals
-              </p>
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight mt-3">
-                Rent the crib, not the room.
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
+                Luxury Villas &amp; Private Estates
               </h1>
               <p className="mt-6 text-lg text-paper/80 max-w-2xl leading-relaxed">
-                Private estates, architectural icons, and resort-scale homes — by
-                the night or by the week. Browse what we&apos;ve featured below,
-                or tell us what you need and we&apos;ll match you with the right
-                agent.
+                Weekly stays, event venues, and private getaways — handpicked
+                worldwide.
               </p>
             </div>
 
@@ -114,20 +110,65 @@ export default async function RentalsPage({
         </div>
       </section>
 
+      {/* Use-case strip — wayfinding, not a sales surface. Three columns
+          on desktop, stacked on mobile. Icons sit muted (text-black/55)
+          alongside the label so the row reads as orientation rather
+          than a feature grid; no CTAs by design. */}
+      <section className="border-b border-black/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
+          <ul className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-10">
+            <li className="flex items-start gap-4">
+              <PlaneIcon className="w-6 h-6 text-black/55 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-display text-lg leading-tight">Vacation Stays</h3>
+                <p className="text-sm text-black/60 mt-1 leading-relaxed">
+                  Weeklong escapes for families and friends.
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-4">
+              <SparklesIcon className="w-6 h-6 text-black/55 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-display text-lg leading-tight">Private Events</h3>
+                <p className="text-sm text-black/60 mt-1 leading-relaxed">
+                  Weddings, retreats, and milestone celebrations.
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-4">
+              <MountainIcon className="w-6 h-6 text-black/55 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-display text-lg leading-tight">Group Getaways</h3>
+                <p className="text-sm text-black/60 mt-1 leading-relaxed">
+                  Multi-couple trips and reunion houses.
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
       {/* Listings grid */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div>
-          <p className="text-xs uppercase tracking-widest text-black/50">Featured rentals</p>
+          <p className="text-xs uppercase tracking-widest text-black/50">Featured villas</p>
           <h2 className="font-display text-2xl sm:text-3xl mt-2">Available now</h2>
         </div>
 
         <DestinationChips destinations={chipDestinations} />
 
         {listings.length === 0 ? (
-          <div className="border border-dashed border-black/15 py-20 text-center text-black/50 mt-6">
-            <p>No rentals featured yet.</p>
-            <p className="text-xs mt-2">
-              Tell us what you&apos;re looking for below — we&apos;ll find it.
+          <div className="border border-dashed border-black/15 py-20 text-center text-black/60 mt-6">
+            <p>No villas featured yet.</p>
+            <p className="text-sm mt-2">
+              We&apos;re adding new properties weekly —{" "}
+              <Link
+                href="/newsletter"
+                className="underline underline-offset-2 hover:text-accent transition-colors"
+              >
+                join the newsletter
+              </Link>{" "}
+              for new arrivals.
             </p>
           </div>
         ) : (
@@ -163,21 +204,103 @@ export default async function RentalsPage({
         </div>
       </section>
 
-      {/* What happens next — keep the editorial beat from the original page */}
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
-        <p className="text-xs uppercase tracking-widest text-black/50">
-          What happens next
-        </p>
-        <h2 className="font-display text-2xl sm:text-3xl mt-3">
-          You tell us where. We find the property.
-        </h2>
-        <p className="mt-4 text-black/70 leading-relaxed max-w-xl mx-auto">
-          A member of the BallerCribs team reads every inquiry and connects
-          you with a licensed agent or rental specialist in the right market.
-          Expect a reply within 48 business hours with options that match your
-          budget, headcount, and timing.
-        </p>
+      {/* How booking works — three-step explainer that replaces the
+          earlier "What happens next" prose. Positions BallerCribs as
+          partner-curation rather than direct booking, which is the
+          most common visitor misconception. Single source of truth
+          for the partner flow; the inquiry-form sidebar copy on
+          detail pages ladders into "the right booking partner". */}
+      <section className="border-t border-black/10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+          <div className="text-center mb-12">
+            <h2 className="font-display text-2xl sm:text-3xl">How booking works</h2>
+          </div>
+          <ol className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8">
+            <li>
+              <p className="font-display text-3xl text-accent">01</p>
+              <h3 className="font-display text-xl mt-3">Browse</h3>
+              <p className="text-sm text-black/65 mt-2 leading-relaxed">
+                Every villa is vetted by our team. Curated for design,
+                location, and the experience on the ground.
+              </p>
+            </li>
+            <li>
+              <p className="font-display text-3xl text-accent">02</p>
+              <h3 className="font-display text-xl mt-3">Inquire</h3>
+              <p className="text-sm text-black/65 mt-2 leading-relaxed">
+                Tell us your dates, group size, and what you&apos;re planning.
+                We route you to the right partner.
+              </p>
+            </li>
+            <li>
+              <p className="font-display text-3xl text-accent">03</p>
+              <h3 className="font-display text-xl mt-3">Book</h3>
+              <p className="text-sm text-black/65 mt-2 leading-relaxed">
+                Our booking partners handle the contract, payment, and
+                concierge. We stay in your corner if anything&apos;s off.
+              </p>
+            </li>
+          </ol>
+        </div>
       </section>
     </article>
+  );
+}
+
+// Inline SVGs over a new icon dependency — three glyphs aren't worth
+// pulling in lucide-react. Stroke + viewBox match the SiteHeader /
+// SocialLinks pattern so they read consistently against site type.
+function PlaneIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
+    </svg>
+  );
+}
+
+function SparklesIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+      <path d="M20 3v4" />
+      <path d="M22 5h-4" />
+      <path d="M4 17v2" />
+      <path d="M5 18H3" />
+    </svg>
+  );
+}
+
+function MountainIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
+    </svg>
   );
 }
