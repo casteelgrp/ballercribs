@@ -151,7 +151,7 @@ export default async function RentalsPage({
       {/* Listings grid */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div>
-          <p className="text-xs uppercase tracking-widest text-black/50">Featured villas</p>
+          <p className="text-xs uppercase tracking-widest text-black/50">Featured rentals</p>
           <h2 className="font-display text-2xl sm:text-3xl mt-2">Available now</h2>
         </div>
 
